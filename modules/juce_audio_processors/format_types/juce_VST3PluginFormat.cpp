@@ -1590,8 +1590,16 @@ private:
                       bool) override
     {
         auto rect = componentToVST3Rect (bounds);
-        view->checkSizeConstraint (&rect);
-        bounds = vst3ToComponentRect (rect);
+        auto constrainedRect = rect;
+        view->checkSizeConstraint(&constrainedRect);
+
+        //
+        // Prevent inadvertent window growth while dragging; see componentMovedOrResized below
+        //
+        if (constrainedRect.getWidth() != rect.getWidth() || constrainedRect.getHeight() != rect.getHeight())
+        {
+            bounds = vst3ToComponentRect(constrainedRect);
+        }
     }
 
     //==============================================================================
@@ -1617,19 +1625,32 @@ private:
 
         if (view->canResize() == kResultTrue)
         {
-            auto rect = componentToVST3Rect (getLocalBounds());
-            view->checkSizeConstraint (&rect);
+            //
+            // componentToVST3Rect will apply DPI scaling and round to the nearest integer; vst3ToComponentRect
+            // will invert the DPI scaling, but the logical size returned by vst3ToComponentRect may be
+            // different from the original size due to floating point rounding if the scale factor is > 100%.
+            // This can cause the window to unexpectedly grow while it's moving.
+            //
+            auto scaledRect = componentToVST3Rect (getLocalBounds());
 
+            auto constrainedRect = scaledRect;
+            view->checkSizeConstraint (&constrainedRect);
+
+            //
+            // Only update the size if the constrained size is actually different
+            //
+            if (constrainedRect.getWidth() != scaledRect.getWidth() ||
+                 constrainedRect.getHeight() != scaledRect.getHeight())
             {
                 const ScopedValueSetter<bool> recursiveResizeSetter (recursiveResize, true);
 
-                const auto logicalSize = vst3ToComponentRect (rect);
+                const auto logicalSize = vst3ToComponentRect (constrainedRect);
                 setSize (logicalSize.getWidth(), logicalSize.getHeight());
             }
 
             embeddedComponent.setBounds (getLocalBounds());
 
-            view->onSize (&rect);
+            view->onSize (&constrainedRect);
         }
         else
         {
@@ -1736,6 +1757,14 @@ private:
                 attachedCalled = true;
 
             updatePluginScale();
+
+#if JUCE_WINDOWS
+            //
+            // Make sure the embedded component window is the right size
+            // and invalidate the embedded HWND and any child windows
+            //
+            embeddedComponent.updateHWNDBounds();
+#endif
         }
     }
 
@@ -1783,10 +1812,12 @@ private:
         ViewComponent()
         {
             setOpaque (true);
-            inner.addToDesktop (0);
+            inner.addToDesktop(0);
 
-            if (auto* peer = inner.getPeer())
-                setHWND (peer->getNativeHandle());
+            if (auto* innerPeer = inner.getPeer())
+            {
+                setHWND(innerPeer->getNativeHandle());
+            }
         }
 
         void paint (Graphics& g) override { g.fillAll (Colours::black); }

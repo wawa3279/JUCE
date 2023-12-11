@@ -62,6 +62,7 @@
 #include <optional>
 #include <queue>
 #include <set>
+#include <stack>
 #include <sstream>
 #include <string_view>
 #include <thread>

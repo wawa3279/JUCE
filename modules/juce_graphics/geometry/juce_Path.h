@@ -791,6 +791,13 @@ public:
     */
     void restoreFromString (StringRef stringVersion);
 
+    uint64 getUniqueID() const noexcept { return uniqueID; }
+    auto getModificationCount() const noexcept { return modificationCount; }
+
+    mutable StatisticsAccumulator<double> geometryCreationTime;
+    mutable StatisticsAccumulator<double> filledGeometryRealizationCreationTime;
+    mutable StatisticsAccumulator<double> strokedGeometryRealizationCreationTime;
+
 private:
     //==============================================================================
     friend class PathFlatteningIterator;
@@ -819,6 +826,9 @@ private:
 
     PathBounds bounds;
     bool useNonZeroWinding = true;
+
+    int modificationCount = 0;
+    uint64 const uniqueID = (uint64) Time::getHighResolutionTicks() ^ reinterpret_cast<size_t> (this);
 
     static constexpr float lineMarker           = 100001.0f;
     static constexpr float moveMarker           = 100002.0f;

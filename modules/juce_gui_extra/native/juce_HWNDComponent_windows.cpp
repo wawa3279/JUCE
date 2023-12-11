@@ -51,6 +51,8 @@ public:
             ScopedThreadDPIAwarenessSetter threadDpiAwarenessSetter { hwnd };
 
             SetWindowPos (hwnd, nullptr, area.getX(), area.getY(), area.getWidth(), area.getHeight(), flagsToSend);
+
+            invalidateHWNDAndChildren();
         }
     }
 
@@ -73,7 +75,7 @@ public:
         ShowWindow (hwnd, isShowing ? SW_SHOWNA : SW_HIDE);
 
         if (isShowing)
-            InvalidateRect (hwnd, nullptr, 0);
+            InvalidateRect (hwnd, nullptr, TRUE);
      }
 
     void componentVisibilityChanged() override
@@ -104,6 +106,17 @@ public:
         return {};
     }
 
+    void invalidateHWNDAndChildren()
+    {
+        EnumChildWindows (hwnd, invalidateHwndCallback, 0);
+    }
+
+    static BOOL WINAPI invalidateHwndCallback (HWND hwnd, LPARAM)
+    {
+        InvalidateRect (hwnd, nullptr, TRUE);
+        return TRUE;
+    }
+
     HWND hwnd;
 
 private:
@@ -111,14 +124,14 @@ private:
     {
         if (currentPeer != nullptr)
         {
-            auto windowFlags = GetWindowLongPtr (hwnd, -16);
+             auto windowFlags = GetWindowLongPtr (hwnd, GWL_STYLE);
 
             using FlagType = decltype (windowFlags);
 
             windowFlags &= ~(FlagType) WS_POPUP;
             windowFlags |= (FlagType) WS_CHILD;
 
-            SetWindowLongPtr (hwnd, -16, windowFlags);
+            SetWindowLongPtr (hwnd, GWL_STYLE, windowFlags);
             SetParent (hwnd, (HWND) currentPeer->getNativeHandle());
 
             componentMovedOrResized (true, true);
@@ -129,6 +142,16 @@ private:
     {
         ShowWindow (hwnd, SW_HIDE);
         SetParent (hwnd, nullptr);
+    }
+
+    static String printHwnd (void* hwnd)
+    {
+        return printHwnd ((HWND) hwnd);
+    }
+
+    static String printHwnd (HWND hwnd)
+    {
+        return String::toHexString ((pointer_sized_int) hwnd);
     }
 
     Component& owner;

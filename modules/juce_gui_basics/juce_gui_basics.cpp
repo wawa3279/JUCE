@@ -42,6 +42,7 @@
 
 //==============================================================================
 #if JUCE_MAC
+ #import <WebKit/WebKit.h>
  #import <IOKit/pwr_mgt/IOPMLib.h>
  #import <MetalKit/MetalKit.h>
 
@@ -60,7 +61,14 @@
  #include <commdlg.h>
  #include <commctrl.h>
  #include <sapi.h>
- #include <dxgi.h>
+ #include <dxgi1_2.h>
+ #include <d2d1_2.h>
+ #include <d3d11_1.h>
+
+#if JUCE_ETW_TRACELOGGING
+#include <evntrace.h>
+#include <TraceLoggingProvider.h>
+#endif
 
  #if JUCE_MINGW
   // Some MinGW headers use 'new' as a parameter name
@@ -91,10 +99,11 @@
    #pragma comment(lib, "GlU32.Lib")
   #endif
 
-  #if JUCE_DIRECT2D
-   #pragma comment (lib, "Dwrite.lib")
-   #pragma comment (lib, "D2d1.lib")
-  #endif
+ #pragma comment (lib, "Dwrite.lib")
+ #pragma comment (lib, "D2d1.lib")
+ #pragma comment (lib, "DXGI.lib")
+ #pragma comment (lib, "D3D11.lib")
+ #pragma comment (lib, "DComp.lib")
  #endif
 #endif
 
@@ -131,7 +140,6 @@
 
 #if JUCE_MAC || JUCE_IOS
  #include "native/accessibility/juce_AccessibilitySharedCode_mac.mm"
- #include "native/juce_CGMetalLayerRenderer_mac.h"
 
  #if JUCE_IOS
   #include "native/juce_UIViewComponentPeer_ios.mm"
@@ -160,9 +168,8 @@
  #include "native/juce_MouseCursor_mac.mm"
 
 #elif JUCE_WINDOWS
- #if JUCE_MODULE_AVAILABLE_juce_audio_plugin_client
-  #include <juce_audio_plugin_client/AAX/juce_AAX_Modifier_Injector.h>
- #endif
+ #include "../juce_graphics/native/juce_ETW_windows.h"
+ #include "../juce_graphics/native/juce_DirectX_windows.h"
  #include "native/accessibility/juce_ComInterfaces_windows.h"
  #include "native/accessibility/juce_WindowsUIAWrapper_windows.h"
  #include "native/accessibility/juce_AccessibilityElement_windows.h"
@@ -171,6 +178,7 @@
  #include "native/accessibility/juce_AccessibilityElement_windows.cpp"
  #include "native/accessibility/juce_Accessibility_windows.cpp"
  #include "native/juce_WindowsHooks_windows.h"
+ #include "native/juce_VBlank_windows.h"
  #include "native/juce_WindowUtils_windows.cpp"
  #include "native/juce_Windowing_windows.cpp"
  #include "native/juce_WindowsHooks_windows.cpp"

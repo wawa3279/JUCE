@@ -19,7 +19,7 @@
 namespace juce
 {
 
-extern ComponentPeer* createNonRepaintingEmbeddedWindowsPeer (Component&, void* parent);
+ComponentPeer* createNonRepaintingEmbeddedWindowsPeer (Component&, Component* parent);
 
 //==============================================================================
 class OpenGLContext::NativeContext  : private ComponentPeer::ScaleFactorListener
@@ -279,7 +279,7 @@ private:
             auto* parentHWND = topComp->getWindowHandle();
 
             ScopedThreadDPIAwarenessSetter setter { parentHWND };
-            nativeWindow.reset (createNonRepaintingEmbeddedWindowsPeer (*dummyComponent, parentHWND));
+            nativeWindow.reset (createNonRepaintingEmbeddedWindowsPeer (*dummyComponent, topComp));
         }
 
         if (auto* peer = topComp->getPeer())

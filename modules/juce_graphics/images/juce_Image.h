@@ -137,7 +137,7 @@ public:
         The isNull() method is the opposite of isValid().
         @see isNull
     */
-    inline bool isValid() const noexcept                    { return image != nullptr; }
+    bool isValid() const noexcept;
 
     /** Returns true if this image is not valid.
         If you create an Image with the default constructor, it has no size or content, and is null
@@ -145,7 +145,7 @@ public:
         The isNull() method is the opposite of isValid().
         @see isValid
     */
-    inline bool isNull() const noexcept                     { return image == nullptr; }
+    bool isNull() const noexcept { return ! isValid(); }
 
     //==============================================================================
     /** Returns the image's width (in pixels). */
@@ -443,10 +443,17 @@ public:
 
     using Ptr = ReferenceCountedObjectPtr<ImagePixelData>;
 
+    virtual bool isValid() const noexcept
+    {
+        return true;
+    }
+
     /** Creates a context that will draw into this image. */
     virtual std::unique_ptr<LowLevelGraphicsContext> createLowLevelContext() = 0;
     /** Creates a copy of this image. */
     virtual Ptr clone() = 0;
+    /** Creates a copy of this image. */
+    virtual Ptr clip(Rectangle<int> sourceArea);
     /** Creates an instance of the type of this image. */
     virtual std::unique_ptr<ImageType> createType() const = 0;
     /** Initialises a BitmapData object. */
@@ -541,10 +548,13 @@ class JUCE_API  NativeImageType   : public ImageType
 {
 public:
     NativeImageType();
+    NativeImageType(float scaleFactor_);
     ~NativeImageType() override;
 
     ImagePixelData::Ptr create (Image::PixelFormat, int width, int height, bool clearImage) const override;
     int getTypeID() const override;
+
+    float const scaleFactor = 1.0f;
 };
 
 } // namespace juce

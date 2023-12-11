@@ -41,27 +41,20 @@
   // get rid of some warnings in Window's own headers
  JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4458)
 
- #if JUCE_MINGW && JUCE_USE_DIRECTWRITE
-  #warning "DirectWrite not currently implemented with mingw..."
-  #undef JUCE_USE_DIRECTWRITE
- #endif
-
- #if JUCE_USE_DIRECTWRITE || JUCE_DIRECT2D
-  /*  This is a workaround for broken-by-default function definitions
-      in the MinGW headers. If you're using a newer distribution of MinGW,
-      then your headers may substitute the broken definitions with working definitions
-      when this flag is enabled. Unfortunately, not all MinGW headers contain this
-      workaround, so Direct2D remains disabled by default when building with MinGW.
-  */
-  #define WIDL_EXPLICIT_AGGREGATE_RETURNS 1
-
   /* If you hit a compile error trying to include these files, you may need to update
      your version of the Windows SDK to the latest one. The DirectWrite and Direct2D
-     headers are in the version 7 SDKs.
+     headers are in the version 8 SDKs.
   */
-  #include <d2d1.h>
+  #include <d2d1_2.h>
+  #include <d3d11_1.h>
   #include <dwrite.h>
- #endif
+  #include <dcomp.h>
+  #include <dxgi1_2.h>
+
+#if JUCE_ETW_TRACELOGGING
+  #include <evntrace.h>
+  #include <TraceLoggingProvider.h>
+#endif
 
  #if JUCE_MINGW
   #include <malloc.h>
@@ -142,13 +135,23 @@
  #include "native/juce_IconHelpers_mac.cpp"
 
 #elif JUCE_WINDOWS
+ #include "native/juce_ETW_windows.h"
+ #include "native/juce_DirectX_windows.h"
+ #include "native/juce_DirectWriteCustomFontCollection_windows.cpp"
+ #include "native/juce_DirectX_windows.cpp"
  #include "native/juce_DirectWriteTypeface_windows.cpp"
  #include "native/juce_DirectWriteTypeLayout_windows.cpp"
  #include "native/juce_Fonts_windows.cpp"
  #include "native/juce_IconHelpers_windows.cpp"
- #if JUCE_DIRECT2D
-  #include "native/juce_Direct2DGraphicsContext_windows.cpp"
- #endif
+ #include "native/juce_Direct2DHelpers_windows.cpp"
+ #include "native/juce_Direct2DSwapChainDispatcher_windows.cpp"
+ #include "native/juce_Direct2DResources_windows.cpp"
+ #include "native/juce_Direct2DImage_windows.h"
+ #include "native/juce_Direct2DGraphicsContext_windows.cpp"
+ #include "native/juce_Direct2DHwndContext_windows.cpp"
+ #include "native/juce_Direct2DImageContext_windows.h"
+ #include "native/juce_Direct2DImageContext_windows.cpp"
+ #include "native/juce_Direct2DImage_windows.cpp"
 
 #elif JUCE_LINUX || JUCE_BSD
  #include "native/juce_Fonts_linux.cpp"
