@@ -1,5 +1,7 @@
 ![alt text](https://assets.juce.com/juce/JUCE_banner_github.png "JUCE")
 
+# This is a JUCE 8 technical preview that cannot be licensed commercially
+
 JUCE is an open-source cross-platform C++ application framework for creating high quality
 desktop and mobile applications, including VST, VST3, AU, AUv3, AAX and LV2 audio plug-ins
 and plug-in hosts. JUCE can be easily integrated with existing projects via CMake, or can
@@ -77,17 +79,13 @@ Please see our [contribution guidelines](.github/contributing.md).
 
 ## Licensing
 
-The core JUCE modules (juce_audio_basics, juce_audio_devices, juce_core and juce_events)
-are permissively licensed under the terms of the
-[ISC license](http://www.isc.org/downloads/software-support-policy/isc-license/).
-Other modules are covered by a
-[GPL](https://www.gnu.org/licenses/gpl-3.0.en.html)/Commercial license.
+These files are part of the JUCE 8 technical preview.
+Copyright (c) Raw Material Software Limited
 
-There are multiple commercial licensing tiers for JUCE, with different terms for each:
-- JUCE Personal (developers or startup businesses with revenue under 50K USD) - free
-- JUCE Indie (small businesses with revenue under 500K USD) - $40/month or $800 perpetual
-- JUCE Pro (no revenue limit) - $130/month or $2600 perpetual
-- JUCE Educational (no revenue limit) - free for bona fide educational institutes
+You may use this code under the terms of the GPL v3
+(see www.gnu.org/licenses).
+
+For the technical preview these files cannot be licensed commercially.
 
 For full terms see [LICENSE.md](LICENSE.md).
 
