@@ -248,7 +248,7 @@ private:
                 dpiScaleFactor,
                 D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW);
 
-            if (bitmap)
+            if (bitmap && mappedRect.bits == nullptr)
             {
                 D2D1_POINT_2U destPoint{ 0, 0 };
                 sourceRectangle = sourceRectangle.getIntersection(deviceIndependentClipArea_);
