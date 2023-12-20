@@ -463,7 +463,7 @@ namespace juce
                         } comparator;
 
                         timeline.sort(comparator);
-                        
+
                         return cacheEntry.get();
                     }
 
