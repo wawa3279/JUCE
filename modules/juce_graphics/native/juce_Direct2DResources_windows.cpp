@@ -240,8 +240,7 @@ namespace juce
                                 break;
 
                             case E_OUTOFMEMORY:
-                                filledGeometryCache.releaseOldestEntry();
-                                break;
+                                return nullptr;
                             }
                         }
                     }
@@ -301,8 +300,7 @@ namespace juce
                                     break;
 
                                 case E_OUTOFMEMORY:
-                                    strokedGeometryCache.releaseOldestEntry();
-                                    break;
+                                    return nullptr;
                                 }
                             }
                         }
@@ -386,6 +384,7 @@ namespace juce
                 }
 
                 CachedGeometryRealisation(CachedGeometryRealisation& other) :
+                    timestamp(other.timestamp),
                     hash(other.hash),
                     pathModificationCount(other.pathModificationCount),
                     geometryRealisation(other.geometryRealisation)
@@ -445,7 +444,7 @@ namespace juce
                     if (cacheEntry != nullptr)
                     {
                         //
-                        // Cache hit - copy this entry to the back of the timeline
+                        // Cache hit - sort the timeline in reverse order
                         //
                         cacheEntry->timestamp = Time::getHighResolutionTicks();
 
@@ -455,15 +454,16 @@ namespace juce
                             {
                                 if (first && second)
                                 {
-                                    auto delta = first->timestamp - second->timestamp;
+                                    auto delta = second->timestamp - first->timestamp;
                                     return (int)(delta >> 32);
                                 }
 
                                 return 0;
                             }
                         } comparator;
-                        timeline.sort(comparator);
 
+                        timeline.sort(comparator);
+                        
                         return cacheEntry.get();
                     }
 
@@ -472,39 +472,25 @@ namespace juce
                     // this hash code is reused
                     //
                     auto cachedGeometryRealisation = new CachedGeometryRealisation(hash);
-                    timeline.add(cachedGeometryRealisation);
+                    timeline.insert(0, cachedGeometryRealisation);
                     cacheMap[hash] = cachedGeometryRealisation;
                     return nullptr;
                 }
 
                 void removeStaleEntries()
                 {
-                   //
-                    // Cache too large?
-                    //
-                    while (timeline.size() > maxCacheSize)
-                    {
-                        auto entry = timeline.getLast();
-                        if (entry)
-                        {
-                            cacheMap.erase(entry->hash);
-                        }
-
-                        timeline.removeLast();
-                    }
-
                     //
                     // Remove any expired entries
                     //
                     auto now = Time::getHighResolutionTicks();
-                    auto const maximumAgeTicks = Time::secondsToHighResolutionTicks(10.0);
+                    auto const maximumAgeTicks = Time::secondsToHighResolutionTicks(0.2);
                     while (timeline.size())
                     {
-                        auto entry = timeline.getLast();
-
-                        if (entry && entry->hash)
+                        if (auto entry = timeline.getLast())
                         {
-                            if (auto age = now - entry->timestamp; age < maximumAgeTicks)
+                            jassert(entry->hash && entry->timestamp);
+                            auto age = now - entry->timestamp;
+                            if (age < maximumAgeTicks)
                             {
                                 break;
                             }
@@ -516,27 +502,6 @@ namespace juce
                     }
                 }
 
-                void releaseOldestEntry()
-                {
-                    //
-                    // Dump any empty entries at the front of the queue
-                    // Release the oldest entry with a valid geometry realisation and return
-                    //
-                    bool found = false;
-                    while (timeline.size() > 0 && !found)
-                    {
-                        auto entry = timeline.getFirst();
-
-                        if (entry->geometryRealisation)
-                        {
-                            entry->geometryRealisation = nullptr;
-                            found = true;
-                        }
-
-                        cacheMap.erase(entry->hash);
-                        timeline.remove(0);
-                    }
-                }
             private:
                 juce::ReferenceCountedArray<CachedGeometryRealisation> timeline;
                 std::unordered_map<uint64, CachedGeometryRealisation::Ptr> cacheMap;
