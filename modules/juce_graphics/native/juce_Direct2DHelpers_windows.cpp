@@ -587,6 +587,172 @@ private:
     std::unique_ptr<std::remove_pointer_t<HANDLE>, Destructor> handle;
 };
 
+//==============================================================================
+//
+// LRU cache for geometry caching
+//
+
+template <typename KeyType, typename ValueType>
+class LeastRecentlyUsedCache
+{
+public:
+    void set (KeyType const& key, ValueType const& value)
+    {
+        //
+        // Replace existing entry
+        //
+        if (auto iterator = map.find(key); iterator != map.end())
+        {
+            iterator->second->second = value;
+            return;
+        }   
+
+        //
+        // Add a new entry at the front of the LRU list
+        //
+        list.emplace_front(std::pair{ key, value });
+        map.emplace(key, list.begin());
+    }
+
+    std::optional<ValueType> get (KeyType const& key)
+    {
+        if (auto iterator = map.find(key); iterator != map.end())
+        {
+            //
+            // Found a match; move the key to the front of LRU list
+            //
+            list.splice(list.begin(), list, iterator->second);
+            return iterator->second->second;
+        }
+
+        return {};
+    }
+
+    void erase (KeyType const& key)
+    {
+        if (auto iterator = map.find(key); iterator != map.end())
+        {
+            //
+            // Remove the entry from the LRU list
+            //
+            list.erase(iterator->second);
+            map.erase(iterator);
+        }
+    }
+
+    std::optional<ValueType> back() const
+    {
+        if (list.empty())
+        {
+            return {};
+        }
+
+        return list.back().second;
+    }
+
+    void popBack()
+    {
+        if (list.empty())
+        {
+            return;
+        }
+
+        map.erase(list.back().first);
+        list.pop_back();
+    }
+
+    auto size() const noexcept
+    {
+        jassert(map.size() == list.size());
+        return map.size();
+    }
+
+private:
+    using ListType = std::list<std::pair<KeyType, ValueType>>;
+    ListType list;
+    std::unordered_map<KeyType, typename ListType::iterator> map;
+};
+
+#if JUCE_UNIT_TESTS
+
+class LeastRecentlyUsedCacheTests final : public UnitTest
+{
+public:
+    LeastRecentlyUsedCacheTests()
+        : UnitTest("LeastRecentlyUsedCache", UnitTestCategories::containers)
+    {}
+
+    void runTest() override
+    {
+        beginTest("LeastRecentlyUsedCache");
+
+        {
+            LeastRecentlyUsedCache<int, String> cache;
+            int numTestStrings = 100;
+            std::vector<int> hashes;
+            for (int i = 0; i < numTestStrings; ++i)
+            {
+                String testString = "String " + String{ i };
+                auto hash = testString.hashCode();
+                hashes.emplace_back(hash);
+                cache.set(hash, testString);
+            }
+
+            for (int i = 0; i < 1000; ++i)
+            {
+                int hashIndex = getRandom().nextInt((int)hashes.size());
+                auto hash = hashes[hashIndex];
+
+                auto value = cache.get(hash);
+                expect(value.has_value());
+                expect(*value == "String " + String{ hashIndex });
+            }
+
+            for (int i = 0; i < 1000; ++i)
+            {
+                int hashIndex = getRandom().nextInt((int)hashes.size());
+                auto hash = hashes[hashIndex];
+
+                cache.erase(hash);
+                auto value = cache.get(hash);
+                expect(!value.has_value());
+            }
+        }
+
+        {
+            LeastRecentlyUsedCache<int, float> cache;
+
+            for (int i = 0; i < 10; ++i)
+            {
+                cache.set(i, i * -1.0f);
+            }
+
+            for (int i = 9; i >= 0; --i)
+            {
+                auto value = cache.get(i);
+                expect(value.has_value());
+                expect(value == i * -1.0f);
+            }
+
+            for (int i = 0; i < 10; ++i)
+            {
+                auto backValue = cache.back();
+                auto expectedValue = (9 - i) * -1.0f;
+                expect(backValue.has_value());
+                expect(*backValue == expectedValue);
+
+                cache.popBack();
+            }
+
+            expect(cache.size() == 0);
+        }
+    }
+};
+
+static LeastRecentlyUsedCacheTests leastRecentlyUsedCacheTests;
+
+#endif
+
 } // namespace direct2d
 
 #if JUCE_ETW_TRACELOGGING
