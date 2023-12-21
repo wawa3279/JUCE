@@ -596,7 +596,13 @@ template <typename KeyType, typename ValueType>
 class LeastRecentlyUsedCache
 {
 public:
-    void set (KeyType const& key, ValueType const& value)
+    void clear()
+    {
+        list.clear();
+        map.clear();
+    }
+
+    void set(KeyType const& key, ValueType const& value)
     {
         //
         // Replace existing entry
@@ -605,7 +611,25 @@ public:
         {
             iterator->second->second = value;
             return;
-        }   
+        }
+
+        //
+        // Add a new entry at the front of the LRU list
+        //
+        list.emplace_front(std::pair{ key, value });
+        map.emplace(key, list.begin());
+    }
+
+    void set (KeyType const& key, ValueType&& value)
+    {
+        //
+        // Replace existing entry
+        //
+        if (auto iterator = map.find(key); iterator != map.end())
+        {
+            iterator->second->second = value;
+            return;
+        }
 
         //
         // Add a new entry at the front of the LRU list

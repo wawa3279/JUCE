@@ -416,65 +416,42 @@ namespace juce
                 ComSmartPtr<ID2D1GeometryRealization> geometryRealisation;
 
                 using Ptr = ReferenceCountedObjectPtr<CachedGeometryRealisation>;
-
-                JUCE_DECLARE_WEAK_REFERENCEABLE(CachedGeometryRealisation)
             };
-
-            static constexpr int maxCacheSize = 100;
 
             class Cache
             {
             public:
                 ~Cache()
                 {
-                    timeline.clear();
                     clear();
                 }
 
                 void clear()
                 {
-                    cacheMap.clear();
+                    lruCache.clear();
                 }
 
                 CachedGeometryRealisation* getCachedGeometryRealisation(uint64 hash)
                 {
                     removeStaleEntries();
 
-                    auto& cacheEntry = cacheMap[hash];
-                    if (cacheEntry != nullptr)
+                    if (auto entry = lruCache.get(hash); entry.has_value())
                     {
-                        //
-                        // Cache hit - sort the timeline in reverse order
-                        //
-                        cacheEntry->timestamp = Time::getHighResolutionTicks();
-
-                        struct TimestampComparator
+                        if (auto cachedGeometry = entry->get())
                         {
-                            static int compareElements(CachedGeometryRealisation* const first, CachedGeometryRealisation* const second)
-                            {
-                                if (first && second)
-                                {
-                                    auto delta = second->timestamp - first->timestamp;
-                                    return (int)(delta >> 32);
-                                }
+                            entry->get()->timestamp = Time::getHighResolutionTicks();
+                            return cachedGeometry;
+                        }
 
-                                return 0;
-                            }
-                        } comparator;
-
-                        timeline.sort(comparator);
-
-                        return cacheEntry.get();
+                        return nullptr;
                     }
 
                     //
-                    // Cache miss - make a new entry, but don't populate it until
+                    // Cache miss - make a new entry
                     // this hash code is reused
                     //
-                    auto cachedGeometryRealisation = new CachedGeometryRealisation(hash);
-                    timeline.insert(0, cachedGeometryRealisation);
-                    cacheMap[hash] = cachedGeometryRealisation;
-                    return nullptr;
+                    lruCache.set(hash, new CachedGeometryRealisation{ hash });
+                    return {};
                 }
 
                 void removeStaleEntries()
@@ -484,27 +461,26 @@ namespace juce
                     //
                     auto now = Time::getHighResolutionTicks();
                     auto const maximumAgeTicks = Time::secondsToHighResolutionTicks(0.2);
-                    while (timeline.size())
+                    while (lruCache.size())
                     {
-                        if (auto entry = timeline.getLast())
-                        {
-                            jassert(entry->hash && entry->timestamp);
-                            auto age = now - entry->timestamp;
-                            if (age < maximumAgeTicks)
-                            {
-                                break;
-                            }
 
-                            cacheMap.erase(entry->hash);
+                        if (auto const& entry = lruCache.back(); entry.has_value())
+                        {
+                            if (auto cachedGeometry = entry->get())
+                            {
+                                if (auto age = now - cachedGeometry->timestamp; age < maximumAgeTicks)
+                                {
+                                    break;
+                                }
+                            }
                         }
 
-                        timeline.removeLast();
+                        lruCache.popBack();
                     }
                 }
 
             private:
-                juce::ReferenceCountedArray<CachedGeometryRealisation> timeline;
-                std::unordered_map<uint64, CachedGeometryRealisation::Ptr> cacheMap;
+                direct2d::LeastRecentlyUsedCache<uint64, CachedGeometryRealisation::Ptr> lruCache;
             } filledGeometryCache, strokedGeometryCache;
         };
 
