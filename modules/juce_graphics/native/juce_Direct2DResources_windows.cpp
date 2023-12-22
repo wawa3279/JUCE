@@ -196,6 +196,7 @@ namespace juce
             }
 
             ID2D1GeometryRealization* getFilledGeometryRealisation(const Path& path,
+                const AffineTransform& transform,
                 ID2D1Factory2* factory,
                 ID2D1DeviceContext1* deviceContext,
                 float dpiScaleFactor,
@@ -207,7 +208,7 @@ namespace juce
                     return nullptr;
                 }
 
-                auto flatteningTolerance = findGeometryFlatteningTolerance(dpiScaleFactor);
+                auto flatteningTolerance = findGeometryFlatteningTolerance(dpiScaleFactor, transform);
                 auto hash = calculateHash(path, flatteningTolerance);
 
                 if (auto cachedGeometry = filledGeometryCache.getCachedGeometryRealisation(hash))
@@ -253,6 +254,7 @@ namespace juce
 
             ID2D1GeometryRealization* getStrokedGeometryRealisation(const Path& path,
                 const PathStrokeType& strokeType,
+                const AffineTransform& transform,
                 ID2D1Factory2* factory,
                 ID2D1DeviceContext1* deviceContext,
                 float dpiScaleFactor,
@@ -264,7 +266,7 @@ namespace juce
                     return nullptr;
                 }
 
-                auto flatteningTolerance = findGeometryFlatteningTolerance(dpiScaleFactor);
+                auto flatteningTolerance = findGeometryFlatteningTolerance(dpiScaleFactor, transform);
                 auto hash = calculateHash(path, strokeType, flatteningTolerance);
 
                 if (auto cachedGeometry = strokedGeometryCache.getCachedGeometryRealisation(hash))
@@ -314,7 +316,7 @@ namespace juce
 
         private:
 
-            static float findGeometryFlatteningTolerance(float dpiScaleFactor, /*const AffineTransform& transform,*/ float maxZoomFactor = 1.0f)
+            static float findGeometryFlatteningTolerance(float dpiScaleFactor, const AffineTransform& transform, float maxZoomFactor = 1.0f)
             {
                 jassert(maxZoomFactor > 0.0f);
 
@@ -323,8 +325,8 @@ namespace juce
                 //
                 // Direct2D default flattening tolerance is 0.25
                 //
-                //auto transformScaleFactor = std::sqrt(std::abs(transform.getDeterminant()));
-                return 0.25f / (/*transformScaleFactor **/ dpiScaleFactor * maxZoomFactor);
+                auto transformScaleFactor = std::sqrt(std::abs(transform.getDeterminant()));
+                return 0.25f / (transformScaleFactor * dpiScaleFactor * maxZoomFactor);
             }
 
             //==============================================================================
