@@ -153,7 +153,7 @@ namespace juce
         auto bitmap = getAdapterD2D1Bitmap(imageAdapter);
         jassert(bitmap);
 
-        auto context = std::make_unique<Direct2ImageContext>(imageAdapter, clearImage);
+        auto context = std::make_unique<Direct2DImageContext>(imageAdapter, clearImage);
         context->startFrame(bitmap, getDPIScalingFactor());
         context->clipToRectangle(deviceIndependentClipArea);
         context->setOrigin(deviceIndependentClipArea.getPosition());
