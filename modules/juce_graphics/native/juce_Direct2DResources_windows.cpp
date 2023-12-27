@@ -382,7 +382,6 @@ namespace juce
                 }
 
                 CachedGeometryRealisation(CachedGeometryRealisation const& other) :
-                    timestamp(other.timestamp),
                     hash(other.hash),
                     pathModificationCount(other.pathModificationCount),
                     geometryRealisation(other.geometryRealisation)
@@ -390,7 +389,6 @@ namespace juce
                 }
 
                 CachedGeometryRealisation(CachedGeometryRealisation&& other)  noexcept :
-                    timestamp(other.timestamp),
                     hash(other.hash),
                     pathModificationCount(other.pathModificationCount),
                     geometryRealisation(other.geometryRealisation)
@@ -408,7 +406,6 @@ namespace juce
                     geometryRealisation = nullptr;
                 }
 
-                int64 timestamp = Time::getHighResolutionTicks();
                 uint64 hash = 0;
                 int pathModificationCount = 0;
                 ComSmartPtr<ID2D1GeometryRealization> geometryRealisation;
@@ -431,11 +428,10 @@ namespace juce
 
                 CachedGeometryRealisation::Ptr getCachedGeometryRealisation(uint64 hash)
                 {
-                    removeStaleEntries();
+                    trim();
 
                     if (auto entry = lruCache.get(hash))
                     {
-                        entry->timestamp = Time::getHighResolutionTicks();
                         return entry;
                     }
 
@@ -444,29 +440,20 @@ namespace juce
                     return cachedGeometryRealisation;
                 }
 
-                void removeStaleEntries()
+                void trim()
                 {
                     //
                     // Remove any expired entries
                     //
-                    auto now = Time::getHighResolutionTicks();
-                    auto const maximumAgeTicks = Time::secondsToHighResolutionTicks(0.2);
-                    while (lruCache.size())
+                    while (lruCache.size() > maxNumCacheEntries)
                     {
-
-                        if (auto const& entry = lruCache.back())
-                        {
-                        if (auto age = now - entry->timestamp; age < maximumAgeTicks)
-                            {
-                                break;
-                            }
-                        }
-
                         lruCache.popBack();
                     }
                 }
 
             private:
+                static int constexpr maxNumCacheEntries = 128;
+
                 direct2d::LeastRecentlyUsedCache<uint64, CachedGeometryRealisation::Ptr> lruCache;
             } filledGeometryCache, strokedGeometryCache;
         };
