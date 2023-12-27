@@ -801,7 +801,7 @@ public:
     uint64 getUniqueID() const noexcept { return uniqueID; }
     auto getModificationCount() const noexcept { return cacheInfo.modificationCount; }
 
-    bool setCacheEnabled(bool enabled) { cacheInfo.cacheEnabled = enabled; }
+    void setCacheEnabled(bool enabled) { cacheInfo.cacheEnabled = enabled; }
     bool isCacheEnabled() const noexcept { return cacheInfo.cacheEnabled; }
     bool shouldBeCached() const noexcept
     {
