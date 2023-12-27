@@ -602,6 +602,11 @@ public:
         map.clear();
     }
 
+    bool contains(KeyType const& key)
+    {
+        return map.find(key) != map.end();
+    }
+
     void set(KeyType const& key, ValueType const& value)
     {
         //
@@ -728,8 +733,8 @@ public:
                 auto hash = hashes[hashIndex];
 
                 auto value = cache.get(hash);
-                expect(value.has_value());
-                expect(*value == "String " + String{ hashIndex });
+                expect(value.isNotEmpty());
+                expect(value == "String " + String{ hashIndex });
             }
 
             for (int i = 0; i < 1000; ++i)
@@ -738,8 +743,7 @@ public:
                 auto hash = hashes[hashIndex];
 
                 cache.erase(hash);
-                auto value = cache.get(hash);
-                expect(!value.has_value());
+                expect(!cache.contains(hash));
             }
         }
 
@@ -754,7 +758,7 @@ public:
             for (int i = 9; i >= 0; --i)
             {
                 auto value = cache.get(i);
-                expect(value.has_value());
+                expect(cache.contains(i));
                 expect(value == i * -1.0f);
             }
 
@@ -762,8 +766,8 @@ public:
             {
                 auto backValue = cache.back();
                 auto expectedValue = (9 - i) * -1.0f;
-                expect(backValue.has_value());
-                expect(*backValue == expectedValue);
+                expect(cache.contains(i));
+                expect(backValue == expectedValue);
 
                 cache.popBack();
             }
