@@ -430,6 +430,13 @@ namespace juce
             directX->direct2D.getFactory()->CreateRectangleGeometry(rect, rectangleGeometryUnitSize.resetAndGetPointerAddress());
 
             directX->dxgi.adapters.listeners.add(this);
+
+#if JUCE_DIRECT2D_METRICS
+            deviceResources.filledGeometryCache.createGeometryMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGeometryTime);
+            deviceResources.filledGeometryCache.createGeometryRealisationMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createFilledGRTime);
+            deviceResources.strokedGeometryCache.createGeometryMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGeometryTime);
+            deviceResources.strokedGeometryCache.createGeometryRealisationMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createStrokedGRTime);
+#endif
         }
 
         virtual ~Pimpl() override
@@ -601,9 +608,14 @@ namespace juce
             return directX->directWrite.getSystemFonts();
         }
 
-        auto& getGeometryCache()
+        auto& getFilledGeometryCache()
         {
-            return deviceResources.geometryCache;
+            return deviceResources.filledGeometryCache;
+        }
+
+        auto& getStrokedGeometryCache()
+        {
+            return deviceResources.strokedGeometryCache;
         }
 
         void adapterCreated(DirectX::DXGI::Adapter::Ptr newAdapter) override
@@ -1045,37 +1057,13 @@ namespace juce
             //
             // Use a cached geometry realisation?
             //
-            int64 geometryTicks = 0, grTicks = 0;
-            if (auto geometryRealisation = getPimpl()->getGeometryCache().getFilledGeometryRealisation(p,
+            if (auto geometryRealisation = getPimpl()->getFilledGeometryCache().getGeometryRealisation(p,
                 factory,
                 deviceContext,
-                getPhysicalPixelScaleFactor(),
-                geometryTicks,
-                grTicks))
+                getPhysicalPixelScaleFactor()))
             {
                 updateDeviceContextTransform(transform);
                 deviceContext->DrawGeometryRealization(geometryRealisation, currentState->currentBrush);
-
-                if (geometryTicks > 0)
-                {
-                    p.geometryCreationTime.addValue(juce::Time::highResolutionTicksToSeconds(geometryTicks));
-                }
-
-                if (grTicks > 0)
-                {
-                    p.filledGeometryRealizationCreationTime.addValue(juce::Time::highResolutionTicksToSeconds(grTicks));
-                }
-
-    #if JUCE_DIRECT2D_METRICS
-                if (geometryTicks > 0 && paintStats)
-                {
-                    paintStats->addValueTicks(direct2d::PaintStats::createGeometryTime, geometryTicks);
-                }
-                if (grTicks > 0 && paintStats)
-                {
-                    paintStats->addValueTicks(direct2d::PaintStats::createFilledGRTime, grTicks);
-                }
-    #endif
                 return;
             }
 
@@ -1109,39 +1097,15 @@ namespace juce
                 //
                 // Use a cached geometry realisation?
                 //
-                int64 geometryTicks = 0, grTicks = 0;
-                if (auto geometryRealisation = getPimpl()->getGeometryCache().getStrokedGeometryRealisation(p,
+                if (auto geometryRealisation = getPimpl()->getStrokedGeometryCache().getGeometryRealisation(p,
                     strokeType,
                     factory,
                     deviceContext,
                     std::sqrt(std::abs(transform.getDeterminant())),
-                    getPhysicalPixelScaleFactor(),
-                    geometryTicks,
-                    grTicks))
+                    getPhysicalPixelScaleFactor()))
                 {
                     updateDeviceContextTransform(transform);
                     deviceContext->DrawGeometryRealization(geometryRealisation, currentState->currentBrush);
-
-                    if (geometryTicks > 0)
-                    {
-                        p.geometryCreationTime.addValue(juce::Time::highResolutionTicksToSeconds(geometryTicks));
-                    }
-
-                    if (grTicks > 0)
-                    {
-                        p.strokedGeometryRealizationCreationTime.addValue(juce::Time::highResolutionTicksToSeconds(grTicks));
-                    }
-
-#if JUCE_DIRECT2D_METRICS
-                    if (geometryTicks > 0 && paintStats)
-                    {
-                        paintStats->addValueTicks(direct2d::PaintStats::createGeometryTime, geometryTicks);
-                    }
-                    if (grTicks && paintStats)
-                    {
-                        paintStats->addValueTicks(direct2d::PaintStats::createStrokedGRTime, grTicks);
-                    }
-#endif
                     return true;
                 }
 

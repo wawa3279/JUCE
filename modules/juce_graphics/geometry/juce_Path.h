@@ -817,10 +817,6 @@ public:
         return isCacheEnabled();
     }
 
-    mutable StatisticsAccumulator<double> geometryCreationTime;
-    mutable StatisticsAccumulator<double> filledGeometryRealizationCreationTime;
-    mutable StatisticsAccumulator<double> strokedGeometryRealizationCreationTime;
-
 private:
     //==============================================================================
     friend class PathFlatteningIterator;
