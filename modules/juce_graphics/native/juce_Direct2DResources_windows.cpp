@@ -198,7 +198,6 @@ namespace juce
             }
 
             ID2D1GeometryRealization* getFilledGeometryRealisation(const Path& path,
-                const AffineTransform& transform,
                 ID2D1Factory2* factory,
                 ID2D1DeviceContext1* deviceContext,
                 float dpiScaleFactor,
@@ -210,8 +209,8 @@ namespace juce
                     return nullptr;
                 }
 
-                auto flatteningTolerance = findGeometryFlatteningTolerance(dpiScaleFactor, transform);
-                auto hash = calculateHash(path, flatteningTolerance);
+                auto flatteningTolerance = findGeometryFlatteningTolerance(dpiScaleFactor);
+                auto hash = calculateFilledPathHash(path, flatteningTolerance);
 
                 if (auto cachedGeometry = filledGeometryCache.getCachedGeometryRealisation(hash))
                 {
@@ -256,9 +255,9 @@ namespace juce
 
             ID2D1GeometryRealization* getStrokedGeometryRealisation(const Path& path,
                 const PathStrokeType& strokeType,
-                const AffineTransform& transform,
                 ID2D1Factory2* factory,
                 ID2D1DeviceContext1* deviceContext,
+                float transformScaleFactor,
                 float dpiScaleFactor,
                 int64& geometryCreationTicks,
                 int64& geometryRealisationCreationTicks)
@@ -267,9 +266,9 @@ namespace juce
                 {
                     return nullptr;
                 }
-
-                auto flatteningTolerance = findGeometryFlatteningTolerance(dpiScaleFactor, transform);
-                auto hash = calculateHash(path, strokeType, flatteningTolerance);
+                
+                auto flatteningTolerance = findGeometryFlatteningTolerance(dpiScaleFactor * transformScaleFactor);
+                auto hash = calculateStrokedPathHash(path, strokeType, flatteningTolerance, transformScaleFactor);
 
                 if (auto cachedGeometry = strokedGeometryCache.getCachedGeometryRealisation(hash))
                 {
@@ -288,8 +287,10 @@ namespace juce
                             auto t2 = Time::getHighResolutionTicks();
                             if (auto strokeStyle = direct2d::pathStrokeTypeToStrokeStyle(factory, strokeType))
                             {
-                                auto hr = deviceContext->CreateStrokedGeometryRealization(geometry, flatteningTolerance,
-                                    strokeType.getStrokeThickness(), strokeStyle,
+                                auto hr = deviceContext->CreateStrokedGeometryRealization(geometry, 
+                                    flatteningTolerance,
+                                    strokeType.getStrokeThickness() / transformScaleFactor, 
+                                    strokeStyle,
                                     cachedGeometry->geometryRealisation.resetAndGetPointerAddress());
 
                                 auto t3 = Time::getHighResolutionTicks();
@@ -318,17 +319,14 @@ namespace juce
 
         private:
 
-            static float findGeometryFlatteningTolerance(float dpiScaleFactor, const AffineTransform& transform, float maxZoomFactor = 1.0f)
+            static float findGeometryFlatteningTolerance(float scaleFactor)
             {
-                jassert(maxZoomFactor > 0.0f);
-
                 //
                 // Could use D2D1::ComputeFlatteningTolerance here, but that requires defining NTDDI_VERSION and it doesn't do anything special.
                 //
                 // Direct2D default flattening tolerance is 0.25
                 //
-                auto transformScaleFactor = std::sqrt(std::abs(transform.getDeterminant()));
-                return 0.25f / (transformScaleFactor * dpiScaleFactor * maxZoomFactor);
+                return 0.25f / scaleFactor;
             }
 
             //==============================================================================
@@ -349,24 +347,20 @@ namespace juce
                 return hash;
             }
 
-            static uint64 fnv1aHash(float value, uint64 hash = fnvOffsetBasis)
+            uint64 calculateFilledPathHash(Path const& path, float flatteningTolerance)
             {
-                return fnv1aHash(reinterpret_cast<uint8 const*>(&value), sizeof(float), hash);
+                return fnv1aHash(reinterpret_cast<uint8 const*>(&flatteningTolerance), sizeof(flatteningTolerance), path.getUniqueID());
             }
 
-            uint64 calculateHash(Path const& path, float flatteningTolerance)
-            {
-                return fnv1aHash(flatteningTolerance, path.getUniqueID());
-            }
-
-            uint64 calculateHash(Path const& path, PathStrokeType const& strokeType, float flatteningTolerance)
+            uint64 calculateStrokedPathHash(Path const& path, PathStrokeType const& strokeType, float flatteningTolerance, float transformScaleFactor)
             {
                 struct
                 {
-                    float flatteningTolerance, strokeThickness;
+                    float transformScaleFactor, flatteningTolerance, strokeThickness;
                     int8 jointStyle, endStyle;
                 } extraHashData;
 
+                extraHashData.transformScaleFactor = transformScaleFactor;
                 extraHashData.flatteningTolerance = flatteningTolerance;
                 extraHashData.strokeThickness = strokeType.getStrokeThickness();
                 extraHashData.jointStyle = (int8)strokeType.getJointStyle();

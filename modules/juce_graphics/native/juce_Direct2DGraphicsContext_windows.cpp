@@ -1047,7 +1047,6 @@ namespace juce
             //
             int64 geometryTicks = 0, grTicks = 0;
             if (auto geometryRealisation = getPimpl()->getGeometryCache().getFilledGeometryRealisation(p,
-                transform,
                 factory,
                 deviceContext,
                 getPhysicalPixelScaleFactor(),
@@ -1113,9 +1112,9 @@ namespace juce
                 int64 geometryTicks = 0, grTicks = 0;
                 if (auto geometryRealisation = getPimpl()->getGeometryCache().getStrokedGeometryRealisation(p,
                     strokeType,
-                    transform,
                     factory,
                     deviceContext,
+                    std::sqrt(std::abs(transform.getDeterminant())),
                     getPhysicalPixelScaleFactor(),
                     geometryTicks,
                     grTicks))
