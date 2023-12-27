@@ -456,9 +456,14 @@ namespace juce
                         {
 #if JUCE_DIRECT2D_METRICS
                             auto t2 = Time::getHighResolutionTicks();
-#endif                            
+#endif
                             if (auto strokeStyle = direct2d::pathStrokeTypeToStrokeStyle(factory, strokeType))
                             {
+                                //
+                                // For stroked paths, the transform will affect the thickness of the path as well
+                                // as the dimensions of the path. Divide the stroke thickness by the scale factor
+                                // of the transform to compensate
+                                //
                                 auto hr = deviceContext->CreateStrokedGeometryRealization(geometry,
                                     flatteningTolerance,
                                     strokeType.getStrokeThickness() / transformScaleFactor,

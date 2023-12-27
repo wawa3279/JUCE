@@ -795,7 +795,7 @@ public:
 
     //==============================================================================
     /** Direct2D path caching
-    * 
+    *
     */
 
     uint64 getUniqueID() const noexcept { return uniqueID; }
