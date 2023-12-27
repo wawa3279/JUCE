@@ -176,6 +176,8 @@ namespace juce
         protected:
             ComSmartPtr<ID2D1Bitmap1> bitmap;
         };
+
+
         //==============================================================================
         //
         // Geometry caching
@@ -203,7 +205,7 @@ namespace juce
                 int64& geometryCreationTicks,
                 int64& geometryRealisationCreationTicks)
             {
-                if (path.getModificationCount() == 0)
+                if (path.getModificationCount() == 0 || ! path.isCacheEnabled() || ! path.shouldBeCached())
                 {
                     return nullptr;
                 }
@@ -261,7 +263,7 @@ namespace juce
                 int64& geometryCreationTicks,
                 int64& geometryRealisationCreationTicks)
             {
-                if (path.getModificationCount() == 0)
+                if (path.getModificationCount() == 0 || ! path.isCacheEnabled() || ! path.shouldBeCached())
                 {
                     return nullptr;
                 }
@@ -385,7 +387,7 @@ namespace juce
                 {
                 }
 
-                CachedGeometryRealisation(CachedGeometryRealisation& other) :
+                CachedGeometryRealisation(CachedGeometryRealisation const& other) :
                     timestamp(other.timestamp),
                     hash(other.hash),
                     pathModificationCount(other.pathModificationCount),
@@ -413,7 +415,7 @@ namespace juce
                 }
 
                 int64 timestamp = Time::getHighResolutionTicks();
-                uint64 hash;
+                uint64 hash = 0;
                 int pathModificationCount = 0;
                 ComSmartPtr<ID2D1GeometryRealization> geometryRealisation;
 
@@ -433,27 +435,19 @@ namespace juce
                     lruCache.clear();
                 }
 
-                CachedGeometryRealisation* getCachedGeometryRealisation(uint64 hash)
+                CachedGeometryRealisation::Ptr getCachedGeometryRealisation(uint64 hash)
                 {
                     removeStaleEntries();
 
-                    if (auto entry = lruCache.get(hash); entry.has_value())
+                    if (auto entry = lruCache.get(hash))
                     {
-                        if (auto cachedGeometry = entry->get())
-                        {
-                            entry->get()->timestamp = Time::getHighResolutionTicks();
-                            return cachedGeometry;
-                        }
-
-                        return nullptr;
+                        entry->timestamp = Time::getHighResolutionTicks();
+                        return entry;
                     }
 
-                    //
-                    // Cache miss - make a new entry
-                    // this hash code is reused
-                    //
-                    lruCache.set(hash, new CachedGeometryRealisation{ hash });
-                    return {};
+                    CachedGeometryRealisation::Ptr cachedGeometryRealisation = new CachedGeometryRealisation{ hash };
+                    lruCache.set(hash, cachedGeometryRealisation);
+                    return cachedGeometryRealisation;
                 }
 
                 void removeStaleEntries()
@@ -466,14 +460,11 @@ namespace juce
                     while (lruCache.size())
                     {
 
-                        if (auto const& entry = lruCache.back(); entry.has_value())
+                        if (auto const& entry = lruCache.back())
                         {
-                            if (auto cachedGeometry = entry->get())
+                        if (auto age = now - entry->timestamp; age < maximumAgeTicks)
                             {
-                                if (auto age = now - cachedGeometry->timestamp; age < maximumAgeTicks)
-                                {
-                                    break;
-                                }
+                                break;
                             }
                         }
 

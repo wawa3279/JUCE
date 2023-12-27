@@ -638,7 +638,7 @@ public:
         map.emplace(key, list.begin());
     }
 
-    std::optional<ValueType> get (KeyType const& key)
+    ValueType get (KeyType const& key)
     {
         if (auto iterator = map.find(key); iterator != map.end())
         {
@@ -664,7 +664,7 @@ public:
         }
     }
 
-    std::optional<ValueType> back() const
+    ValueType back() const
     {
         if (list.empty())
         {

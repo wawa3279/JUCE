@@ -16,6 +16,8 @@
   ==============================================================================
 */
 
+struct ID2D1GeometryRealization;
+
 namespace juce
 {
 
@@ -791,8 +793,26 @@ public:
     */
     void restoreFromString (StringRef stringVersion);
 
+    //==============================================================================
+    /** Direct2D path caching
+    * 
+    */
+
     uint64 getUniqueID() const noexcept { return uniqueID; }
-    auto getModificationCount() const noexcept { return modificationCount; }
+    auto getModificationCount() const noexcept { return cacheInfo.modificationCount; }
+
+    bool setCacheEnabled(bool enabled) { cacheInfo.cacheEnabled = enabled; }
+    bool isCacheEnabled() const noexcept { return cacheInfo.cacheEnabled; }
+    bool shouldBeCached() const noexcept
+    {
+        if (cacheInfo.cacheableCountdown > 0)
+        {
+            --cacheInfo.cacheableCountdown;
+            return false;
+        }
+
+        return true;
+    }
 
     mutable StatisticsAccumulator<double> geometryCreationTime;
     mutable StatisticsAccumulator<double> filledGeometryRealizationCreationTime;
@@ -827,8 +847,14 @@ private:
     PathBounds bounds;
     bool useNonZeroWinding = true;
 
-    int modificationCount = 0;
-    uint64 const uniqueID = (uint64) Time::getHighResolutionTicks() ^ reinterpret_cast<size_t> (this);
+    struct CacheInfo
+    {
+        bool cacheEnabled = true;
+        mutable int cacheableCountdown = 2;
+        int modificationCount = 0;
+    } cacheInfo;
+
+    uint64 const uniqueID = (uint64)Time::getHighResolutionTicks() ^ reinterpret_cast<size_t> (this);
 
     static constexpr float lineMarker           = 100001.0f;
     static constexpr float moveMarker           = 100002.0f;
