@@ -805,13 +805,16 @@ public:
     bool isCacheEnabled() const noexcept { return cacheInfo.cacheEnabled; }
     bool shouldBeCached() const noexcept
     {
+        //
+        // Only try to cache this path if this specific object is painted repeatedly
+        //
         if (cacheInfo.cacheableCountdown > 0)
         {
             --cacheInfo.cacheableCountdown;
             return false;
         }
 
-        return true;
+        return isCacheEnabled();
     }
 
     mutable StatisticsAccumulator<double> geometryCreationTime;
