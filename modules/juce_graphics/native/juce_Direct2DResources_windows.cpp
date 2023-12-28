@@ -199,8 +199,6 @@ namespace juce
 #if JUCE_DIRECT2D_METRICS
             StatisticsAccumulator<double>* createGeometryMsecStats = nullptr;
             StatisticsAccumulator<double>* createGeometryRealisationMsecStats = nullptr;
-            StatisticsAccumulator<double>* cacheSizeStats = nullptr;
-            StatisticsAccumulator<double>* cacheHitStats = nullptr;
 #endif
 
         protected:
@@ -336,10 +334,6 @@ namespace juce
                 ID2D1DeviceContext1* deviceContext,
                 float dpiScaleFactor)
             {
-#if JUCE_DIRECT2D_METRICS
-                if (cacheSizeStats) cacheSizeStats->addValue((double)hashMap.size());
-#endif
-
                 if (path.getModificationCount() == 0 || !path.isCacheEnabled() || !path.shouldBeCached())
                 {
                     return nullptr;
@@ -374,7 +368,6 @@ namespace juce
 
                             if (createGeometryMsecStats) createGeometryMsecStats->addValue(Time::highResolutionTicksToSeconds(t2 - t1) * 1000.0);
                             if (createGeometryRealisationMsecStats) createGeometryRealisationMsecStats->addValue(Time::highResolutionTicksToSeconds(t3 - t2) * 1000.0);
-                            if (cacheHitStats) cacheHitStats->addValue(0.0);
 #endif
 
                             switch (hr)
@@ -386,12 +379,6 @@ namespace juce
                             case E_OUTOFMEMORY:
                                 return nullptr;
                             }
-                        }
-                        else
-                        {
-#if JUCE_DIRECT2D_METRICS
-                            if (cacheHitStats) cacheHitStats->addValue(1.0);
-#endif
                         }
                     }
 
@@ -427,10 +414,6 @@ namespace juce
                 float transformScaleFactor,
                 float dpiScaleFactor)
             {
-#if JUCE_DIRECT2D_METRICS
-                if (cacheSizeStats) cacheSizeStats->addValue((double)hashMap.size());
-#endif
-
                 if (path.getModificationCount() == 0 || !path.isCacheEnabled() || !path.shouldBeCached())
                 {
                     return nullptr;
@@ -475,7 +458,6 @@ namespace juce
 
                                 if (createGeometryMsecStats) createGeometryMsecStats->addValue(Time::highResolutionTicksToSeconds(t2 - t1) * 1000.0);
                                 if (createGeometryRealisationMsecStats) createGeometryRealisationMsecStats->addValue(Time::highResolutionTicksToSeconds(t3 - t2) * 1000.0);
-                                if (cacheHitStats) cacheHitStats->addValue(0.0);
 #endif
 
                                 switch (hr)
@@ -489,12 +471,6 @@ namespace juce
                                 }
                             }
                         }
-                    }
-                    else
-                    {
-#if JUCE_DIRECT2D_METRICS
-                        if (cacheHitStats) cacheHitStats->addValue(1.0);
-#endif
                     }
 
                     return cachedGeometry->geometryRealisation;
