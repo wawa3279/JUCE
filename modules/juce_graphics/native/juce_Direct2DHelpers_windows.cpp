@@ -729,8 +729,8 @@ public:
 
             for (int i = 0; i < 1000; ++i)
             {
-                int hashIndex = getRandom().nextInt((int)hashes.size());
-                auto hash = hashes[hashIndex];
+                auto hashIndex = getRandom().nextInt((int)hashes.size());
+                auto hash = hashes[static_cast<size_t>(hashIndex)];
 
                 auto value = cache.get(hash);
                 expect(value.isNotEmpty());
@@ -739,8 +739,8 @@ public:
 
             for (int i = 0; i < 1000; ++i)
             {
-                int hashIndex = getRandom().nextInt((int)hashes.size());
-                auto hash = hashes[hashIndex];
+                auto hashIndex = getRandom().nextInt((int)hashes.size());
+                auto hash = hashes[static_cast<size_t>(hashIndex)];
 
                 cache.erase(hash);
                 expect(!cache.contains(hash));
@@ -752,22 +752,22 @@ public:
 
             for (int i = 0; i < 10; ++i)
             {
-                cache.set(i, i * -1.0f);
+                cache.set(i, static_cast<float>(i) * -1.0f);
             }
 
             for (int i = 9; i >= 0; --i)
             {
                 auto value = cache.get(i);
                 expect(cache.contains(i));
-                expect(value == i * -1.0f);
+                expect(approximatelyEqual(value, static_cast<float>(i) * -1.0f));
             }
 
-            for (int i = 0; i < 10; ++i)
+            for (int i = 9; i >= 0; --i)
             {
                 auto backValue = cache.back();
-                auto expectedValue = (9 - i) * -1.0f;
+                auto expectedValue = static_cast<float>(i) * -1.0f;
                 expect(cache.contains(i));
-                expect(backValue == expectedValue);
+                expect(approximatelyEqual(backValue, expectedValue));
 
                 cache.popBack();
             }
