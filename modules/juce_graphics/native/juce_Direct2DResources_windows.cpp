@@ -355,7 +355,7 @@ namespace juce
 #if JUCE_DIRECT2D_METRICS
                         auto t1 = Time::getHighResolutionTicks();
 #endif
-                        if (auto geometry = direct2d::pathToPathGeometry(factory, path))
+                        if (auto geometry = direct2d::pathToPathGeometry(factory, path, D2D1_FIGURE_BEGIN_FILLED))
                         {
 #if JUCE_DIRECT2D_METRICS
                             auto t2 = Time::getHighResolutionTicks();
@@ -435,7 +435,7 @@ namespace juce
 #if JUCE_DIRECT2D_METRICS
                         auto t1 = Time::getHighResolutionTicks();
 #endif
-                        if (auto geometry = direct2d::pathToPathGeometry(factory, path))
+                        if (auto geometry = direct2d::pathToPathGeometry(factory, path, D2D1_FIGURE_BEGIN_HOLLOW))
                         {
 #if JUCE_DIRECT2D_METRICS
                             auto t2 = Time::getHighResolutionTicks();

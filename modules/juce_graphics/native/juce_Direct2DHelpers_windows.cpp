@@ -74,7 +74,7 @@ static D2D1_COLOR_F colourToD2D (Colour c)
 //
 // Convert a JUCE Path to a D2D Geometry
 //
-static void pathToGeometrySink (const Path& path, ID2D1GeometrySink* sink, const AffineTransform& transform)
+static void pathToGeometrySink (const Path& path, ID2D1GeometrySink* sink, const AffineTransform& transform, D2D1_FIGURE_BEGIN figureMode)
 {
     //
     // Every call to BeginFigure must have a matching call to EndFigure. But - the Path does not necessarily
@@ -137,7 +137,7 @@ static void pathToGeometrySink (const Path& path, ID2D1GeometrySink* sink, const
                 }
 
                 transform.transformPoint (it.x1, it.y1);
-                sink->BeginFigure ({ it.x1, it.y1 }, D2D1_FIGURE_BEGIN_FILLED);
+                sink->BeginFigure ({ it.x1, it.y1 }, figureMode);
 
                 figureStarted = true;
                 break;
@@ -151,7 +151,7 @@ static void pathToGeometrySink (const Path& path, ID2D1GeometrySink* sink, const
     }
 }
 
-static void pathToGeometrySink(const Path& path, ID2D1GeometrySink* sink)
+static void pathToGeometrySink(const Path& path, ID2D1GeometrySink* sink, D2D1_FIGURE_BEGIN figureMode)
 {
     Path::Iterator it(path);
     bool           figureStarted = false;
@@ -197,7 +197,7 @@ static void pathToGeometrySink(const Path& path, ID2D1GeometrySink* sink)
             {
                 sink->EndFigure(D2D1_FIGURE_END_OPEN);
             }
-            sink->BeginFigure({ it.x1, it.y1 }, D2D1_FIGURE_BEGIN_FILLED);
+            sink->BeginFigure({ it.x1, it.y1 }, figureMode);
             figureStarted = true;
             break;
         }
@@ -208,7 +208,6 @@ static void pathToGeometrySink(const Path& path, ID2D1GeometrySink* sink)
     {
         sink->EndFigure(D2D1_FIGURE_END_OPEN);
     }
-
 }
 
 static D2D1::Matrix3x2F transformToMatrix (const AffineTransform& transform)
@@ -224,9 +223,9 @@ static D2D1_POINT_2F pointTransformed (int x, int y, const AffineTransform& tran
     return { (FLOAT) xf, (FLOAT) yf };
 }
 
-static void rectToGeometrySink (const Rectangle<int>& rect, ID2D1GeometrySink* sink, const AffineTransform& transform)
+static void rectToGeometrySink (const Rectangle<int>& rect, ID2D1GeometrySink* sink, const AffineTransform& transform, D2D1_FIGURE_BEGIN figureMode)
 {
-    sink->BeginFigure (pointTransformed (rect.getX(), rect.getY(), transform), D2D1_FIGURE_BEGIN_FILLED);
+    sink->BeginFigure (pointTransformed (rect.getX(), rect.getY(), transform), figureMode);
     sink->AddLine (pointTransformed (rect.getRight(), rect.getY(), transform));
     sink->AddLine (pointTransformed (rect.getRight(), rect.getBottom(), transform));
     sink->AddLine (pointTransformed (rect.getX(), rect.getBottom(), transform));
@@ -270,14 +269,15 @@ struct ScopedGeometryWithSink
 static ComSmartPtr<ID2D1Geometry> rectListToPathGeometry (ID2D1Factory* factory,
                                                           const RectangleList<int>& clipRegion,
                                                           const AffineTransform& transform,
-                                                          D2D1_FILL_MODE fillMode)
+                                                          D2D1_FILL_MODE fillMode,
+                                                          D2D1_FIGURE_BEGIN figureMode)
 {
     ScopedGeometryWithSink objects { factory, fillMode };
 
     if (objects.sink != nullptr)
     {
         for (int i = clipRegion.getNumRectangles(); --i >= 0;)
-            direct2d::rectToGeometrySink (clipRegion.getRectangle (i), objects.sink, transform);
+            direct2d::rectToGeometrySink (clipRegion.getRectangle (i), objects.sink, transform, figureMode);
 
         return { (ID2D1Geometry*) objects.geometry };
     }
@@ -285,13 +285,13 @@ static ComSmartPtr<ID2D1Geometry> rectListToPathGeometry (ID2D1Factory* factory,
     return nullptr;
 }
 
-static ComSmartPtr<ID2D1Geometry> pathToPathGeometry (ID2D1Factory* factory, const Path& path, const AffineTransform& transform)
+static ComSmartPtr<ID2D1Geometry> pathToPathGeometry(ID2D1Factory* factory, const Path& path, const AffineTransform& transform, D2D1_FIGURE_BEGIN figureMode)
 {
     ScopedGeometryWithSink objects { factory, path.isUsingNonZeroWinding() ? D2D1_FILL_MODE_WINDING : D2D1_FILL_MODE_ALTERNATE };
 
     if (objects.sink != nullptr)
     {
-        direct2d::pathToGeometrySink (path, objects.sink, transform);
+        direct2d::pathToGeometrySink (path, objects.sink, transform, figureMode);
 
         return { (ID2D1Geometry*) objects.geometry };
     }
@@ -299,13 +299,13 @@ static ComSmartPtr<ID2D1Geometry> pathToPathGeometry (ID2D1Factory* factory, con
     return nullptr;
 }
 
-static ComSmartPtr<ID2D1Geometry> pathToPathGeometry(ID2D1Factory* factory, const Path& path)
+static ComSmartPtr<ID2D1Geometry> pathToPathGeometry(ID2D1Factory* factory, const Path& path, D2D1_FIGURE_BEGIN figureMode)
 {
     ScopedGeometryWithSink objects{ factory, path.isUsingNonZeroWinding() ? D2D1_FILL_MODE_WINDING : D2D1_FILL_MODE_ALTERNATE };
 
     if (objects.sink != nullptr)
     {
-        direct2d::pathToGeometrySink(path, objects.sink);
+        direct2d::pathToGeometrySink(path, objects.sink, figureMode);
 
         return { (ID2D1Geometry*)objects.geometry };
     }

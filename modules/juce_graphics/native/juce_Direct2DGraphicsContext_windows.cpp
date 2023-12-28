@@ -682,7 +682,7 @@ namespace juce
                 else
                 {
                     currentState->pushGeometryClipLayer(
-                        direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(), paintAreas, AffineTransform{}, D2D1_FILL_MODE_WINDING));
+                        direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(), paintAreas, AffineTransform{}, D2D1_FILL_MODE_WINDING, D2D1_FIGURE_BEGIN_FILLED));
                 }
 
                 //
@@ -787,7 +787,8 @@ namespace juce
             currentState->pushGeometryClipLayer(direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(),
                 clipRegion,
                 currentState->currentTransform.getTransform(),
-                D2D1_FILL_MODE_WINDING));
+                D2D1_FILL_MODE_WINDING,
+                D2D1_FIGURE_BEGIN_FILLED));
         }
 
         return !isClipEmpty();
@@ -818,7 +819,8 @@ namespace juce
             currentState->pushGeometryClipLayer(direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(),
                 rectangles,
                 currentState->currentTransform.getTransform(),
-                D2D1_FILL_MODE_ALTERNATE));
+                D2D1_FILL_MODE_ALTERNATE,
+                D2D1_FIGURE_BEGIN_FILLED));
         }
     }
 
@@ -829,7 +831,7 @@ namespace juce
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             currentState->pushGeometryClipLayer(
-                direct2d::pathToPathGeometry(getPimpl()->getDirect2DFactory(), path, currentState->currentTransform.getTransformWith(transform)));
+                direct2d::pathToPathGeometry(getPimpl()->getDirect2DFactory(), path, currentState->currentTransform.getTransformWith(transform), D2D1_FIGURE_BEGIN_FILLED));
         }
     }
 
@@ -1070,7 +1072,7 @@ namespace juce
             //
             // Create and fill the geometry
             //
-            if (auto geometry = direct2d::pathToPathGeometry(factory, p, transform))
+            if (auto geometry = direct2d::pathToPathGeometry(factory, p, transform, D2D1_FIGURE_BEGIN_FILLED))
             {
                 updateDeviceContextTransform();
                 deviceContext->FillGeometry(geometry, currentState->currentBrush);
@@ -1112,7 +1114,7 @@ namespace juce
                 //
                 // Create and draw a geometry
                 //
-                if (auto geometry = direct2d::pathToPathGeometry(factory, p, transform))
+                if (auto geometry = direct2d::pathToPathGeometry(factory, p, transform, D2D1_FIGURE_BEGIN_HOLLOW))
                 {
                     if (auto strokeStyle = direct2d::pathStrokeTypeToStrokeStyle(factory, strokeType))
                     {
