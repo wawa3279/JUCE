@@ -851,13 +851,18 @@ private:
         int modificationCount = 0;
     } cacheInfo;
 
-    uint64 const uniqueID = (uint64)Time::getHighResolutionTicks() ^ reinterpret_cast<size_t> (this);
+    uint64 uniqueID = createUniqueID();
 
     static constexpr float lineMarker           = 100001.0f;
     static constexpr float moveMarker           = 100002.0f;
     static constexpr float quadMarker           = 100003.0f;
     static constexpr float cubicMarker          = 100004.0f;
     static constexpr float closeSubPathMarker   = 100005.0f;
+
+    uint64 createUniqueID() 
+    {
+        return (uint64)Time::getHighResolutionTicks() ^ reinterpret_cast<size_t> (this);
+    }
 
     JUCE_LEAK_DETECTOR (Path)
 };

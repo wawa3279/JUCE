@@ -103,7 +103,8 @@ Path::Path (const Path& other)
     : data (other.data),
       bounds (other.bounds),
       useNonZeroWinding (other.useNonZeroWinding),
-      cacheInfo(other.cacheInfo)
+      cacheInfo(other.cacheInfo),
+      uniqueID(createUniqueID())
 {
 }
 
@@ -115,6 +116,7 @@ Path& Path::operator= (const Path& other)
         bounds = other.bounds;
         useNonZeroWinding = other.useNonZeroWinding;
         cacheInfo = other.cacheInfo;
+        uniqueID = createUniqueID();
     }
 
     return *this;
@@ -124,7 +126,8 @@ Path::Path (Path&& other) noexcept
     : data (std::move (other.data)),
       bounds (other.bounds),
       useNonZeroWinding (other.useNonZeroWinding),
-      cacheInfo(other.cacheInfo)
+      cacheInfo(other.cacheInfo),
+      uniqueID(other.uniqueID)
 {
 }
 
@@ -134,6 +137,7 @@ Path& Path::operator= (Path&& other) noexcept
     bounds = other.bounds;
     useNonZeroWinding = other.useNonZeroWinding;
     cacheInfo = other.cacheInfo;
+    uniqueID = other.uniqueID;
     return *this;
 }
 
