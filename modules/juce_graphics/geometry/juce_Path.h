@@ -859,7 +859,7 @@ private:
     static constexpr float cubicMarker          = 100004.0f;
     static constexpr float closeSubPathMarker   = 100005.0f;
 
-    uint64 createUniqueID() 
+    uint64 createUniqueID()
     {
         return (uint64)Time::getHighResolutionTicks() ^ reinterpret_cast<size_t> (this);
     }

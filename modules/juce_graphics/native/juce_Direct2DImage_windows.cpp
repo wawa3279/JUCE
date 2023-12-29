@@ -241,9 +241,9 @@ namespace juce
         if (sourceD2D1Bitmap && destinationD2D1Bitmap)
         {
             auto hr = destinationD2D1Bitmap->CopyFromBitmap(&destinationPoint, sourceD2D1Bitmap, &sourceRectU);
-        jassertquiet(SUCCEEDED(hr));
-        if (SUCCEEDED(hr))
-        {
+            jassertquiet(SUCCEEDED(hr));
+            if (SUCCEEDED(hr))
+            {
                 return clone;
             }
         }
