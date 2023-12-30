@@ -171,17 +171,6 @@ public:
 
     std::unique_ptr<ImageType> createType() const override;
 
-    class Direct2DBitmapReleaser : public Image::BitmapData::BitmapDataReleaser
-    {
-    public:
-        Direct2DBitmapReleaser(Direct2DPixelData& pixelData_, Image::BitmapData::ReadWriteMode mode_);
-        ~Direct2DBitmapReleaser() override;
-
-    private:
-        Direct2DPixelData& pixelData;
-        Image::BitmapData::ReadWriteMode mode;
-    };
-
     using Ptr = ReferenceCountedObjectPtr<Direct2DPixelData>;
 
     Rectangle<int> const deviceIndependentClipArea;
@@ -190,13 +179,6 @@ public:
     void adapterRemoved(DirectX::DXGI::Adapter::Ptr adapter) override;
 
 private:
-    SharedResourcePointer<DirectX> directX;
-    DirectX::DXGI::Adapter::Ptr imageAdapter;
-    direct2d::DeviceResources deviceResources;
-    direct2d::DPIScalableArea<int> area;
-    const int                 pixelStride, lineStride;
-    bool const                clearImage;
-
     class AdapterBitmap : public direct2d::Direct2DBitmap
     {
     public:
@@ -231,9 +213,15 @@ private:
         }
     } adapterBitmap;
 
-    class MappableBitmap : public direct2d::Direct2DBitmap
+    class MappableBitmap : public direct2d::Direct2DBitmap, public ReferenceCountedObject
     {
     public:
+        MappableBitmap() = default;
+        ~MappableBitmap()
+        {
+            jassert(mappedRect.bits == nullptr);
+        }
+
         ID2D1Bitmap* createAndMap(ID2D1Bitmap1* sourceBitmap,
             Image::PixelFormat format,
             Rectangle<int> sourceRectangle,
@@ -301,10 +289,34 @@ private:
         }
 
         D2D1_MAPPED_RECT          mappedRect{};
-    } mappableBitmap;
+
+        using Ptr = ReferenceCountedObjectPtr<MappableBitmap>;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MappableBitmap)
+    };
+
+    class Direct2DBitmapReleaser : public Image::BitmapData::BitmapDataReleaser
+    {
+    public:
+        Direct2DBitmapReleaser(Direct2DPixelData& pixelData_, ReferenceCountedObjectPtr<MappableBitmap> mappableBitmap_, Image::BitmapData::ReadWriteMode mode_);
+        ~Direct2DBitmapReleaser() override;
+
+    private:
+        Direct2DPixelData& pixelData;
+        ReferenceCountedObjectPtr<MappableBitmap> mappableBitmap;
+        Image::BitmapData::ReadWriteMode mode;
+    };
 
     void createAdapterBitmap();
     void release();
+
+    SharedResourcePointer<DirectX> directX;
+    DirectX::DXGI::Adapter::Ptr imageAdapter;
+    direct2d::DeviceResources deviceResources;
+    direct2d::DPIScalableArea<int> area;
+    const int                 pixelStride, lineStride;
+    bool const                clearImage;
+    ReferenceCountedArray<MappableBitmap> mappableBitmaps;
 
     JUCE_LEAK_DETECTOR(Direct2DPixelData)
 };
