@@ -96,9 +96,8 @@ namespace juce
 
     //==============================================================================
 
-    Direct2DImageContext::Direct2DImageContext(DirectX::DXGI::Adapter::Ptr adapter_, bool clearImage_) :
-        pimpl(new ImagePimpl{ *this, adapter_ }),
-        clearImage(clearImage_)
+    Direct2DImageContext::Direct2DImageContext(DirectX::DXGI::Adapter::Ptr adapter_) :
+        pimpl(new ImagePimpl{ *this, adapter_ })
     {
     }
 
@@ -122,10 +121,9 @@ namespace juce
 
     void Direct2DImageContext::clearTargetBuffer()
     {
-        if (clearImage)
-        {
-            pimpl->getDeviceContext()->Clear(pimpl->backgroundColor);
-        }
+        // 
+        // The bitmap was already cleared when it was created; do nothing here
+        //
     }
 
 } // namespace juce

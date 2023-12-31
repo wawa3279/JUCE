@@ -203,7 +203,8 @@ private:
         void create(ID2D1DeviceContext1* deviceContext_,
             Image::PixelFormat format,
             direct2d::DPIScalableArea<int> area_,
-            int lineStride_)
+            int lineStride_,
+            bool clearImage)
         {
             if (!bitmap)
             {
@@ -218,7 +219,7 @@ private:
                 // The bitmap may be slightly too large due
                 // to DPI scaling, so fill it with transparent black
                 //
-                if (bitmap)
+                if (bitmap && clearImage)
                 {
                     deviceContext_->SetTarget(bitmap);
                     deviceContext_->BeginDraw();

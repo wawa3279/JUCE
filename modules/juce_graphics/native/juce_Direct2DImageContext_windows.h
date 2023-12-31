@@ -23,7 +23,7 @@ namespace juce
     {
     public:
         /** Creates a context to render into an image. */
-        Direct2DImageContext(DirectX::DXGI::Adapter::Ptr adapter_, bool clearImage_);
+        Direct2DImageContext(DirectX::DXGI::Adapter::Ptr adapter_);
 
         ~Direct2DImageContext() override;
 
@@ -32,8 +32,6 @@ namespace juce
     private:
         struct ImagePimpl;
         std::unique_ptr<ImagePimpl> pimpl;
-
-        bool clearImage = true;
 
         Pimpl* getPimpl() const noexcept override;
         void clearTargetBuffer() override;

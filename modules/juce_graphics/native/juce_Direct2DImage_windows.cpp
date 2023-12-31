@@ -121,7 +121,7 @@ namespace juce
             imageAdapter = directX->dxgi.adapters.getDefaultAdapter();
 
         deviceResources.create(imageAdapter, area.getDPIScalingFactor());
-        adapterBitmap.create(deviceResources.deviceContext.context, pixelFormat, area, lineStride);
+        adapterBitmap.create(deviceResources.deviceContext.context, pixelFormat, area, lineStride, clearImage);
     }
 
     void Direct2DPixelData::release()
@@ -153,7 +153,7 @@ namespace juce
         auto bitmap = getAdapterD2D1Bitmap(imageAdapter);
         jassert(bitmap);
 
-        auto context = std::make_unique<Direct2DImageContext>(imageAdapter, clearImage);
+        auto context = std::make_unique<Direct2DImageContext>(imageAdapter);
         context->startFrame(bitmap, getDPIScalingFactor());
         context->clipToRectangle(deviceIndependentClipArea);
         context->setOrigin(deviceIndependentClipArea.getPosition());
