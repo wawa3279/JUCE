@@ -121,7 +121,7 @@ namespace juce
 
     void Direct2DImageContext::clearTargetBuffer()
     {
-        // 
+        //
         // The bitmap was already cleared when it was created; do nothing here
         //
     }

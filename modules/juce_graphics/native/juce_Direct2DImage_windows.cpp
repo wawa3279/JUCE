@@ -314,7 +314,7 @@ namespace juce
             // Direct2D does not support RGB bitmaps and there's quite a bit of legacy code that assumes the
             // actual bitmap format will match the requested format, despite the documentation saying otherwise
             // (including the JUCE Windows implementation of CameraDevice).
-            // 
+            //
             // Fall back to a software RGB image if RGB is requested
             //
             return SoftwareImageType{}.create(format, width, height, clearImage);
