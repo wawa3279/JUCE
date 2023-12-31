@@ -204,7 +204,7 @@ private:
             Image::PixelFormat format,
             direct2d::DPIScalableArea<int> area_,
             int lineStride_,
-            bool clearImage)
+            bool clearImage_)
         {
             if (!bitmap)
             {
@@ -219,7 +219,7 @@ private:
                 // The bitmap may be slightly too large due
                 // to DPI scaling, so fill it with transparent black
                 //
-                if (bitmap && clearImage)
+                if (bitmap && clearImage_)
                 {
                     deviceContext_->SetTarget(bitmap);
                     deviceContext_->BeginDraw();
