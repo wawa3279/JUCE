@@ -308,6 +308,7 @@ namespace juce
     Direct2DPixelData::Direct2DBitmapReleaser::~Direct2DBitmapReleaser()
     {
         mappableBitmap->unmap(pixelData.adapterBitmap.get(), mode);
+        pixelData.mappableBitmaps.removeObject(mappableBitmap);
     }
 
     //==============================================================================
