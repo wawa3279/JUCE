@@ -400,6 +400,28 @@ namespace juce
                 }
             }
 
+            {
+                int x = getRandom().nextInt(direct2DImage.getWidth());
+                
+                {
+                    Image::BitmapData direct2DBitmapData{ direct2DImage, Image::BitmapData::ReadWriteMode::writeOnly };
+
+                    for (int y = 0; y < direct2DBitmapData.height; ++y)
+                    {
+                        direct2DBitmapData.setPixelColour(x, y, juce::Colours::orange);
+                    }
+                }
+
+                {
+                    Image::BitmapData direct2DBitmapData{ direct2DImage, Image::BitmapData::ReadWriteMode::readOnly };
+
+                    for (int y = 0; y < direct2DBitmapData.height; ++y)
+                    {
+                        expect(direct2DBitmapData.getPixelColour(x, y) == juce::Colours::orange);
+                    }
+                }
+            }
+
         }
     };
 
