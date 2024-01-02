@@ -402,7 +402,7 @@ namespace juce
 
             {
                 int x = getRandom().nextInt(direct2DImage.getWidth());
-                
+
                 {
                     Image::BitmapData direct2DBitmapData{ direct2DImage, Image::BitmapData::ReadWriteMode::writeOnly };
 
