@@ -1091,7 +1091,7 @@ namespace juce
                 //
                 // Don't bother if the path would be invisible
                 //
-                if (! currentState->isCurrentBrushUsable() || p.isEmpty())
+                if (! currentState->isCurrentBrushUsable() || p.isEmpty() || p.getBounds().isEmpty())
                 {
                     return true;
                 }
@@ -1099,14 +1099,19 @@ namespace juce
                 //
                 // Use a cached geometry realisation?
                 //
+                auto pathBounds = p.getBounds();
+                auto transformedPathBounds = p.getBoundsTransformed(transform);
+                float xScale = transformedPathBounds.getWidth() / pathBounds.getWidth();
+                float yScale = transformedPathBounds.getHeight() / pathBounds.getHeight();
                 if (auto geometryRealisation = getPimpl()->getStrokedGeometryCache().getGeometryRealisation(p,
                     strokeType,
                     factory,
                     deviceContext,
-                    std::sqrt(std::abs(transform.getDeterminant())),
+                    xScale,
+                    yScale,
                     getPhysicalPixelScaleFactor()))
                 {
-                    updateDeviceContextTransform(transform);
+                    updateDeviceContextTransform(AffineTransform::scale(1.0f / xScale, 1.0f / yScale).followedBy(transform));
                     deviceContext->DrawGeometryRealization(geometryRealisation, currentState->currentBrush);
                     return true;
                 }
