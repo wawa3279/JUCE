@@ -2956,7 +2956,7 @@ protected:
             doMouseEvent (getCurrentMousePos(), MouseInputSource::defaultPressure);
     }
 
-    ComponentPeer* findPeerUnderMouse (Point<float>& localPos)
+    std::tuple<ComponentPeer*, Point<float>> findPeerUnderMouse()
     {
         auto currentMousePos = getPOINTFromLParam ((LPARAM) GetMessagePos());
 
@@ -2967,8 +2967,7 @@ protected:
         if (peer == nullptr)
             peer = this;
 
-        localPos = peer->globalToLocal (convertPhysicalScreenPointToLogical (pointFromPOINT (currentMousePos), hwnd).toFloat());
-        return peer;
+        return std::tuple (peer, peer->globalToLocal (convertPhysicalScreenPointToLogical (pointFromPOINT (currentMousePos), hwnd).toFloat()));
     }
 
     static MouseInputSource::InputSourceType getPointerType (WPARAM wParam)
@@ -3002,9 +3001,7 @@ protected:
         wheel.isSmooth = false;
         wheel.isInertial = false;
 
-        Point<float> localPos;
-
-        if (auto* peer = findPeerUnderMouse (localPos))
+        if (const auto [peer, localPos] = findPeerUnderMouse(); peer != nullptr)
             peer->handleMouseWheel (getPointerType (wParam), localPos, getMouseEventTime(), wheel);
     }
 
@@ -3017,9 +3014,8 @@ protected:
         if (getGestureInfo != nullptr && getGestureInfo ((HGESTUREINFO) lParam, &gi))
         {
             updateKeyModifiers();
-            Point<float> localPos;
 
-            if (auto* peer = findPeerUnderMouse (localPos))
+            if (const auto [peer, localPos] = findPeerUnderMouse(); peer != nullptr)
             {
                 switch (gi.dwID)
                 {
