@@ -211,7 +211,7 @@ private:
                 }
             }
         }
-    } adapterBitmap;
+    };
 
     class MappableBitmap : public direct2d::Direct2DBitmap, public ReferenceCountedObject
     {
@@ -316,6 +316,7 @@ private:
     direct2d::DPIScalableArea<int> area;
     const int                 pixelStride, lineStride;
     bool const                clearImage;
+    AdapterBitmap adapterBitmap;
     ReferenceCountedArray<MappableBitmap> mappableBitmaps;
 
     JUCE_LEAK_DETECTOR(Direct2DPixelData)
