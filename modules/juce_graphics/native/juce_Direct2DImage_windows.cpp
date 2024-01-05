@@ -66,12 +66,12 @@ namespace juce
         DirectX::DXGI::Adapter::Ptr adapter_)
         : ImagePixelData(source_->pixelFormat, source_->width, source_->height),
         deviceIndependentClipArea(clipArea_ + source_->deviceIndependentClipArea.getPosition()),
-        adapterBitmap(source_->adapterBitmap),
         imageAdapter(adapter_),
         area(source_->area.withZeroOrigin()),
         pixelStride(source_->pixelStride),
         lineStride(source_->lineStride),
-        clearImage(false)
+        clearImage(false),
+        adapterBitmap(source_->adapterBitmap)
     {
         createAdapterBitmap();
 
