@@ -1111,7 +1111,7 @@ namespace juce
                     yScale,
                     getPhysicalPixelScaleFactor()))
                 {
-                    updateDeviceContextTransform(AffineTransform::scale(1.0f / xScale, 1.0f / yScale).followedBy(transform));
+                    updateDeviceContextTransform(AffineTransform::scale(1.0f / xScale, 1.0f / yScale, pathBounds.getX(), pathBounds.getY()).followedBy(transform));
                     deviceContext->DrawGeometryRealization(geometryRealisation, currentState->currentBrush);
                     return true;
                 }

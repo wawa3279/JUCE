@@ -436,7 +436,7 @@ namespace juce
 #if JUCE_DIRECT2D_METRICS
                         auto t1 = Time::getHighResolutionTicks();
 #endif
-                        auto transform = AffineTransform::scale(xScaleFactor, yScaleFactor, path.getBounds().getCentreX(), path.getBounds().getCentreY());
+                        auto transform = AffineTransform::scale(xScaleFactor, yScaleFactor, path.getBounds().getX(), path.getBounds().getY());
                         if (auto geometry = direct2d::pathToPathGeometry(factory, path, transform, D2D1_FIGURE_BEGIN_HOLLOW))
                         {
 #if JUCE_DIRECT2D_METRICS
