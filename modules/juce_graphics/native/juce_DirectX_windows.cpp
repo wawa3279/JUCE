@@ -112,7 +112,7 @@ DirectX::Direct2D::Direct2D()
 {
     {
         D2D1_FACTORY_OPTIONS options;
-#if JUCE_DEBUG
+#if JUCE_DIRECTX_DEBUG
         options.debugLevel = D2D1_DEBUG_LEVEL_INFORMATION;
 #else
         options.debugLevel = D2D1_DEBUG_LEVEL_NONE;
