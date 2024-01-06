@@ -209,6 +209,7 @@ private:
                     deviceContext_->EndDraw();
                     deviceContext_->SetTarget(nullptr);
                 }
+
             }
         }
     };
@@ -276,11 +277,32 @@ private:
             {
                 if (adapterD2D1Bitmap && mode != Image::BitmapData::readOnly)
                 {
-                    auto size = bitmap->GetPixelSize();
+                    if (rgbProxyImage.isValid())
+                    {
+                        //
+                        // Convert the RGB data back to ARGB and then copy the ARGB data to the
+                        // GPU
+                        //
+                        auto argbProxyImage = rgbProxyImage.convertedToFormat(Image::ARGB);
+                        Image::BitmapData argbProxyBitmapData{ argbProxyImage, Image::BitmapData::readOnly };
 
-                    D2D1_RECT_U rect{ 0, 0, size.width, size.height };
-                    adapterD2D1Bitmap->CopyFromMemory(&rect, mappedRect.bits, mappedRect.pitch);
+                        D2D1_RECT_U rect{ 0, 0, (uint32)argbProxyImage.getWidth(), (uint32)argbProxyImage.getHeight() };
+                        adapterD2D1Bitmap->CopyFromMemory(&rect, argbProxyBitmapData.data, argbProxyBitmapData.lineStride);
+                    }
+                    else
+                    {
+                        //
+                        // Copy data to the GPU
+                        //
+                        auto size = bitmap->GetPixelSize();
+
+                        D2D1_RECT_U rect{ 0, 0, size.width, size.height };
+                        adapterD2D1Bitmap->CopyFromMemory(&rect, mappedRect.bits, mappedRect.pitch);
+                    }
                 }
+
+                rgbProxyBitmapData = nullptr;
+                rgbProxyImage = {};
 
                 bitmap->Unmap();
             }
@@ -289,6 +311,8 @@ private:
         }
 
         D2D1_MAPPED_RECT          mappedRect{};
+        Image rgbProxyImage;
+        std::unique_ptr<Image::BitmapData> rgbProxyBitmapData;
 
         using Ptr = ReferenceCountedObjectPtr<MappableBitmap>;
 

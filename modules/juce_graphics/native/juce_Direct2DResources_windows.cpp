@@ -1,4 +1,5 @@
 /*
+/*
   ==============================================================================
 
    This file is part of the JUCE 8 technical preview.
@@ -122,8 +123,21 @@ namespace juce
                 Image::BitmapData bitmapData{ convertedImage, Image::BitmapData::readOnly };
 
                 D2D1_BITMAP_PROPERTIES1 bitmapProperties{};
-                bitmapProperties.pixelFormat.format = format == Image::PixelFormat::ARGB ? DXGI_FORMAT_B8G8R8A8_UNORM : DXGI_FORMAT_R8_UNORM;
+                bitmapProperties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
                 bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_PREMULTIPLIED;
+                switch (format)
+                {
+                case Image::RGB:
+                    bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_IGNORE;
+                    break;
+
+                case Image::SingleChannel:
+                    bitmapProperties.pixelFormat.format = DXGI_FORMAT_R8_UNORM;
+                    break;
+
+                default:
+                    break;
+                }
 
                 D2D1_SIZE_U size = { (UINT32)image.getWidth(), (UINT32)image.getHeight() };
 
@@ -148,6 +162,20 @@ namespace juce
                     bitmapProperties.pixelFormat.format =
                         (format == Image::SingleChannel) ? DXGI_FORMAT_A8_UNORM : DXGI_FORMAT_B8G8R8A8_UNORM;
                     bitmapProperties.bitmapOptions = options;
+
+                    switch (format)
+                    {
+                    case Image::RGB:
+                        bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_IGNORE;
+                            break;
+
+                    case Image::SingleChannel:
+                        bitmapProperties.pixelFormat.format = DXGI_FORMAT_R8_UNORM;
+                        break;
+
+                    default:
+                        break;
+                    }
 
                     deviceContext->CreateBitmap(
                         size,

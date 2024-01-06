@@ -46,7 +46,7 @@ namespace juce
         direct2d::DPIScalableArea<int> area_,
         bool clearImage_,
         DirectX::DXGI::Adapter::Ptr adapter_)
-        : ImagePixelData((formatToUse == Image::SingleChannel) ? Image::SingleChannel : Image::ARGB,
+        : ImagePixelData(formatToUse,
             area_.getDeviceIndependentWidth(),
             area_.getDeviceIndependentHeight()),
         deviceIndependentClipArea(area_.withZeroOrigin().getDeviceIndependentArea()),
@@ -66,24 +66,24 @@ namespace juce
         DirectX::DXGI::Adapter::Ptr adapter_)
         : ImagePixelData(source_->pixelFormat, source_->width, source_->height),
         deviceIndependentClipArea(clipArea_ + source_->deviceIndependentClipArea.getPosition()),
+        adapterBitmap(source_->adapterBitmap),
         imageAdapter(adapter_),
         area(source_->area.withZeroOrigin()),
         pixelStride(source_->pixelStride),
         lineStride(source_->lineStride),
-        clearImage(false),
-        adapterBitmap(source_->adapterBitmap)
+        clearImage(false)
     {
         createAdapterBitmap();
 
         directX->dxgi.adapters.listeners.add(this);
     }
 
-    Direct2DPixelData::Direct2DPixelData(Image::PixelFormat /* formatToUse */,
+    Direct2DPixelData::Direct2DPixelData(Image::PixelFormat formatToUse,
         direct2d::DPIScalableArea<int> area_,
         bool clearImage_,
         ID2D1Bitmap1* d2d1Bitmap,
         DirectX::DXGI::Adapter::Ptr adapter_)
-        : ImagePixelData(Image::ARGB,
+        : ImagePixelData(formatToUse,
             area_.getDeviceIndependentWidth(),
             area_.getDeviceIndependentHeight()),
         deviceIndependentClipArea(area_.getDeviceIndependentArea()),
@@ -222,9 +222,29 @@ namespace juce
             mappableBitmaps.add(mappableBitmap);
         }
 
-        bitmap.lineStride = (int) mappableBitmap->mappedRect.pitch;
+        bitmap.lineStride = (int)mappableBitmap->mappedRect.pitch;
         bitmap.data = mappableBitmap->mappedRect.bits;
-        bitmap.size = (size_t) mappableBitmap->mappedRect.pitch * (size_t) height;
+        bitmap.size = (size_t)mappableBitmap->mappedRect.pitch * (size_t)height;
+
+        if (pixelFormat == Image::RGB && bitmap.data)
+        {
+            //
+            // Direct2D doesn't support RGB formats, but some legacy code assumes that the pixel stride is 3.
+            // Convert the ARGB data to RGB
+            // The alpha mode should be set to D2D1_ALPHA_MODE_IGNORE, so the alpha value can be skipped.
+            //
+            auto softwareImage = SoftwareImageType{}.convertFromBitmapData(bitmap);
+            mappableBitmap->rgbProxyImage = softwareImage.convertedToFormat(Image::RGB);
+            mappableBitmap->rgbProxyBitmapData = std::make_unique<Image::BitmapData>(mappableBitmap->rgbProxyImage, mode);
+
+            //
+            // Change the bitmap data to refer to the RGB proxy
+            //
+            bitmap.pixelStride = mappableBitmap->rgbProxyBitmapData->pixelStride;
+            bitmap.lineStride = mappableBitmap->rgbProxyBitmapData->lineStride;
+            bitmap.data = mappableBitmap->rgbProxyBitmapData->data;
+            bitmap.size = mappableBitmap->rgbProxyBitmapData->size;
+        }
 
         auto bitmapDataScaledArea = direct2d::DPIScalableArea<int>::fromDeviceIndependentArea({ bitmap.width, bitmap.height }, area.getDPIScalingFactor());
         bitmap.width = bitmapDataScaledArea.getPhysicalArea().getWidth();
@@ -318,18 +338,6 @@ namespace juce
 
     ImagePixelData::Ptr NativeImageType::create(Image::PixelFormat format, int width, int height, bool clearImage) const
     {
-        if (format == Image::RGB)
-        {
-            //
-            // Direct2D does not support RGB bitmaps and there's quite a bit of legacy code that assumes the
-            // actual bitmap format will match the requested format, despite the documentation saying otherwise
-            // (including the JUCE Windows implementation of CameraDevice).
-            //
-            // Fall back to a software RGB image if RGB is requested
-            //
-            return SoftwareImageType{}.create(format, width, height, clearImage);
-        }
-
         auto area = direct2d::DPIScalableArea<int>::fromDeviceIndependentArea({ width, height }, scaleFactor);
         return new Direct2DPixelData{ format, area, clearImage };
     }
