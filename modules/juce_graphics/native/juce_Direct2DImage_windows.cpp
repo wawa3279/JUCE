@@ -361,6 +361,9 @@ namespace juce
             auto direct2DImage = NativeImageType{}.convert(softwareImage);
 
             {
+                //
+                // Bitmap data should match after conversion
+                //
                 Image::BitmapData softwareBitmapData{ softwareImage, Image::BitmapData::ReadWriteMode::readOnly };
                 Image::BitmapData direct2DBitmapData{ direct2DImage, Image::BitmapData::ReadWriteMode::readOnly };
 
@@ -377,8 +380,13 @@ namespace juce
             }
 
             {
-                Rectangle<int> area1{ 10, 10, 50, 50 };
-                Rectangle<int> area2{ 30, 70, 20, 20 };
+                //
+                // Subsection data should match
+                //
+                // Should be able to have two different BitmapData objects simultaneously for the same source image
+                //
+                Rectangle<int> area1 = randomRectangleWithin(softwareImage.getBounds());
+                Rectangle<int> area2 = randomRectangleWithin(softwareImage.getBounds());
                 Image::BitmapData softwareBitmapData{ softwareImage, Image::BitmapData::ReadWriteMode::readOnly };
                 Image::BitmapData direct2DBitmapData1{ direct2DImage, area1.getX(), area1.getY(), area1.getWidth(), area1.getHeight(), Image::BitmapData::ReadWriteMode::readOnly };
                 Image::BitmapData direct2DBitmapData2{ direct2DImage, area2.getX(), area2.getY(), area2.getWidth(), area2.getHeight(), Image::BitmapData::ReadWriteMode::readOnly };
@@ -401,6 +409,21 @@ namespace juce
             }
 
             {
+                //
+                // BitmapData width & height should match
+                //
+                Rectangle<int> area = randomRectangleWithin(softwareImage.getBounds());
+                Image::BitmapData softwareBitmapData{ softwareImage, area.getX(), area.getY(), area.getWidth(), area.getHeight(), Image::BitmapData::ReadWriteMode::readOnly };
+                Image::BitmapData direct2DBitmapData{ direct2DImage, area.getX(), area.getY(), area.getWidth(), area.getHeight(), Image::BitmapData::ReadWriteMode::readOnly };
+
+                expect(softwareBitmapData.width == direct2DBitmapData.width);
+                expect(softwareBitmapData.height == direct2DBitmapData.height);
+            }
+
+            {
+                //
+                // Check read and write modes
+                //
                 int x = getRandom().nextInt(direct2DImage.getWidth());
 
                 {
@@ -421,7 +444,15 @@ namespace juce
                     }
                 }
             }
+        }
 
+        Rectangle<int> randomRectangleWithin(Rectangle<int> container) const noexcept
+        {
+            auto x = getRandom().nextInt(container.getWidth() - 1);
+            auto y = getRandom().nextInt(container.getHeight() - 1);
+            auto h = getRandom().nextInt(container.getHeight() - x);
+            auto w = getRandom().nextInt(container.getWidth() - y);
+            return Rectangle<int>{ x, y, w, h };
         }
     };
 
