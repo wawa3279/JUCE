@@ -226,7 +226,7 @@ namespace juce
         bitmap.data = mappableBitmap->mappedRect.bits;
         bitmap.size = (size_t) mappableBitmap->mappedRect.pitch * (size_t) height;
 
-        auto bitmapDataScaledArea = direct2d::DPIScalableArea<int>::fromDeviceIndependentArea({ width, height }, area.getDPIScalingFactor());
+        auto bitmapDataScaledArea = direct2d::DPIScalableArea<int>::fromDeviceIndependentArea({ bitmap.width, bitmap.height }, area.getDPIScalingFactor());
         bitmap.width = bitmapDataScaledArea.getPhysicalArea().getWidth();
         bitmap.height = bitmapDataScaledArea.getPhysicalArea().getHeight();
 
