@@ -1164,16 +1164,19 @@ namespace juce
             //
             if (auto direct2DPixelData = dynamic_cast<Direct2DPixelData*> (image.getPixelData()))
             {
-                if (auto bitmap = direct2DPixelData->getAdapterD2D1Bitmap(getPimpl()->getAdapter()))
+                if (image.getFormat() == Image::ARGB)
                 {
-                    D2D1_RECT_F sourceRectangle = direct2d::rectangleToRectF(direct2DPixelData->deviceIndependentClipArea);
-                    deviceContext->DrawBitmap(bitmap,
-                        nullptr,
-                        currentState->fillType.getOpacity(),
-                        currentState->interpolationMode,
-                        &sourceRectangle,
-                        {});
-                    return;
+                    if (auto bitmap = direct2DPixelData->getAdapterD2D1Bitmap(getPimpl()->getAdapter()))
+                    {
+                        D2D1_RECT_F sourceRectangle = direct2d::rectangleToRectF(direct2DPixelData->deviceIndependentClipArea);
+                        deviceContext->DrawBitmap(bitmap,
+                            nullptr,
+                            currentState->fillType.getOpacity(),
+                            currentState->interpolationMode,
+                            &sourceRectangle,
+                            {});
+                        return;
+                    }
                 }
             }
 
