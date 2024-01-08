@@ -1,5 +1,4 @@
 /*
-/*
   ==============================================================================
 
    This file is part of the JUCE 8 technical preview.
@@ -135,6 +134,11 @@ namespace juce
                     bitmapProperties.pixelFormat.format = DXGI_FORMAT_R8_UNORM;
                     break;
 
+                case Image::UnknownFormat:
+                    jassertfalse;
+                    break;
+
+                case Image::ARGB:
                 default:
                     break;
                 }
@@ -173,6 +177,11 @@ namespace juce
                         bitmapProperties.pixelFormat.format = DXGI_FORMAT_R8_UNORM;
                         break;
 
+                    case Image::UnknownFormat:
+                        jassertfalse;
+                        break;
+
+                    case Image::ARGB:
                     default:
                         break;
                     }

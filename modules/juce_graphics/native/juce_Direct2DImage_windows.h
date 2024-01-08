@@ -287,7 +287,7 @@ private:
                         Image::BitmapData argbProxyBitmapData{ argbProxyImage, Image::BitmapData::readOnly };
 
                         D2D1_RECT_U rect{ 0, 0, (uint32)argbProxyImage.getWidth(), (uint32)argbProxyImage.getHeight() };
-                        adapterD2D1Bitmap->CopyFromMemory(&rect, argbProxyBitmapData.data, argbProxyBitmapData.lineStride);
+                        adapterD2D1Bitmap->CopyFromMemory(&rect, argbProxyBitmapData.data, (uint32)argbProxyBitmapData.lineStride);
                     }
                     else
                     {
