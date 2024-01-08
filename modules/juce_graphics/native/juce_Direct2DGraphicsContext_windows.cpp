@@ -1160,13 +1160,13 @@ namespace juce
             updateDeviceContextTransform(transform);
 
             //
-            // Is this a Direct2D image already?
+            // Is this a Direct2D image already with the correct format?
             //
             if (auto direct2DPixelData = dynamic_cast<Direct2DPixelData*> (image.getPixelData()))
             {
-                if (image.getFormat() == Image::ARGB)
+                if (auto bitmap = direct2DPixelData->getAdapterD2D1Bitmap(getPimpl()->getAdapter()))
                 {
-                    if (auto bitmap = direct2DPixelData->getAdapterD2D1Bitmap(getPimpl()->getAdapter()))
+                    if (bitmap->GetPixelFormat().format == DXGI_FORMAT_B8G8R8A8_UNORM)
                     {
                         D2D1_RECT_F sourceRectangle = direct2d::rectangleToRectF(direct2DPixelData->deviceIndependentClipArea);
                         deviceContext->DrawBitmap(bitmap,
