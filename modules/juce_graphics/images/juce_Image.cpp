@@ -354,12 +354,20 @@ Image Image::convertedToFormat(PixelFormat newFormat) const
     Image newImage (type->create (newFormat, w, h, false));
 
     /*
-                                      New format
-                     SingleChannel       RGB             ARGB
-    Source format   --------------------------------------------------------------
-    SingleChannel  |     N/A             Fill black      Copy alpha values
-    RGB            | Fill 255 alpha      N/A             Copy RGB values, 255 alpha
-    ARGB           | Copy alpha values   Copy RGB values N/A
+                   |                |
+    Source format  | New format     |
+    ---------------|----------------|---------------------------------------------------------------
+    SingleChannel  | SingleChannel  | N/A  Fill black
+    SingleChannel  | RGB            | Fill 255 alpha
+    SingleChannel  | ARGB           | Copy alpha values
+
+    RGB            | SingleChannel  | Fill 255 alpha
+    RGB            | RGB            | N/A
+    RGB            | ARGB           | Copy RGB values with 255 alpha
+
+    ARGB           | SingleChannel  | Copy alpha values
+    ARGB           | RGB            | Copy RGB values
+    ARGB           | ARGB           | N/A
 
     */
 
@@ -386,14 +394,9 @@ Image Image::convertedToFormat(PixelFormat newFormat) const
 
     case RGB:
     {
-        if (image->pixelFormat == SingleChannel)
-        {
-            //
-            // SingleChannel -> RGB
-            //
-            newImage.clear(getBounds(), Colours::black);
-        }
-        else
+        newImage.clear(getBounds());
+
+        if (image->pixelFormat == ARGB)
         {
             //
             // ARGB -> RGB
@@ -417,6 +420,8 @@ Image Image::convertedToFormat(PixelFormat newFormat) const
             //
             // RGB -> ARGB
             //
+            newImage.clear(getBounds());
+
             convertBitmapData<PixelRGB, PixelARGB>(*this, newImage);
         }
         break;
