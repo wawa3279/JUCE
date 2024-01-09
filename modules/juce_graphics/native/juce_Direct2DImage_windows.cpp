@@ -51,7 +51,7 @@ namespace juce
             area_.getDeviceIndependentHeight()),
         deviceIndependentClipArea(area_.withZeroOrigin().getDeviceIndependentArea()),
         imageAdapter(adapter_),
-        area(area_.withZeroOrigin()),
+        bitmapArea(area_.withZeroOrigin()),
         pixelStride((formatToUse == Image::SingleChannel) ? 1 : 4),
         lineStride((pixelStride* jmax(1, width) + 3) & ~3),
         clearImage(clearImage_)
@@ -67,7 +67,7 @@ namespace juce
         : ImagePixelData(source_->pixelFormat, source_->width, source_->height),
         deviceIndependentClipArea(clipArea_ + source_->deviceIndependentClipArea.getPosition()),
         imageAdapter(adapter_),
-        area(source_->area.withZeroOrigin()),
+        bitmapArea(source_->bitmapArea.withZeroOrigin()),
         pixelStride(source_->pixelStride),
         lineStride(source_->lineStride),
         clearImage(false),
@@ -88,7 +88,7 @@ namespace juce
             area_.getDeviceIndependentHeight()),
         deviceIndependentClipArea(area_.getDeviceIndependentArea()),
         imageAdapter(adapter_),
-        area(area_.withZeroOrigin()),
+        bitmapArea(area_.withZeroOrigin()),
         pixelStride(4),
         lineStride((pixelStride* jmax(1, width) + 3) & ~3),
         clearImage(clearImage_)
@@ -98,7 +98,7 @@ namespace juce
             imageAdapter = directX->dxgi.adapters.getDefaultAdapter();
         }
 
-        deviceResources.create(imageAdapter, area.getDPIScalingFactor());
+        deviceResources.create(imageAdapter, getDPIScalingFactor());
 
         adapterBitmap.set(d2d1Bitmap);
 
@@ -120,8 +120,8 @@ namespace juce
         if (!imageAdapter || !imageAdapter->direct2DDevice)
             imageAdapter = directX->dxgi.adapters.getDefaultAdapter();
 
-        deviceResources.create(imageAdapter, area.getDPIScalingFactor());
-        adapterBitmap.create(deviceResources.deviceContext.context, pixelFormat, area, lineStride, clearImage);
+        deviceResources.create(imageAdapter, getDPIScalingFactor());
+        adapterBitmap.create(deviceResources.deviceContext.context, pixelFormat, bitmapArea, lineStride, clearImage);
     }
 
     void Direct2DPixelData::release()
@@ -217,7 +217,7 @@ namespace juce
                 Rectangle<int>{ x, y, width, height },
                 deviceResources.deviceContext.context,
                 deviceIndependentClipArea,
-                area.getDPIScalingFactor(),
+                getDPIScalingFactor(),
                 lineStride);
             mappableBitmaps.add(mappableBitmap);
         }
@@ -245,7 +245,7 @@ namespace juce
             bitmap.size = mappableBitmap->rgbProxyBitmapData->size;
         }
 
-        auto bitmapDataScaledArea = direct2d::DPIScalableArea<int>::fromDeviceIndependentArea({ bitmap.width, bitmap.height }, area.getDPIScalingFactor());
+        auto bitmapDataScaledArea = direct2d::DPIScalableArea<int>::fromDeviceIndependentArea({ bitmap.width, bitmap.height }, getDPIScalingFactor());
         bitmap.width = bitmapDataScaledArea.getPhysicalArea().getWidth();
         bitmap.height = bitmapDataScaledArea.getPhysicalArea().getHeight();
 
@@ -256,13 +256,16 @@ namespace juce
 
     ImagePixelData::Ptr Direct2DPixelData::clone()
     {
+        auto sourceArea = direct2d::DPIScalableArea<int>::fromDeviceIndependentArea(deviceIndependentClipArea, getDPIScalingFactor());
+        sourceArea.clipToPhysicalArea(bitmapArea.getPhysicalArea());
+
         auto clone = new Direct2DPixelData{ pixelFormat,
-            area,
+            sourceArea,
             false,
             imageAdapter };
 
         D2D1_POINT_2U destinationPoint{ 0, 0 };
-        auto sourceRectU = area.getPhysicalAreaD2DRectU();
+        auto sourceRectU = sourceArea.getPhysicalAreaD2DRectU();
         auto sourceD2D1Bitmap = getAdapterD2D1Bitmap(imageAdapter);
         auto destinationD2D1Bitmap = clone->getAdapterD2D1Bitmap(imageAdapter);
         if (sourceD2D1Bitmap && destinationD2D1Bitmap)
@@ -282,21 +285,19 @@ namespace juce
     {
         sourceArea = sourceArea.getIntersection({ width, height });
 
-        return new Direct2DPixelData{ pixelFormat,
-            direct2d::DPIScalableArea<int>::fromDeviceIndependentArea(sourceArea, area.getDPIScalingFactor()),
-            false,
-            getAdapterD2D1Bitmap(imageAdapter),
+        return new Direct2DPixelData{ this,
+            sourceArea,
             imageAdapter };
     }
 
     float Direct2DPixelData::getDPIScalingFactor() const noexcept
     {
-        return area.getDPIScalingFactor();
+        return bitmapArea.getDPIScalingFactor();
     }
 
     std::unique_ptr<ImageType> Direct2DPixelData::createType() const
     {
-        return std::make_unique<NativeImageType>(area.getDPIScalingFactor());
+        return std::make_unique<NativeImageType>(getDPIScalingFactor());
     }
 
     void Direct2DPixelData::adapterCreated(DirectX::DXGI::Adapter::Ptr adapter)

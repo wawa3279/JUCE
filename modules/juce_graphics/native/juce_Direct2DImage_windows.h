@@ -337,7 +337,7 @@ private:
     SharedResourcePointer<DirectX> directX;
     DirectX::DXGI::Adapter::Ptr imageAdapter;
     direct2d::DeviceResources deviceResources;
-    direct2d::DPIScalableArea<int> area;
+    direct2d::DPIScalableArea<int> bitmapArea;
     const int                 pixelStride, lineStride;
     bool const                clearImage;
     AdapterBitmap adapterBitmap;
