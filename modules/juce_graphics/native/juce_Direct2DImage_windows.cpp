@@ -373,6 +373,8 @@ namespace juce
             auto y = getRandom().nextInt(container.getHeight() - 1);
             auto h = getRandom().nextInt(container.getHeight() - x);
             auto w = getRandom().nextInt(container.getWidth() - y);
+            h = jmax(h, 1);
+            w = jmax(w, 1);
             return Rectangle<int>{ x, y, w, h };
         }
 
