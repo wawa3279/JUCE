@@ -1019,7 +1019,20 @@ namespace juce
 
     void Direct2DGraphicsContext::fillRectList(const RectangleList<float>& list)
     {
-        for (auto& r : list) fillRect(r);
+        if (auto deviceContext = getPimpl()->getDeviceContext())
+        {
+            if (!currentState->isCurrentBrushUsable())
+            {
+                return;
+            }
+
+            updateDeviceContextTransform();
+
+            for (auto const& r : list)
+            {
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(r), currentState->currentBrush);
+            }
+        }
     }
 
     bool Direct2DGraphicsContext::drawRect(const Rectangle<float>& r, float lineThickness)
@@ -1381,7 +1394,8 @@ namespace juce
             //
             getPimpl()->glyphRun.ensureStorageAllocated(numGlyphs);
 
-            auto const& font = glyphs[startIndex].getFont();
+            auto const& firstGlyph = glyphs[startIndex];
+            auto const& font = firstGlyph.getFont();
             auto        fontHorizontalScale = font.getHorizontalScale();
             auto        inverseHScale = fontHorizontalScale > 0.0f ? 1.0f / fontHorizontalScale : 1.0f;
 
