@@ -466,24 +466,18 @@ namespace juce
             // Check read and write modes
             //
             int x = getRandom().nextInt(image.getWidth());
-            auto writeColor = makeRandomColor();
+            auto writeColor = makeRandomColor().withAlpha(1.0f);
             auto expectedColor = writeColor;
             switch (image.getFormat())
             {
-            case Image::RGB:
-            {
-                auto pixelARGB = writeColor.getPixelARGB(); // get premultiplied pixelARGB value
-                expectedColor = Colour{ pixelARGB }.withAlpha((uint8)255); // convert back to Colour with 255 alpha
-                break;
-            }
-
             case Image::SingleChannel:
             {
-                uint8 alpha = writeColor.getAlpha();
-                expectedColor = Colour{ alpha, alpha, alpha, (uint8)255 };
+                auto alpha = writeColor.getAlpha();
+                expectedColor = Colour{ alpha, alpha, alpha, alpha };
                 break;
             }
 
+            case Image::RGB:
             case Image::ARGB:
                 break;
 
@@ -508,8 +502,7 @@ namespace juce
                 for (int y = 0; y < data.height; ++y)
                 {
                     auto color = data.getPixelColour(x, y);
-                    auto deltaRed = std::abs((int)color.getRed() - (int)expectedColor.getRed());
-                    expect(deltaRed <= 2);
+                    expect(color == expectedColor);
                 }
             }
         }
