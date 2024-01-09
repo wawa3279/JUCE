@@ -124,7 +124,7 @@ Image ImageType::convertFromBitmapData (Image::BitmapData const& src) const
     if (src.pixelStride == dest.pixelStride && src.pixelFormat == dest.pixelFormat)
     {
         for (int y = 0; y < dest.height; ++y)
-            memcpy (dest.getLinePointer (y), src.getLinePointer (y), (size_t) dest.lineStride);
+            memcpy (dest.getLinePointer (y), src.getLinePointer (y), (size_t) dest.pixelStride * (size_t)dest.width);
     }
     else
     {
