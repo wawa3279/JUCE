@@ -64,7 +64,7 @@ namespace juce
     Direct2DPixelData::Direct2DPixelData(ReferenceCountedObjectPtr<Direct2DPixelData> source_,
         Rectangle<int> clipArea_,
         DirectX::DXGI::Adapter::Ptr adapter_)
-        : ImagePixelData(source_->pixelFormat, source_->width, source_->height),
+        : ImagePixelData(source_->pixelFormat, clipArea_.getWidth(), clipArea_.getHeight()),
         deviceIndependentClipArea(clipArea_ + source_->deviceIndependentClipArea.getPosition()),
         imageAdapter(adapter_),
         bitmapArea(source_->bitmapArea.withZeroOrigin()),
