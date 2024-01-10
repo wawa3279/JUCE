@@ -1447,6 +1447,31 @@ class HWNDComponentPeer  : public ComponentPeer,
                           #if JUCE_MODULE_AVAILABLE_juce_audio_plugin_client
                            , public ModifierKeyReceiver
                           #endif
+        jassert (callback);
+        startTimer (intervalMs);
+    }
+
+    ~SimpleTimer() override
+    {
+        stopTimer();
+    }
+
+private:
+    void timerCallback() override
+    {
+        callback();
+    }
+
+    std::function<void()> callback;
+};
+
+//==============================================================================
+class HWNDComponentPeer final : public ComponentPeer,
+                                private VBlankListener,
+                                private Timer
+                               #if JUCE_MODULE_AVAILABLE_juce_audio_plugin_client
+                                , public ModifierKeyReceiver
+                               #endif
 {
 public:
     enum
@@ -1454,12 +1479,7 @@ public:
         softwareRenderingEngine = 0
     };
 
-    //==============================================================================
-    HWNDComponentPeer (Component& comp, int windowStyleFlags, HWND parent, bool nonRepainting, int currentRenderingEngine_ = softwareRenderingEngine)
-        : ComponentPeer (comp, windowStyleFlags),
-          dontRepaint (nonRepainting),
-          parentToAddTo (parent),
-          currentRenderingEngine (currentRenderingEngine_)
+        createWindow();
     {
     }
 
@@ -1479,7 +1499,12 @@ public:
             return ModifierKeys::currentModifiers;
         };
 
-        createWindow();
+        updateCurrentMonitorAndRefreshVBlankDispatcher();
+
+        if (parentToAddTo != nullptr)
+            monitorUpdateTimer.emplace (1000, [this] { updateCurrentMonitorAndRefreshVBlankDispatcher(); });
+
+        suspendResumeRegistration = ScopedSuspendResumeNotificationRegistration { hwnd };
     }
 
     ~HWNDComponentPeer() override
@@ -4487,7 +4512,7 @@ protected:
 
     RectangleList<int> deferredRepaints;
     ScopedSuspendResumeNotificationRegistration suspendResumeRegistration;
-    std::optional<SimpleTimer> monitorUpdateTimer;
+    std::optional<TimedCallback> monitorUpdateTimer;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HWNDComponentPeer)
