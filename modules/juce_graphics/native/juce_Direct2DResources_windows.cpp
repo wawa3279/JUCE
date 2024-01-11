@@ -116,15 +116,25 @@ namespace juce
         class Direct2DBitmap
         {
         public:
-            static Direct2DBitmap fromImage(Image const& image, ID2D1DeviceContext1* deviceContext, Image::PixelFormat format)
+            static Direct2DBitmap fromImage(Image const& image, ID2D1DeviceContext1* deviceContext, Image::PixelFormat outputFormat)
             {
-                auto              convertedImage = image.convertedToFormat(format);
-                Image::BitmapData bitmapData{ convertedImage, Image::BitmapData::readOnly };
+                jassert(outputFormat == Image::ARGB || outputFormat == Image::SingleChannel);
+                jassert(!image.getPixelData()->createType()->getTypeID() != NativeImageType{}.getTypeID());
+
+                //
+                // Calling Image::convertedToFormat could cause unchecked recursion since convertedToFormat
+                // calls Graphics::drawImageAt which calls Direct2DGraphicsContext::drawImage which calls this function...
+                //
+                // Use a software image for the conversion instead so the Graphics::drawImageAt call doesn't go
+                // through the Direct2D renderer
+                //
+                Image convertedImage = SoftwareImageType{}.convert(image).convertedToFormat(outputFormat);
+                Image::BitmapData bitmapData{ convertedImage, Image::BitmapData::readWrite };
 
                 D2D1_BITMAP_PROPERTIES1 bitmapProperties{};
                 bitmapProperties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
                 bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_PREMULTIPLIED;
-                switch (format)
+                switch (outputFormat)
                 {
                 case Image::RGB:
                     bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_IGNORE;
@@ -194,12 +204,12 @@ namespace juce
                 }
             }
 
-            void set(ID2D1Bitmap1* bitmap_)
+            void setD2D1Bitmap(ID2D1Bitmap1* bitmap_)
             {
                 bitmap = bitmap_;
             }
 
-            ID2D1Bitmap1* get() const noexcept
+            ID2D1Bitmap1* getD2D1Bitmap() const noexcept
             {
                 return bitmap;
             }
