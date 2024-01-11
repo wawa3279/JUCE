@@ -498,7 +498,7 @@ namespace juce
             jassert(savedClientStates.size() == 0);
 
             savedClientStates.push(
-                std::make_unique<SavedState>(initialClipRegion, deviceResources.colourBrush, deviceResources.deviceContext));
+                std::make_unique<SavedState>(initialClipRegion, deviceResources.colourBrush, adapter, deviceResources.deviceContext));
 
             return getCurrentSavedState();
         }

@@ -114,8 +114,9 @@ namespace juce
         //
         // Constructor for first stack entry
         //
-        SavedState(Rectangle<int> frameSize_, ComSmartPtr<ID2D1SolidColorBrush>& colourBrush_, direct2d::DeviceContext& deviceContext_)
-            : deviceContext(deviceContext_),
+        SavedState(Rectangle<int> frameSize_, ComSmartPtr<ID2D1SolidColorBrush>& colourBrush_, DirectX::DXGI::Adapter::Ptr& adapter_, direct2d::DeviceContext& deviceContext_)
+            : adapter(adapter_),
+            deviceContext(deviceContext_),
             clipRegion(frameSize_),
             colourBrush(colourBrush_)
         {
@@ -127,6 +128,7 @@ namespace juce
         //
         SavedState(SavedState const* const previousState_)
             : currentTransform(previousState_->currentTransform),
+            adapter(previousState_->adapter),
             deviceContext(previousState_->deviceContext),
             clipRegion(previousState_->clipRegion),
             font(previousState_->font),
@@ -243,12 +245,23 @@ namespace juce
                     return;
                 }
 
-                auto direct2DBitmap = direct2d::Direct2DBitmap::fromImage(fillType.image, deviceContext.context, Image::ARGB);
-                if (auto bitmap = direct2DBitmap.get())
+                ComSmartPtr<ID2D1Bitmap1> d2d1Bitmap;
+
+                if (auto direct2DPixelData = dynamic_cast<Direct2DPixelData*> (fillType.image.getPixelData()))
+                {
+                    d2d1Bitmap = direct2DPixelData->getAdapterD2D1Bitmap(adapter);
+                }
+
+                if (! d2d1Bitmap)
+                {
+                    d2d1Bitmap = direct2d::Direct2DBitmap::fromImage(fillType.image, deviceContext.context, Image::ARGB).getD2D1Bitmap();
+                }
+
+                if (d2d1Bitmap)
                 {
                     D2D1_BRUSH_PROPERTIES brushProps = { fillType.getOpacity(), direct2d::transformToMatrix(fillType.transform) };
                     auto                  bmProps = D2D1::BitmapBrushProperties(D2D1_EXTEND_MODE_WRAP, D2D1_EXTEND_MODE_WRAP);
-                    auto hr = deviceContext.context->CreateBitmapBrush(bitmap,
+                    auto hr = deviceContext.context->CreateBitmapBrush(d2d1Bitmap,
                         bmProps,
                         brushProps,
                         bitmapBrush.resetAndGetPointerAddress());
@@ -326,6 +339,8 @@ namespace juce
                 return isOnlyTranslated || (complexTransform.mat01 == 0.0f && complexTransform.mat10 == 0.0f);
             }
         } currentTransform;
+
+        DirectX::DXGI::Adapter::Ptr& adapter;
         direct2d::DeviceContext& deviceContext;
         Rectangle<int>           clipRegion;
 
@@ -543,7 +558,7 @@ namespace juce
             jassert(savedClientStates.size() == 0);
 
             savedClientStates.push(
-                std::make_unique<SavedState>(initialClipRegion, deviceResources.colourBrush, deviceResources.deviceContext));
+                std::make_unique<SavedState>(initialClipRegion, deviceResources.colourBrush, adapter, deviceResources.deviceContext));
 
             return getCurrentSavedState();
         }
@@ -849,22 +864,23 @@ namespace juce
             //
             // Is this a Direct2D image already?
             //
-            ComSmartPtr<ID2D1Bitmap> sourceBitmap;
+            ComSmartPtr<ID2D1Bitmap> d2d1Bitmap;
 
             if (auto direct2DPixelData = dynamic_cast<Direct2DPixelData*> (sourceImage.getPixelData()))
             {
-                sourceBitmap = direct2DPixelData->getAdapterD2D1Bitmap(getPimpl()->getAdapter());
+                d2d1Bitmap = direct2DPixelData->getAdapterD2D1Bitmap(getPimpl()->getAdapter());
             }
-            else
+
+            if (! d2d1Bitmap || d2d1Bitmap->GetPixelFormat().format != DXGI_FORMAT_A8_UNORM)
             {
                 //
                 // Convert sourceImage to single-channel alpha-only maskImage
                 //
                 direct2d::Direct2DBitmap direct2DBitmap = direct2d::Direct2DBitmap::fromImage(sourceImage, deviceContext, Image::SingleChannel);
-                sourceBitmap = direct2DBitmap.get();
+                d2d1Bitmap = direct2DBitmap.getD2D1Bitmap();
             }
 
-            if (sourceBitmap)
+            if (d2d1Bitmap)
             {
                 //
                 // Make a transformed bitmap brush using the bitmap
@@ -877,7 +893,7 @@ namespace juce
                 D2D1_BRUSH_PROPERTIES         brushProps = { 1.0f, matrix };
 
                 auto bitmapBrushProps = D2D1::BitmapBrushProperties(D2D1_EXTEND_MODE_CLAMP, D2D1_EXTEND_MODE_CLAMP);
-                auto hr = deviceContext->CreateBitmapBrush(sourceBitmap, bitmapBrushProps, brushProps, brush.resetAndGetPointerAddress());
+                auto hr = deviceContext->CreateBitmapBrush(d2d1Bitmap, bitmapBrushProps, brushProps, brush.resetAndGetPointerAddress());
 
                 if (SUCCEEDED(hr))
                 {
@@ -1175,31 +1191,30 @@ namespace juce
             //
             // Is this a Direct2D image already with the correct format?
             //
+            ComSmartPtr<ID2D1Bitmap1> d2d1Bitmap;
+            Rectangle<int> imageClipArea;
+
             if (auto direct2DPixelData = dynamic_cast<Direct2DPixelData*> (image.getPixelData()))
             {
-                if (auto bitmap = direct2DPixelData->getAdapterD2D1Bitmap(getPimpl()->getAdapter()))
-                {
-                    if (bitmap->GetPixelFormat().format == DXGI_FORMAT_B8G8R8A8_UNORM)
-                    {
-                        D2D1_RECT_F sourceRectangle = direct2d::rectangleToRectF(direct2DPixelData->deviceIndependentClipArea);
-                        deviceContext->DrawBitmap(bitmap,
-                            nullptr,
-                            currentState->fillType.getOpacity(),
-                            currentState->interpolationMode,
-                            &sourceRectangle,
-                            {});
-                        return;
-                    }
-                }
+                d2d1Bitmap = direct2DPixelData->getAdapterD2D1Bitmap(getPimpl()->getAdapter());
+                imageClipArea = direct2DPixelData->deviceIndependentClipArea;
             }
 
-            //
-            // Convert to Direct2D image
-            //
-            auto direct2DBitmap = direct2d::Direct2DBitmap::fromImage(image, deviceContext, Image::ARGB);
-            if (auto bitmap = direct2DBitmap.get())
+            if (!d2d1Bitmap || d2d1Bitmap->GetPixelFormat().format != DXGI_FORMAT_B8G8R8A8_UNORM)
             {
-                deviceContext->DrawBitmap(bitmap, nullptr, currentState->fillType.getOpacity(), currentState->interpolationMode, nullptr, {});
+                d2d1Bitmap = direct2d::Direct2DBitmap::fromImage(image, deviceContext, Image::ARGB).getD2D1Bitmap();
+                imageClipArea = image.getBounds();
+            }
+
+            if (d2d1Bitmap)
+            {
+                auto sourceRectF = direct2d::rectangleToRectF(imageClipArea);
+                deviceContext->DrawBitmap(d2d1Bitmap,
+                    nullptr,
+                    currentState->fillType.getOpacity(),
+                    currentState->interpolationMode,
+                    &sourceRectF,
+                    {});
             }
         }
     }
@@ -1423,10 +1438,10 @@ namespace juce
         }
     }
 
-    void Direct2DGraphicsContext::drawGlyphCommon(int                    numGlyphs,
+    void Direct2DGraphicsContext::drawGlyphCommon(int numGlyphs,
         Font const& font,
         const AffineTransform& transform,
-        Rectangle<float>       underlineArea)
+        Rectangle<float> underlineArea)
     {
         auto deviceContext = getPimpl()->getDeviceContext();
         if (!deviceContext)
