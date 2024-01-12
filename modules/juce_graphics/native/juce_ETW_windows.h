@@ -32,7 +32,8 @@ namespace juce
             messageKeyword = 32,
             direct2dKeyword = 64,
             softwareRendererKeyword = 128,
-            resourcesKeyword
+            resourcesKeyword = 256,
+            componentKeyword = 512
         };
 
         enum
@@ -90,7 +91,11 @@ namespace juce
             drawRoundedRectangle,
             fillRoundedRectangle,
             drawEllipse,
-            fillEllipse
+            fillEllipse,
+
+            paintComponentAndChildren,
+            paintComponent,
+            paintWithinParentContext
         };
     }
 }
@@ -246,3 +251,19 @@ TRACELOGGING_DECLARE_PROVIDER (JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE);
                        TraceLoggingKeyword (etw::messageKeyword), \
                        TraceLoggingInt32(message, "message"), \
                        TraceLoggingInt32 (etw::childWindowMessage, "code"))
+
+#define TRACE_LOG_PAINT_COMPONENT(code, id, bounds, clipBounds) \
+    TraceLoggingWriteWrapper (JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE, \
+                   # code, \
+                   TraceLoggingLevel (TRACE_LEVEL_INFORMATION), \
+                   TraceLoggingKeyword (etw::componentKeyword), \
+                   TraceLoggingInt32 (code, "code"), \
+                    TraceLoggingInt32(id, "id"), \
+                    TraceLoggingInt32(bounds.getX(), "x"), \
+                    TraceLoggingInt32(bounds.getY(), "y"), \
+                    TraceLoggingInt32(bounds.getWidth(), "w"), \
+                    TraceLoggingInt32(bounds.getHeight(), "h"), \
+                    TraceLoggingInt32(clipBounds.getX(), "x"), \
+                    TraceLoggingInt32(clipBounds.getY(), "y"), \
+                    TraceLoggingInt32(clipBounds.getWidth(), "w"), \
+                    TraceLoggingInt32(clipBounds.getHeight(), "h") )
