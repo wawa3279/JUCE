@@ -128,12 +128,17 @@ namespace juce
                 // Use a software image for the conversion instead so the Graphics::drawImageAt call doesn't go
                 // through the Direct2D renderer
                 //
+                // Be sure to explicitly set the DPI to 96.0 for the image
+                //
                 Image convertedImage = SoftwareImageType{}.convert(image).convertedToFormat(outputFormat);
                 Image::BitmapData bitmapData{ convertedImage, Image::BitmapData::readWrite };
 
                 D2D1_BITMAP_PROPERTIES1 bitmapProperties{};
                 bitmapProperties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
                 bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_PREMULTIPLIED;
+                bitmapProperties.dpiX = USER_DEFAULT_SCREEN_DPI;
+                bitmapProperties.dpiY = USER_DEFAULT_SCREEN_DPI;
+
                 switch (outputFormat)
                 {
                 case Image::RGB:
@@ -170,7 +175,7 @@ namespace juce
                 if (! bitmap)
                 {
                     D2D1_BITMAP_PROPERTIES1 bitmapProperties = {};
-                    bitmapProperties.dpiX = dpiScaleFactor * USER_DEFAULT_SCREEN_DPI;;
+                    bitmapProperties.dpiX = dpiScaleFactor * USER_DEFAULT_SCREEN_DPI;
                     bitmapProperties.dpiY = bitmapProperties.dpiX;
                     bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_PREMULTIPLIED;
                     bitmapProperties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -580,23 +585,23 @@ namespace juce
                 }
 
                 if (deviceContext.context == nullptr)
-                    {
-                        hr = adapter->direct2DDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE,
-                            deviceContext.context.resetAndGetPointerAddress());
+                {
+                    hr = adapter->direct2DDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE,
+                        deviceContext.context.resetAndGetPointerAddress());
                     if (FAILED(hr)) return hr;
-                    }
+                }
 
-                        deviceContext.context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
+                deviceContext.context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
 
-                        float dpi = (float)(USER_DEFAULT_SCREEN_DPI * dpiScalingFactor);
-                        deviceContext.context->SetDpi(dpi, dpi);
+                float dpi = (float)(USER_DEFAULT_SCREEN_DPI * dpiScalingFactor);
+                deviceContext.context->SetDpi(dpi, dpi);
 
-                        if (colourBrush == nullptr)
-                        {
-                            hr = deviceContext.context->CreateSolidColorBrush(D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f),
-                                colourBrush.resetAndGetPointerAddress());
-                            jassertquiet(SUCCEEDED(hr));
-                        }
+                if (colourBrush == nullptr)
+                {
+                    hr = deviceContext.context->CreateSolidColorBrush(D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f),
+                        colourBrush.resetAndGetPointerAddress());
+                    jassertquiet(SUCCEEDED(hr));
+                }
 
                 return hr;
             }
