@@ -506,16 +506,16 @@ namespace juce
                 Image::BitmapData data2a{ image2, area1.getX(), area1.getY(), area1.getWidth(), area1.getHeight(), Image::BitmapData::ReadWriteMode::readOnly };
                 Image::BitmapData data2b{ image2, area2.getX(), area2.getY(), area2.getWidth(), area2.getHeight(), Image::BitmapData::ReadWriteMode::readOnly };
 
-                auto compareSubsection = [&](Image::BitmapData& data1, Image::BitmapData& data2, Rectangle<int> area)
+                auto compareSubsection = [&](Image::BitmapData& subsection1, Image::BitmapData& subsection2, Rectangle<int> area)
                 {
                     for (int y = 0; y < area.getHeight(); ++y)
                     {
-                        auto line1 = data1.getLinePointer(y + area.getY());
-                        auto line2 = data2.getLinePointer(y);
+                        auto line1 = subsection1.getLinePointer(y + area.getY());
+                        auto line2 = subsection2.getLinePointer(y);
 
                         for (int x = 0; x < area.getWidth(); ++x)
                         {
-                            expect(compareBytes(line1 + (x + area.getX()) * data1.pixelStride, line2 + x * data2.pixelStride));
+                            expect(compareBytes(line1 + (x + area.getX()) * subsection1.pixelStride, line2 + x * subsection2.pixelStride));
                         }
                     }
                 };

@@ -119,7 +119,7 @@ namespace juce
             static Direct2DBitmap fromImage(Image const& image, ID2D1DeviceContext1* deviceContext, Image::PixelFormat outputFormat)
             {
                 jassert(outputFormat == Image::ARGB || outputFormat == Image::SingleChannel);
-                jassert(!image.getPixelData()->createType()->getTypeID() != NativeImageType{}.getTypeID());
+                jassert(image.getPixelData()->createType()->getTypeID() != NativeImageType{}.getTypeID());
 
                 //
                 // Calling Image::convertedToFormat could cause unchecked recursion since convertedToFormat
