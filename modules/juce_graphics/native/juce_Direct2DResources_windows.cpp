@@ -91,6 +91,8 @@ namespace juce
                     return;
                 }
 
+//                 DBG("SetTransform " << newTransform.mat00 << ", " << newTransform.mat01 << ", " << newTransform.mat02);
+//                 DBG("             " << newTransform.mat10 << ", " << newTransform.mat11 << ", " << newTransform.mat12);
                 context->SetTransform(transformToMatrix(newTransform));
                 transform = newTransform;
             }

@@ -171,8 +171,7 @@ namespace juce
             //
             // Pass nullptr for the PushLayer layer parameter to allow Direct2D to manage the layers (Windows 8 or later)
             //
-            deviceResources.deviceContext.resetTransform();
-            deviceResources.deviceContext.context->PushLayer(layerParameters, nullptr);
+            deviceContext.context->PushLayer(layerParameters, nullptr);
 
             pushedLayers.emplace_back(popLayerFlag);
         }
@@ -195,8 +194,8 @@ namespace juce
 
         void pushAxisAlignedClipLayer(Rectangle<int> r)
         {
-            deviceResources.deviceContext.setTransform(currentTransform.getTransform());
-            deviceResources.deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+            r = r.transformedBy(currentTransform.getTransform());
+            deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
 
             pushedLayers.emplace_back(popAxisAlignedLayerFlag);
         }
@@ -1047,12 +1046,29 @@ namespace juce
 
             if (currentState->currentTransform.isOnlyTranslated)
             {
-                deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(r)), currentState->currentBrush);
+#if JUCE_DEBUG
+                D2D1_MATRIX_3X2_F matrix;
+                deviceContext->GetTransform(&matrix);
+                jassert(exactlyEqual(matrix.m11, D2D1::IdentityMatrix().m11));
+                jassert(exactlyEqual(matrix.m12, D2D1::IdentityMatrix().m12));
+                jassert(exactlyEqual(matrix.m21, D2D1::IdentityMatrix().m21));
+                jassert(exactlyEqual(matrix.m22, D2D1::IdentityMatrix().m22));
+                jassert(exactlyEqual(matrix.dx, D2D1::IdentityMatrix().dx));
+                jassert(exactlyEqual(matrix.dy, D2D1::IdentityMatrix().dy));
+
+#endif
+
+                auto translatedR = currentState->currentTransform.translated(r);
+                currentState->currentBrush->SetTransform(direct2d::transformToMatrix(currentState->currentTransform.getTransform()));
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), currentState->currentBrush);
                 return;
             }
 
             if (currentState->currentTransform.isAxisAligned())
             {
+                auto transformedR = r.transformedBy(currentState->currentTransform.getTransform());
+
+                currentState->currentBrush->SetTransform(direct2d::transformToMatrix(currentState->currentTransform.getTransform()));
                 deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.transformed(r)), currentState->currentBrush);
                 return;
             }
@@ -1183,7 +1199,6 @@ namespace juce
             //
             if (auto geometry = direct2d::pathToPathGeometry(factory, p, transform, D2D1_FIGURE_BEGIN_FILLED))
             {
-                ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 deviceContext->FillGeometry(geometry, currentState->currentBrush);
             }
         }
@@ -1236,7 +1251,6 @@ namespace juce
                 {
                     if (auto strokeStyle = direct2d::pathStrokeTypeToStrokeStyle(factory, strokeType))
                     {
-                        ScopedTransform scopedTransform{ *getPimpl(), currentState };
                         deviceContext->DrawGeometry(geometry, currentState->currentBrush, strokeType.getStrokeThickness(), strokeStyle);
                     }
                 }
@@ -1257,8 +1271,6 @@ namespace juce
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-            ScopedTransform scopedTransform{ *getPimpl(), currentState, transform };
-
             //
             // Is this a Direct2D image already with the correct format?
             //
@@ -1280,6 +1292,38 @@ namespace juce
             if (d2d1Bitmap)
             {
                 auto sourceRectF = direct2d::rectangleToRectF(imageClipArea);
+
+                auto worldTransform = currentState->currentTransform.getTransformWith(transform);
+
+               if (worldTransform.isOnlyTranslation())
+                {
+                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.toFloat() + Point<float>{ worldTransform.getTranslationX(), worldTransform.getTranslationY() });
+
+                    deviceContext->DrawBitmap(d2d1Bitmap,
+                        &destinationRect,
+                        currentState->fillType.getOpacity(),
+                        currentState->interpolationMode,
+                        &sourceRectF,
+                        {});
+
+                    return;
+                }
+
+                if (direct2d::isTransformAxisAligned(worldTransform))
+                {
+                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.toFloat().transformedBy(worldTransform));
+
+                    deviceContext->DrawBitmap(d2d1Bitmap,
+                        &destinationRect,
+                        currentState->fillType.getOpacity(),
+                        currentState->interpolationMode,
+                        &sourceRectF,
+                        {});
+                    return;
+                }
+
+                ScopedTransform scopedTransform{ *getPimpl(), currentState, transform };
+
                 deviceContext->DrawBitmap(d2d1Bitmap,
                     nullptr,
                     currentState->fillType.getOpacity(),
