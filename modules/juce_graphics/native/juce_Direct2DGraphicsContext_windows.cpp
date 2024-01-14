@@ -593,6 +593,11 @@ namespace juce
             deviceResources.deviceContext.setTransform(transform);
         }
 
+        void resetDeviceContextTransform()
+        {
+            deviceResources.deviceContext.setTransform({});
+        }
+
         auto getDirect2DFactory()
         {
             return directX->direct2D.getFactory();
@@ -1039,6 +1044,21 @@ namespace juce
 
                 TRACE_LOG_D2D_PAINT_CALL(etw::fillRectDone, frameNumber);
             }
+
+            if (currentState->currentTransform.isOnlyTranslated)
+            {
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(r)), currentState->currentBrush);
+                return;
+            }
+
+            if (currentState->currentTransform.isAxisAligned())
+            {
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.transformed(r)), currentState->currentBrush);
+                return;
+            }
+
+            ScopedTransform scopedTransform{ *getPimpl(), currentState };
+            deviceContext->FillRectangle(direct2d::rectangleToRectF(r), currentState->currentBrush);
         }
     }
 
@@ -1048,12 +1068,31 @@ namespace juce
         {
             if (auto brush = currentState->getCurrentBrush())
             {
-                updateDeviceContextTransform();
+                return;
+            }
 
+            if (currentState->currentTransform.isOnlyTranslated)
+            {
                 for (auto const& r : list)
                 {
-                    deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
+                    deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(r)), currentState->currentBrush);
                 }
+                return;
+            }
+
+            if (currentState->currentTransform.isAxisAligned())
+            {
+                for (auto const& r : list)
+                {
+                    deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.transformed(r)), currentState->currentBrush);
+                }
+                return;
+            }
+
+            ScopedTransform scopedTransform{ *getPimpl(), currentState };
+            for (auto const& r : list)
+            {
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(r), currentState->currentBrush);
             }
         }
     }
@@ -1073,11 +1112,36 @@ namespace juce
             {
                 updateDeviceContextTransform();
 
-                auto reducedR = r.reduced(lineThickness * 0.5f);
-                deviceContext->DrawRectangle(direct2d::rectangleToRectF(reducedR), brush, lineThickness);
-
-                TRACE_LOG_D2D_PAINT_CALL(etw::drawRectDone, frameNumber);
+            if (currentState->currentTransform.isOnlyTranslated)
+            {
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(Rectangle<float>{ r }.removeFromTop(lineThickness))), currentState->currentBrush);
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(Rectangle<float>{ r }.removeFromBottom(lineThickness))), currentState->currentBrush);
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(Rectangle<float>{ r }.removeFromLeft(lineThickness))), currentState->currentBrush);
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(Rectangle<float>{ r }.removeFromRight(lineThickness))), currentState->currentBrush);
+                return true;
             }
+
+            if (currentState->currentTransform.isAxisAligned())
+            {
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.transformed(Rectangle<float>{ r }.removeFromTop(lineThickness))), currentState->currentBrush);
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.transformed(Rectangle<float>{ r }.removeFromBottom(lineThickness))), currentState->currentBrush);
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.transformed(Rectangle<float>{ r }.removeFromLeft(lineThickness))), currentState->currentBrush);
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.transformed(Rectangle<float>{ r }.removeFromRight(lineThickness))), currentState->currentBrush);
+                return true;
+            }
+
+            //
+            // ID2D1DeviceContext::DrawRectangle centers the stroke around the edges of the specified rectangle, but
+            // the software renderer contains the stroke within the rectangle
+            //
+            // To match the software renderer, reduce the rectangle by half the stroke width
+            //
+            ScopedTransform scopedTransform{ *getPimpl(), currentState };
+
+            deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromTop(lineThickness)), currentState->currentBrush);
+            deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromBottom(lineThickness)), currentState->currentBrush);
+            deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromLeft(lineThickness)), currentState->currentBrush);
+            deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromRight(lineThickness)), currentState->currentBrush);
         }
 
         return true;
@@ -1101,31 +1165,26 @@ namespace juce
             {
                 auto factory = getPimpl()->getDirect2DFactory();
 
-                //
-                // Use a cached geometry realisation?
-                //
-                if (auto geometryRealisation = getPimpl()->getFilledGeometryCache().getGeometryRealisation(p,
-                    factory,
-                    deviceContext,
-                    getPhysicalPixelScaleFactor(),
-                    frameNumber))
-                {
-                    updateDeviceContextTransform(transform);
-                    deviceContext->DrawGeometryRealization(geometryRealisation, brush);
+            //
+            // Use a cached geometry realisation?
+            //
+            if (auto geometryRealisation = getPimpl()->getFilledGeometryCache().getGeometryRealisation(p,
+                factory,
+                deviceContext,
+                getPhysicalPixelScaleFactor()))
+            {
+                ScopedTransform scopedTransform{ *getPimpl(), currentState, transform };
+                deviceContext->DrawGeometryRealization(geometryRealisation, currentState->currentBrush);
+                return;
+            }
 
-                    TRACE_LOG_D2D_PAINT_CALL(etw::fillGeometryRealizationDone, frameNumber);
-                    return;
-                }
-
-                //
-                // Create and fill the geometry
-                //
-                if (auto geometry = direct2d::pathToPathGeometry(factory, p, transform, D2D1_FIGURE_BEGIN_FILLED))
-                {
-                    updateDeviceContextTransform();
-                    deviceContext->FillGeometry(geometry, brush);
-                    TRACE_LOG_D2D_PAINT_CALL(etw::fillGeometryDone, frameNumber);
-                }
+            //
+            // Create and fill the geometry
+            //
+            if (auto geometry = direct2d::pathToPathGeometry(factory, p, transform, D2D1_FIGURE_BEGIN_FILLED))
+            {
+                ScopedTransform scopedTransform{ *getPimpl(), currentState };
+                deviceContext->FillGeometry(geometry, currentState->currentBrush);
             }
         }
     }
@@ -1162,11 +1221,10 @@ namespace juce
                         getPhysicalPixelScaleFactor(),
                         frameNumber))
                     {
-                        updateDeviceContextTransform(AffineTransform::scale(1.0f / xScale, 1.0f / yScale, pathBounds.getX(), pathBounds.getY()).followedBy(transform));
-                        deviceContext->DrawGeometryRealization(geometryRealisation, brush);
-
-                        TRACE_LOG_D2D_PAINT_CALL(etw::drawGeometryRealizationDone, frameNumber);
-
+                        ScopedTransform scopedTransform{ *getPimpl(),
+                            currentState,
+                            AffineTransform::scale(1.0f / xScale, 1.0f / yScale, pathBounds.getX(), pathBounds.getY()).followedBy(transform) };
+                        deviceContext->DrawGeometryRealization(geometryRealisation, currentState->currentBrush);
                         return true;
                     }
                 }
@@ -1178,10 +1236,8 @@ namespace juce
                 {
                     if (auto strokeStyle = direct2d::pathStrokeTypeToStrokeStyle(factory, strokeType))
                     {
-                        updateDeviceContextTransform();
-                        deviceContext->DrawGeometry(geometry, brush, strokeType.getStrokeThickness(), strokeStyle);
-
-                        TRACE_LOG_D2D_PAINT_CALL(etw::drawGeometryDone, frameNumber);
+                        ScopedTransform scopedTransform{ *getPimpl(), currentState };
+                        deviceContext->DrawGeometry(geometry, currentState->currentBrush, strokeType.getStrokeThickness(), strokeStyle);
                     }
                 }
             }
@@ -1201,7 +1257,7 @@ namespace juce
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-            updateDeviceContextTransform(transform);
+            ScopedTransform scopedTransform{ *getPimpl(), currentState, transform };
 
             //
             // Is this a Direct2D image already with the correct format?
@@ -1249,14 +1305,15 @@ namespace juce
         {
             if (auto brush = currentState->getCurrentBrush())
             {
-                updateDeviceContextTransform();
-                deviceContext->DrawLine(D2D1::Point2F(line.getStartX(), line.getStartY()),
-                    D2D1::Point2F(line.getEndX(), line.getEndY()),
-                    brush,
-                    lineThickness);
-
-                TRACE_LOG_D2D_PAINT_CALL(etw::drawLineDone, frameNumber);
+                return true;
             }
+
+            ScopedTransform scopedTransform{ *getPimpl(), currentState };
+
+            deviceContext->DrawLine(D2D1::Point2F(line.getStartX(), line.getStartY()),
+                D2D1::Point2F(line.getEndX(), line.getEndY()),
+                currentState->currentBrush,
+                lineThickness);
         }
 
         return true;
@@ -1299,7 +1356,7 @@ namespace juce
 
         if (deviceContext && directWriteFactory && fontCollection && brush)
         {
-            updateDeviceContextTransform();
+            ScopedTransform scopedTransform{ *getPimpl(), currentState };
 
             auto translatedArea = area;
             auto textLayout =
@@ -1336,12 +1393,13 @@ namespace juce
         {
             if (auto brush = currentState->getCurrentBrush())
             {
-                updateDeviceContextTransform();
-                D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
-                deviceContext->DrawRoundedRectangle(roundedRect, brush, lineThickness);
-
-                TRACE_LOG_D2D_PAINT_CALL(etw::drawRoundedRectangleDone, frameNumber);
+                return true;
             }
+
+            ScopedTransform scopedTransform{ *getPimpl(), currentState };
+
+            D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
+            deviceContext->DrawRoundedRectangle(roundedRect, currentState->currentBrush, lineThickness);
         }
 
         return true;
@@ -1355,12 +1413,13 @@ namespace juce
         {
             if (auto brush = currentState->getCurrentBrush())
             {
-                updateDeviceContextTransform();
-                D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
-                deviceContext->FillRoundedRectangle(roundedRect, brush);
-
-                TRACE_LOG_D2D_PAINT_CALL(etw::fillRoundedRectangleDone, frameNumber);
+                return true;
             }
+
+            ScopedTransform scopedTransform{ *getPimpl(), currentState };
+
+            D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
+            deviceContext->FillRoundedRectangle(roundedRect, currentState->currentBrush);
         }
 
         return true;
@@ -1374,7 +1433,10 @@ namespace juce
         {
             if (auto brush = currentState->getCurrentBrush())
             {
-                updateDeviceContextTransform();
+                return true;
+            }
+
+            ScopedTransform scopedTransform{ *getPimpl(), currentState };
 
                 auto         centre = area.getCentre();
                 D2D1_ELLIPSE ellipse{ { centre.x, centre.y }, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
@@ -1395,7 +1457,10 @@ namespace juce
         {
             if (auto brush = currentState->getCurrentBrush())
             {
-                updateDeviceContextTransform();
+                return true;
+            }
+
+            ScopedTransform scopedTransform{ *getPimpl(), currentState };
 
                 auto         centre = area.getCentre();
                 D2D1_ELLIPSE ellipse{ { centre.x, centre.y }, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
@@ -1487,6 +1552,7 @@ namespace juce
         //
         auto scaledTransform = AffineTransform::scale(dwriteFontFace.fontHorizontalScale, 1.0f).followedBy(transform);
         auto glyphRunTransform = scaledTransform.followedBy(currentState->currentTransform.getTransform());
+
         getPimpl()->setDeviceContextTransform(glyphRunTransform);
 
         DWRITE_GLYPH_RUN directWriteGlyphRun;
@@ -1513,8 +1579,11 @@ namespace juce
         {
             fillRect(underlineArea);
         }
+
+        getPimpl()->setDeviceContextTransform({});
     }
 
+    /*
     void Direct2DGraphicsContext::updateDeviceContextTransform()
     {
         getPimpl()->setDeviceContextTransform(currentState->currentTransform.getTransform());
@@ -1523,6 +1592,26 @@ namespace juce
     void Direct2DGraphicsContext::updateDeviceContextTransform(AffineTransform chainedTransform)
     {
         getPimpl()->setDeviceContextTransform(currentState->currentTransform.getTransformWith(chainedTransform));
+    }
+    */
+
+    Direct2DGraphicsContext::ScopedTransform::ScopedTransform(Pimpl& pimpl_, SavedState* state_) :
+        pimpl(pimpl_),
+        state(state_)
+    {
+        pimpl.setDeviceContextTransform(state_->currentTransform.getTransform());
+    }
+
+    Direct2DGraphicsContext::ScopedTransform::ScopedTransform(Pimpl& pimpl_, SavedState* state_, const AffineTransform& transform) :
+        pimpl(pimpl_),
+        state(state_)
+    {
+        pimpl.setDeviceContextTransform(state_->currentTransform.getTransformWith(transform));
+    }
+
+    Direct2DGraphicsContext::ScopedTransform::~ScopedTransform()
+    {
+        pimpl.resetDeviceContextTransform();
     }
 
 } // namespace juce

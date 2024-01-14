@@ -258,8 +258,16 @@ protected:
 
     virtual void clearTargetBuffer() = 0;
     void drawGlyphCommon (int numGlyphs, Font const& font, const AffineTransform& transform, Rectangle<float> underlineArea);
-    void updateDeviceContextTransform();
-    void updateDeviceContextTransform (AffineTransform chainedTransform);
+
+    struct ScopedTransform
+    {
+        ScopedTransform(Pimpl& pimpl_, SavedState* state_);
+        ScopedTransform(Pimpl& pimpl_, SavedState* state_, const AffineTransform& transform);
+        ~ScopedTransform();
+
+        Pimpl& pimpl;
+        SavedState* state = nullptr;
+    };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Direct2DGraphicsContext)
 };
