@@ -298,12 +298,12 @@ namespace juce
             {
                 if (fillType.gradient->isRadial)
                 {
-                    deviceResources.radialGradientCache.get(*fillType.gradient, fillType.getOpacity(), deviceResources.deviceContext.context, radialGradient);
+                    deviceResources.radialGradientCache.get(*fillType.gradient, fillType.getOpacity(), fillType.transform, deviceResources.deviceContext.context, radialGradient);
                     currentBrush = radialGradient;
                 }
                 else
                 {
-                    deviceResources.linearGradientCache.get(*fillType.gradient, fillType.getOpacity(), deviceResources.deviceContext.context, linearGradient);
+                    deviceResources.linearGradientCache.get(*fillType.gradient, fillType.getOpacity(), fillType.transform, deviceResources.deviceContext.context, linearGradient);
                     currentBrush = linearGradient;
                 }
             }
