@@ -116,15 +116,21 @@ namespace juce
         };
         std::vector<int> pushedLayers;
 
+        ID2D1Brush* currentBrush = nullptr;
+        ComSmartPtr<ID2D1SolidColorBrush>& colourBrush; // reference to shared colour brush
+        ComSmartPtr<ID2D1BitmapBrush>            bitmapBrush;
+        ComSmartPtr<ID2D1LinearGradientBrush>    linearGradient;
+        ComSmartPtr<ID2D1RadialGradientBrush>    radialGradient;
+
     public:
         //
         // Constructor for first stack entry
         //
         SavedState(Rectangle<int> frameSize_, ComSmartPtr<ID2D1SolidColorBrush>& colourBrush_, DirectX::DXGI::Adapter::Ptr& adapter_, direct2d::DeviceResources& deviceResources_)
-            : adapter(adapter_),
+            : colourBrush(colourBrush_),
+            adapter(adapter_),
             deviceResources(deviceResources_),
-            clipRegion(frameSize_),
-            colourBrush(colourBrush_)
+            clipRegion(frameSize_)
         {
             currentBrush = colourBrush;
 
@@ -134,17 +140,17 @@ namespace juce
         //
         // Constructor for subsequent entries
         //
-        SavedState(SavedState const* const previousState_)
-            : currentTransform(previousState_->currentTransform),
-            adapter(previousState_->adapter),
-            deviceResources(previousState_->deviceResources),
-            clipRegion(previousState_->clipRegion),
-            font(previousState_->font),
+        SavedState(SavedState const* const previousState_) :
             currentBrush(previousState_->currentBrush),
             colourBrush(previousState_->colourBrush),
             bitmapBrush(previousState_->bitmapBrush),
             linearGradient(previousState_->linearGradient),
             radialGradient(previousState_->radialGradient),
+            currentTransform(previousState_->currentTransform),
+            adapter(previousState_->adapter),
+            deviceResources(previousState_->deviceResources),
+            clipRegion(previousState_->clipRegion),
+            font(previousState_->font),
             fillType(previousState_->fillType),
             interpolationMode(previousState_->interpolationMode)
         {
@@ -293,12 +299,12 @@ namespace juce
             {
                 if (fillType.gradient->isRadial)
                 {
-                    deviceResources.radialGradientCache.get(*fillType.gradient, fillType.getOpacity(), fillType.transform, deviceResources.deviceContext.context, radialGradient);
+                    deviceResources.radialGradientCache.get(*fillType.gradient, fillType.getOpacity(), deviceResources.deviceContext.context, radialGradient);
                     currentBrush = radialGradient;
                 }
                 else
                 {
-                    deviceResources.linearGradientCache.get(*fillType.gradient, fillType.getOpacity(), fillType.transform, deviceResources.deviceContext.context, linearGradient);
+                    deviceResources.linearGradientCache.get(*fillType.gradient, fillType.getOpacity(), deviceResources.deviceContext.context, linearGradient);
                     currentBrush = linearGradient;
                 }
             }
@@ -315,9 +321,14 @@ namespace juce
             }
         }
 
-        bool isCurrentBrushUsable() const noexcept
+        ID2D1Brush* getCurrentBrush()
         {
-            return currentBrush != nullptr && ! fillType.isInvisible();
+            if (fillType.isInvisible())
+            {
+                return nullptr;
+            }
+
+            return currentBrush;
         }
 
         struct TranslationOrTransform : public RenderingHelpers::TranslationOrTransform
@@ -333,12 +344,6 @@ namespace juce
         Rectangle<int>           clipRegion;
 
         Font font;
-
-        ID2D1Brush* currentBrush = nullptr;
-        ComSmartPtr<ID2D1SolidColorBrush>& colourBrush; // reference to shared colour brush
-        ComSmartPtr<ID2D1BitmapBrush>            bitmapBrush;
-        ComSmartPtr<ID2D1LinearGradientBrush>    linearGradient;
-        ComSmartPtr<ID2D1RadialGradientBrush>    radialGradient;
 
         FillType fillType;
 
@@ -438,6 +443,8 @@ namespace juce
             deviceResources.filledGeometryCache.createGeometryRealisationMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createFilledGRTime);
             deviceResources.strokedGeometryCache.createGeometryMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGeometryTime);
             deviceResources.strokedGeometryCache.createGeometryRealisationMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createStrokedGRTime);
+            deviceResources.linearGradientCache.createGradientMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGradientTime);
+            deviceResources.radialGradientCache.createGradientMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGradientTime);
 #endif
         }
 
@@ -1010,13 +1017,11 @@ namespace juce
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-            if (! currentState->isCurrentBrushUsable())
+            if (auto brush = currentState->getCurrentBrush())
             {
-                return;
+                updateDeviceContextTransform();
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
             }
-
-            updateDeviceContextTransform();
-            deviceContext->FillRectangle(direct2d::rectangleToRectF(r), currentState->currentBrush);
         }
     }
 
@@ -1024,16 +1029,14 @@ namespace juce
     {
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-            if (!currentState->isCurrentBrushUsable())
+            if (auto brush = currentState->getCurrentBrush())
             {
-                return;
-            }
+                updateDeviceContextTransform();
 
-            updateDeviceContextTransform();
-
-            for (auto const& r : list)
-            {
-                deviceContext->FillRectangle(direct2d::rectangleToRectF(r), currentState->currentBrush);
+                for (auto const& r : list)
+                {
+                    deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
+                }
             }
         }
     }
@@ -1044,24 +1047,14 @@ namespace juce
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-            if (! currentState->isCurrentBrushUsable())
+            if (auto brush = currentState->getCurrentBrush())
             {
-                return true;
+                updateDeviceContextTransform();
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromTop(lineThickness)), brush);
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromBottom(lineThickness)), brush);
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromLeft(lineThickness)), brush);
+                deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromRight(lineThickness)), brush);
             }
-
-            updateDeviceContextTransform();
-            deviceContext->DrawRectangle(direct2d::rectangleToRectF(r), currentState->currentBrush, lineThickness);
-
-            //
-            // ID2D1DeviceContext::DrawRectangle centers the stroke around the edges of the specified rectangle, but
-            // the software renderer contains the stroke within the rectangle
-            //
-            // To match the software renderer, reduce the rectangle by half the stroke width
-            //
-            lineThickness = juce::jmin(lineThickness, r.getHeight(), r.getWidth());
-            auto xReduction = juce::jmin(r.getHeight() * 0.5f, lineThickness * 0.5f);
-            auto yReduction = juce::jmin(r.getWidth() * 0.5f, lineThickness * 0.5f);
-            deviceContext->DrawRectangle(direct2d::rectangleToRectF(r.reduced(xReduction, yReduction)), currentState->currentBrush, lineThickness);
         }
 
         return true;
@@ -1069,40 +1062,43 @@ namespace juce
 
     void Direct2DGraphicsContext::fillPath(const Path& p, const AffineTransform& transform)
     {
-        auto factory = getPimpl()->getDirect2DFactory();
-
         TRACE_LOG_D2D_PAINT_CALL(etw::fillPath);
+
+        if (p.isEmpty())
+        {
+            return;
+        }
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             //
             // Don't bother if the path would be invisible
             //
-            if (! currentState->isCurrentBrushUsable() || p.isEmpty())
+            if (auto brush = currentState->getCurrentBrush())
             {
-                return;
-            }
+                auto factory = getPimpl()->getDirect2DFactory();
 
-            //
-            // Use a cached geometry realisation?
-            //
-            if (auto geometryRealisation = getPimpl()->getFilledGeometryCache().getGeometryRealisation(p,
-                factory,
-                deviceContext,
-                getPhysicalPixelScaleFactor()))
-            {
-                updateDeviceContextTransform(transform);
-                deviceContext->DrawGeometryRealization(geometryRealisation, currentState->currentBrush);
-                return;
-            }
+                //
+                // Use a cached geometry realisation?
+                //
+                if (auto geometryRealisation = getPimpl()->getFilledGeometryCache().getGeometryRealisation(p,
+                    factory,
+                    deviceContext,
+                    getPhysicalPixelScaleFactor()))
+                {
+                    updateDeviceContextTransform(transform);
+                    deviceContext->DrawGeometryRealization(geometryRealisation, brush);
+                    return;
+                }
 
-            //
-            // Create and fill the geometry
-            //
-            if (auto geometry = direct2d::pathToPathGeometry(factory, p, transform, D2D1_FIGURE_BEGIN_FILLED))
-            {
-                updateDeviceContextTransform();
-                deviceContext->FillGeometry(geometry, currentState->currentBrush);
+                //
+                // Create and fill the geometry
+                //
+                if (auto geometry = direct2d::pathToPathGeometry(factory, p, transform, D2D1_FIGURE_BEGIN_FILLED))
+                {
+                    updateDeviceContextTransform();
+                    deviceContext->FillGeometry(geometry, brush);
+                }
             }
         }
     }
@@ -1111,17 +1107,16 @@ namespace juce
     {
         TRACE_LOG_D2D_PAINT_CALL(etw::drawPath);
 
-        if (auto factory = getPimpl()->getDirect2DFactory())
+        if (p.isEmpty())
         {
-            if (auto deviceContext = getPimpl()->getDeviceContext())
+            return true;
+        }
+
+        if (auto deviceContext = getPimpl()->getDeviceContext())
+        {
+            if (auto brush = currentState->getCurrentBrush())
             {
-                //
-                // Don't bother if the path would be invisible
-                //
-                if (! currentState->isCurrentBrushUsable() || p.isEmpty())
-                {
-                    return true;
-                }
+                auto factory = getPimpl()->getDirect2DFactory();
 
                 //
                 // Use a cached geometry realisation?
@@ -1140,7 +1135,7 @@ namespace juce
                         getPhysicalPixelScaleFactor()))
                     {
                         updateDeviceContextTransform(AffineTransform::scale(1.0f / xScale, 1.0f / yScale, pathBounds.getX(), pathBounds.getY()).followedBy(transform));
-                        deviceContext->DrawGeometryRealization(geometryRealisation, currentState->currentBrush);
+                        deviceContext->DrawGeometryRealization(geometryRealisation, brush);
                         return true;
                     }
                 }
@@ -1153,7 +1148,7 @@ namespace juce
                     if (auto strokeStyle = direct2d::pathStrokeTypeToStrokeStyle(factory, strokeType))
                     {
                         updateDeviceContextTransform();
-                        deviceContext->DrawGeometry(geometry, currentState->currentBrush, strokeType.getStrokeThickness(), strokeStyle);
+                        deviceContext->DrawGeometry(geometry, brush, strokeType.getStrokeThickness(), strokeStyle);
                     }
                 }
             }
@@ -1217,16 +1212,14 @@ namespace juce
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-            if (! currentState->isCurrentBrushUsable())
+            if (auto brush = currentState->getCurrentBrush())
             {
-                return true;
+                updateDeviceContextTransform();
+                deviceContext->DrawLine(D2D1::Point2F(line.getStartX(), line.getStartY()),
+                    D2D1::Point2F(line.getEndX(), line.getEndY()),
+                    brush,
+                    lineThickness);
             }
-
-            updateDeviceContextTransform();
-            deviceContext->DrawLine(D2D1::Point2F(line.getStartX(), line.getStartY()),
-                D2D1::Point2F(line.getEndX(), line.getEndY()),
-                currentState->currentBrush,
-                lineThickness);
         }
 
         return true;
@@ -1258,16 +1251,12 @@ namespace juce
     {
         TRACE_LOG_D2D_PAINT_CALL(etw::drawTextLayout);
 
-        if (! currentState->isCurrentBrushUsable())
-        {
-            return true;
-        }
-
         auto deviceContext = getPimpl()->getDeviceContext();
         auto directWriteFactory = getPimpl()->getDirectWriteFactory();
         auto fontCollection = getPimpl()->getSystemFonts();
+        auto brush = currentState->getCurrentBrush();
 
-        if (deviceContext && directWriteFactory && fontCollection)
+        if (deviceContext && directWriteFactory && fontCollection && brush)
         {
             updateDeviceContextTransform();
 
@@ -1278,7 +1267,7 @@ namespace juce
             {
                 deviceContext->DrawTextLayout(D2D1::Point2F(translatedArea.getX(), translatedArea.getY()),
                     textLayout,
-                    currentState->currentBrush,
+                    brush,
                     D2D1_DRAW_TEXT_OPTIONS_NONE);
             }
         }
@@ -1302,14 +1291,12 @@ namespace juce
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-            if (! currentState->isCurrentBrushUsable())
+            if (auto brush = currentState->getCurrentBrush())
             {
-                return true;
+                updateDeviceContextTransform();
+                D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
+                deviceContext->DrawRoundedRectangle(roundedRect, brush, lineThickness);
             }
-
-            updateDeviceContextTransform();
-            D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
-            deviceContext->DrawRoundedRectangle(roundedRect, currentState->currentBrush, lineThickness);
         }
 
         return true;
@@ -1321,14 +1308,12 @@ namespace juce
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-            if (! currentState->isCurrentBrushUsable())
+            if (auto brush = currentState->getCurrentBrush())
             {
-                return true;
+                updateDeviceContextTransform();
+                D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
+                deviceContext->FillRoundedRectangle(roundedRect, brush);
             }
-
-            updateDeviceContextTransform();
-            D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
-            deviceContext->FillRoundedRectangle(roundedRect, currentState->currentBrush);
         }
 
         return true;
@@ -1340,16 +1325,14 @@ namespace juce
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-            if (! currentState->isCurrentBrushUsable())
+            if (auto brush = currentState->getCurrentBrush())
             {
-                return true;
+                updateDeviceContextTransform();
+
+                auto         centre = area.getCentre();
+                D2D1_ELLIPSE ellipse{ { centre.x, centre.y }, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
+                deviceContext->DrawEllipse(ellipse, brush, lineThickness, nullptr);
             }
-
-            updateDeviceContextTransform();
-
-            auto         centre = area.getCentre();
-            D2D1_ELLIPSE ellipse{ { centre.x, centre.y }, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
-            deviceContext->DrawEllipse(ellipse, currentState->currentBrush, lineThickness, nullptr);
         }
         return true;
     }
@@ -1360,16 +1343,14 @@ namespace juce
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-            if (! currentState->isCurrentBrushUsable())
+            if (auto brush = currentState->getCurrentBrush())
             {
-                return true;
+                updateDeviceContextTransform();
+
+                auto         centre = area.getCentre();
+                D2D1_ELLIPSE ellipse{ { centre.x, centre.y }, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
+                deviceContext->FillEllipse(ellipse, brush);
             }
-
-            updateDeviceContextTransform();
-
-            auto         centre = area.getCentre();
-            D2D1_ELLIPSE ellipse{ { centre.x, centre.y }, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
-            deviceContext->FillEllipse(ellipse, currentState->currentBrush);
         }
         return true;
     }
@@ -1382,13 +1363,13 @@ namespace juce
     {
         TRACE_LOG_D2D_PAINT_CALL(etw::drawGlyphRun);
 
+        if (currentState->fillType.isInvisible())
+        {
+            return;
+        }
+
         if (numGlyphs > 0 && (startIndex + numGlyphs) <= glyphs.size())
         {
-            if (! currentState->isCurrentBrushUsable())
-            {
-                return;
-            }
-
             //
             // Fill the array of glyph indices and offsets
             //
@@ -1442,7 +1423,8 @@ namespace juce
             return;
         }
 
-        if (! currentState->isCurrentBrushUsable())
+        auto brush = currentState->getCurrentBrush();
+        if (! brush)
         {
             return;
         }
@@ -1469,7 +1451,7 @@ namespace juce
         //
         SavedState::ScopedBrushTransformInverter brushTransformInverter{ currentState, scaledTransform };
 
-        deviceContext->DrawGlyphRun({}, &directWriteGlyphRun, currentState->currentBrush);
+        deviceContext->DrawGlyphRun({}, &directWriteGlyphRun, brush);
 
         //
         // Draw the underline

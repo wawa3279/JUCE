@@ -262,10 +262,7 @@ bool ColourGradient::ColourPoint::operator!= (ColourPoint other) const noexcept
 
 uint64 ColourGradient::getHash() const noexcept
 {
-    auto hash = DefaultHashFunctions::generateHash(reinterpret_cast<uint8 const*>(colours.getRawDataPointer()), (uint64)colours.size() * sizeof(ColourPoint));
-
-    std::array<float, 4> const extraHashData{ point1.x , point1.y, point2.x, point2.y };
-    return DefaultHashFunctions::generateHash(reinterpret_cast<uint8 const*>(extraHashData.data()), (uint64)extraHashData.size() * sizeof(float), hash);
+    return DefaultHashFunctions::generateHash(reinterpret_cast<uint8 const*>(colours.getRawDataPointer()), (uint64)colours.size() * sizeof(ColourPoint));
 }
 
 
