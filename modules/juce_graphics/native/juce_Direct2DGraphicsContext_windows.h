@@ -235,7 +235,7 @@ public:
     }
 
 #if JUCE_DIRECT2D_METRICS
-    direct2d::PaintStats::Ptr paintStats = new direct2d::PaintStats;
+    direct2d::PaintStats::Ptr paintStats;
 #endif
 
     //==============================================================================
