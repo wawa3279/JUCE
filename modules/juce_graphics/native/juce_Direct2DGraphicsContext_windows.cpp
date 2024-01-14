@@ -107,8 +107,14 @@ namespace juce
         // PushedLayer, PushedAxisAlignedClipLayer, and LayerPopper all exist just to unwind the
         // layer stack accordingly.
         //
-        using PopLayer = void (*) (ID2D1DeviceContext*);
-        std::stack<PopLayer> pushedLayers;
+        //using PopLayer = void (*) (ID2D1DeviceContext*);
+        //std::stack<PopLayer> pushedLayers;
+        enum
+        {
+            popLayerFlag,
+            popAxisAlignedLayerFlag
+        };
+        std::vector<int> pushedLayers;
 
     public:
         //
@@ -121,6 +127,8 @@ namespace juce
             colourBrush(colourBrush_)
         {
             currentBrush = colourBrush;
+
+            pushedLayers.reserve(32);
         }
 
         //
@@ -140,6 +148,7 @@ namespace juce
             fillType(previousState_->fillType),
             interpolationMode(previousState_->interpolationMode)
         {
+            pushedLayers.reserve(32);
         }
 
         ~SavedState()
@@ -159,7 +168,7 @@ namespace juce
             deviceResources.deviceContext.resetTransform();
             deviceResources.deviceContext.context->PushLayer(layerParameters, nullptr);
 
-            pushedLayers.push ([] (ID2D1DeviceContext* ctx) { ctx->PopLayer(); });
+            pushedLayers.emplace_back(popLayerFlag);
         }
 
         void pushGeometryClipLayer(ComSmartPtr<ID2D1Geometry> geometry)
@@ -183,7 +192,7 @@ namespace juce
             deviceResources.deviceContext.setTransform(currentTransform.getTransform());
             deviceResources.deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
 
-            pushedLayers.push ([] (ID2D1DeviceContext* ctx) { ctx->PopAxisAlignedClip(); });
+            pushedLayers.emplace_back(popAxisAlignedLayerFlag);
         }
 
         void pushTransparencyLayer(float opacity)
@@ -194,15 +203,25 @@ namespace juce
         void popLayers()
         {
             while (! pushedLayers.empty())
+            {
                 popTopLayer();
+            }
         }
 
         void popTopLayer()
         {
             if (! pushedLayers.empty())
             {
-                pushedLayers.top() (deviceResources.deviceContext.context);
-                pushedLayers.pop();
+                if (pushedLayers.back() == popLayerFlag)
+                {
+                    deviceResources.deviceContext.context->PopLayer();
+                }
+                else
+                {
+                    deviceResources.deviceContext.context->PopAxisAlignedClip();
+                }
+
+                pushedLayers.pop_back();
             }
         }
 
