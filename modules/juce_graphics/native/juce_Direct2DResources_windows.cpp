@@ -33,8 +33,6 @@
 
 #endif
 
-#define JUCE_DIRECT2D_DIRECT_COMPOSITION 1
-
 namespace juce
 {
     namespace direct2d
@@ -266,24 +264,6 @@ namespace juce
 
             //==============================================================================
             //
-            // Hashing
-            //
-            static constexpr auto fnvOffsetBasis = 0xcbf29ce484222325;
-            static constexpr auto fnvPrime = 0x100000001b3;
-
-            static constexpr uint64 fnv1aHash(uint8 const* data, size_t numBytes, uint64 hash = fnvOffsetBasis)
-            {
-                while (numBytes > 0)
-                {
-                    hash = (hash ^ *data++) * fnvPrime;
-                    --numBytes;
-                }
-
-                return hash;
-            }
-
-            //==============================================================================
-            //
             // Caching
             //
             struct CachedGeometryRealisation : public ReferenceCountedObject
@@ -448,7 +428,7 @@ namespace juce
 
             uint64 calculatePathHash(Path const& path, float flatteningTolerance)
             {
-                return fnv1aHash(reinterpret_cast<uint8 const*>(&flatteningTolerance), sizeof(flatteningTolerance), path.getUniqueID());
+                return DefaultHashFunctions::generateHash(reinterpret_cast<uint8 const*>(&flatteningTolerance), sizeof(flatteningTolerance), path.getUniqueID());
             }
 
         };
@@ -549,10 +529,175 @@ namespace juce
                 extraHashData.jointStyle = (int8)strokeType.getJointStyle();
                 extraHashData.endStyle = (int8)strokeType.getEndStyle();
 
-                return fnv1aHash(reinterpret_cast<uint8 const*>(&extraHashData), sizeof(extraHashData), path.getUniqueID());
+                return DefaultHashFunctions::generateHash(reinterpret_cast<uint8 const*>(&extraHashData), sizeof(extraHashData), path.getUniqueID());
             }
         };
 
+
+        //==============================================================================
+        //
+        // Colour gradient caching
+        //
+
+        template<class BrushType>
+        class ColourGradientCache
+        {
+        public:
+            ~ColourGradientCache()
+            {
+                release();
+            }
+
+            void release()
+            {
+                gradientMap.clear();
+            }
+
+            void get(ColourGradient const&, float, AffineTransform const&, ID2D1DeviceContext1*, ComSmartPtr<BrushType>& brush);
+
+        protected:
+
+            uint64 calculateGradientHash(ColourGradient const& gradient, float opacity, AffineTransform const& transform)
+            {
+                uint64 hash = gradient.getHash();
+                hash = DefaultHashFunctions::generateHash(reinterpret_cast<uint8 const*>(&transform), sizeof(transform), hash);
+                hash = DefaultHashFunctions::generateHash(reinterpret_cast<uint8 const*>(&opacity), sizeof(opacity), hash);
+                return hash;
+            }
+
+            void makeGradientStopCollection(ColourGradient const& gradient, ID2D1DeviceContext1* deviceContext, ComSmartPtr<ID2D1GradientStopCollection>& gradientStops) const noexcept
+            {
+                const int numColors = gradient.getNumColours();
+
+                HeapBlock<D2D1_GRADIENT_STOP> stops(numColors);
+
+                for (int i = numColors; --i >= 0;)
+                {
+                    stops[i].color = direct2d::colourToD2D(gradient.getColour(i));
+                    stops[i].position = (FLOAT)gradient.getColourPosition(i);
+                }
+
+                deviceContext->CreateGradientStopCollection(stops.getData(), (UINT32)numColors, gradientStops.resetAndGetPointerAddress());
+            }
+
+            class HashMap
+            {
+            public:
+                ~HashMap()
+                {
+                    clear();
+                }
+
+                void clear()
+                {
+                    lruCache.clear();
+                }
+
+                auto size() const noexcept
+                {
+                    return lruCache.size();
+                }
+
+                void getCachedBrush(uint64 hash, ComSmartPtr<BrushType>& brush)
+                {
+                    trim();
+
+                    brush = lruCache.get(hash);
+                }
+
+                void store(uint64 hash, ComSmartPtr<BrushType>& brush)
+                {
+                    lruCache.set(hash, brush);
+                }
+
+                void trim()
+                {
+                    //
+                    // Remove any expired entries
+                    //
+                    while (lruCache.size() > maxNumCacheEntries)
+                    {
+                        lruCache.popBack();
+                    }
+                }
+
+            private:
+                static int constexpr maxNumCacheEntries = 128;
+
+                direct2d::LeastRecentlyUsedCache<uint64, ComSmartPtr<BrushType>> lruCache;
+            };
+
+            HashMap gradientMap;
+        };
+
+        template<>
+        void ColourGradientCache<ID2D1LinearGradientBrush>::get(ColourGradient const& gradient, float opacity, AffineTransform const& transform, ID2D1DeviceContext1* deviceContext, ComSmartPtr<ID2D1LinearGradientBrush>& brush)
+        {
+            jassert(!gradient.isRadial);
+
+            //
+            // Already cached?
+            //
+            auto hash = calculateGradientHash(gradient, opacity, transform);
+            if (gradientMap.getCachedBrush(hash, brush); brush != nullptr)
+            {
+               return;
+            }
+
+            //
+            // Make and store a new gradient brush
+            //
+            ComSmartPtr<ID2D1GradientStopCollection> gradientStops;
+            makeGradientStopCollection(gradient, deviceContext, gradientStops);
+
+            D2D1_BRUSH_PROPERTIES brushProps = { opacity, direct2d::transformToMatrix(transform) };
+
+            const auto p1 = gradient.point1;
+            const auto p2 = gradient.point2;
+            const auto linearGradientBrushProperties = D2D1::LinearGradientBrushProperties({ p1.x, p1.y }, { p2.x, p2.y });
+
+            deviceContext->CreateLinearGradientBrush(linearGradientBrushProperties,
+                brushProps,
+                gradientStops,
+                brush.resetAndGetPointerAddress());
+
+            gradientMap.store(hash, brush);
+        }
+
+        template<>
+        void ColourGradientCache<ID2D1RadialGradientBrush>::get(ColourGradient const& gradient, float opacity, AffineTransform const& transform, ID2D1DeviceContext1* deviceContext, ComSmartPtr<ID2D1RadialGradientBrush>& brush)
+        {
+            jassert(gradient.isRadial);
+
+            //
+            // Already cached?
+            //
+            auto hash = calculateGradientHash(gradient, opacity, transform);
+            if (gradientMap.getCachedBrush(hash, brush); brush != nullptr)
+            {
+                return;
+            }
+
+            //
+            // Make and store a new gradient brush
+            //
+            ComSmartPtr<ID2D1GradientStopCollection> gradientStops;
+            makeGradientStopCollection(gradient, deviceContext, gradientStops);
+
+            D2D1_BRUSH_PROPERTIES brushProps = { opacity, direct2d::transformToMatrix(transform) };
+
+            const auto p1 = gradient.point1;
+            const auto p2 = gradient.point2;
+            const auto r = p1.getDistanceFrom(p2);
+            const auto radialGradientBrushProperties = D2D1::RadialGradientBrushProperties({ p1.x, p1.y }, {}, r, r);
+
+            deviceContext->CreateRadialGradientBrush(radialGradientBrushProperties,
+                brushProps,
+                gradientStops,
+                brush.resetAndGetPointerAddress());
+
+            gradientMap.store(hash, brush);
+        }
 
         //==============================================================================
         //
@@ -608,6 +753,8 @@ namespace juce
 
             void release()
             {
+                linearGradientCache.release();
+                radialGradientCache.release();
                 filledGeometryCache.release();
                 strokedGeometryCache.release();
                 colourBrush = nullptr;
@@ -623,6 +770,8 @@ namespace juce
             ComSmartPtr<ID2D1SolidColorBrush> colourBrush;
             FilledGeometryCache               filledGeometryCache;
             StrokeGeometryCache               strokedGeometryCache;
+            ColourGradientCache<ID2D1LinearGradientBrush> linearGradientCache;
+            ColourGradientCache<ID2D1RadialGradientBrush> radialGradientCache;
         };
 
         //==============================================================================

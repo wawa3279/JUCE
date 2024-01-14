@@ -587,6 +587,7 @@ private:
     std::unique_ptr<std::remove_pointer_t<HANDLE>, Destructor> handle;
 };
 
+
 //==============================================================================
 //
 // LRU cache for geometry caching

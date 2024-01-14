@@ -114,9 +114,9 @@ namespace juce
         //
         // Constructor for first stack entry
         //
-        SavedState(Rectangle<int> frameSize_, ComSmartPtr<ID2D1SolidColorBrush>& colourBrush_, DirectX::DXGI::Adapter::Ptr& adapter_, direct2d::DeviceContext& deviceContext_)
+        SavedState(Rectangle<int> frameSize_, ComSmartPtr<ID2D1SolidColorBrush>& colourBrush_, DirectX::DXGI::Adapter::Ptr& adapter_, direct2d::DeviceResources& deviceResources_)
             : adapter(adapter_),
-            deviceContext(deviceContext_),
+            deviceResources(deviceResources_),
             clipRegion(frameSize_),
             colourBrush(colourBrush_)
         {
@@ -129,7 +129,7 @@ namespace juce
         SavedState(SavedState const* const previousState_)
             : currentTransform(previousState_->currentTransform),
             adapter(previousState_->adapter),
-            deviceContext(previousState_->deviceContext),
+            deviceResources(previousState_->deviceResources),
             clipRegion(previousState_->clipRegion),
             font(previousState_->font),
             currentBrush(previousState_->currentBrush),
@@ -137,7 +137,6 @@ namespace juce
             bitmapBrush(previousState_->bitmapBrush),
             linearGradient(previousState_->linearGradient),
             radialGradient(previousState_->radialGradient),
-            gradientStops(previousState_->gradientStops),
             fillType(previousState_->fillType),
             interpolationMode(previousState_->interpolationMode)
         {
@@ -157,8 +156,8 @@ namespace juce
             //
             // Pass nullptr for the PushLayer layer parameter to allow Direct2D to manage the layers (Windows 8 or later)
             //
-            deviceContext.resetTransform();
-            deviceContext.context->PushLayer(layerParameters, nullptr);
+            deviceResources.deviceContext.resetTransform();
+            deviceResources.deviceContext.context->PushLayer(layerParameters, nullptr);
 
             pushedLayers.push ([] (ID2D1DeviceContext* ctx) { ctx->PopLayer(); });
         }
@@ -181,8 +180,8 @@ namespace juce
 
         void pushAxisAlignedClipLayer(Rectangle<int> r)
         {
-            deviceContext.setTransform(currentTransform.getTransform());
-            deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+            deviceResources.deviceContext.setTransform(currentTransform.getTransform());
+            deviceResources.deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
 
             pushedLayers.push ([] (ID2D1DeviceContext* ctx) { ctx->PopAxisAlignedClip(); });
         }
@@ -202,7 +201,7 @@ namespace juce
         {
             if (! pushedLayers.empty())
             {
-                pushedLayers.top() (deviceContext.context);
+                pushedLayers.top() (deviceResources.deviceContext.context);
                 pushedLayers.pop();
             }
         }
@@ -219,7 +218,6 @@ namespace juce
 
         void clearFill()
         {
-            gradientStops = nullptr;
             linearGradient = nullptr;
             radialGradient = nullptr;
             bitmapBrush = nullptr;
@@ -254,14 +252,14 @@ namespace juce
 
                 if (! d2d1Bitmap)
                 {
-                    d2d1Bitmap = direct2d::Direct2DBitmap::fromImage(fillType.image, deviceContext.context, Image::ARGB).getD2D1Bitmap();
+                    d2d1Bitmap = direct2d::Direct2DBitmap::fromImage(fillType.image, deviceResources.deviceContext.context, Image::ARGB).getD2D1Bitmap();
                 }
 
                 if (d2d1Bitmap)
                 {
                     D2D1_BRUSH_PROPERTIES brushProps = { fillType.getOpacity(), direct2d::transformToMatrix(fillType.transform) };
                     auto                  bmProps = D2D1::BitmapBrushProperties(D2D1_EXTEND_MODE_WRAP, D2D1_EXTEND_MODE_WRAP);
-                    auto hr = deviceContext.context->CreateBitmapBrush(d2d1Bitmap,
+                    auto hr = deviceResources.deviceContext.context->CreateBitmapBrush(d2d1Bitmap,
                         bmProps,
                         brushProps,
                         bitmapBrush.resetAndGetPointerAddress());
@@ -274,6 +272,17 @@ namespace juce
             }
             else if (fillType.isGradient())
             {
+                if (fillType.gradient->isRadial)
+                {
+                    deviceResources.radialGradientCache.get(*fillType.gradient, fillType.getOpacity(), fillType.transform, deviceResources.deviceContext.context, radialGradient);
+                    currentBrush = radialGradient;
+                }
+                else
+                {
+                    deviceResources.linearGradientCache.get(*fillType.gradient, fillType.getOpacity(), fillType.transform, deviceResources.deviceContext.context, linearGradient);
+                    currentBrush = linearGradient;
+                }
+                /*
                 D2D1_BRUSH_PROPERTIES brushProps = { fillType.getOpacity(), direct2d::transformToMatrix(fillType.transform) };
                 const int             numColors = fillType.gradient->getNumColours();
 
@@ -313,6 +322,7 @@ namespace juce
 
                     currentBrush = linearGradient;
                 }
+                */
             }
 
             updateColourBrush();
@@ -341,7 +351,7 @@ namespace juce
         } currentTransform;
 
         DirectX::DXGI::Adapter::Ptr& adapter;
-        direct2d::DeviceContext& deviceContext;
+        direct2d::DeviceResources& deviceResources;
         Rectangle<int>           clipRegion;
 
         Font font;
@@ -351,7 +361,6 @@ namespace juce
         ComSmartPtr<ID2D1BitmapBrush>            bitmapBrush;
         ComSmartPtr<ID2D1LinearGradientBrush>    linearGradient;
         ComSmartPtr<ID2D1RadialGradientBrush>    radialGradient;
-        ComSmartPtr<ID2D1GradientStopCollection> gradientStops;
 
         FillType fillType;
 
@@ -558,7 +567,7 @@ namespace juce
             jassert(savedClientStates.size() == 0);
 
             savedClientStates.push(
-                std::make_unique<SavedState>(initialClipRegion, deviceResources.colourBrush, adapter, deviceResources.deviceContext));
+                std::make_unique<SavedState>(initialClipRegion, deviceResources.colourBrush, adapter, deviceResources));
 
             return getCurrentSavedState();
         }
