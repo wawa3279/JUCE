@@ -685,7 +685,7 @@ namespace juce
                 gradientStops,
                 brush.resetAndGetPointerAddress());
 
-           gradientMap.store(hash, brush);
+            gradientMap.store(hash, brush);
 
 #if JUCE_DIRECT2D_METRICS
             auto t2 = Time::getHighResolutionTicks();
