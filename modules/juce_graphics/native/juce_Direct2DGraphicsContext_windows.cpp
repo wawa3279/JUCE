@@ -282,47 +282,6 @@ namespace juce
                     deviceResources.linearGradientCache.get(*fillType.gradient, fillType.getOpacity(), fillType.transform, deviceResources.deviceContext.context, linearGradient);
                     currentBrush = linearGradient;
                 }
-                /*
-                D2D1_BRUSH_PROPERTIES brushProps = { fillType.getOpacity(), direct2d::transformToMatrix(fillType.transform) };
-                const int             numColors = fillType.gradient->getNumColours();
-
-                HeapBlock<D2D1_GRADIENT_STOP> stops(numColors);
-
-                for (int i = fillType.gradient->getNumColours(); --i >= 0;)
-                {
-                    stops[i].color = direct2d::colourToD2D(fillType.gradient->getColour(i));
-                    stops[i].position = (FLOAT)fillType.gradient->getColourPosition(i);
-                }
-
-                deviceContext.context->CreateGradientStopCollection(stops.getData(), (UINT32) numColors, gradientStops.resetAndGetPointerAddress());
-
-                if (fillType.gradient->isRadial)
-                {
-                    const auto p1 = fillType.gradient->point1;
-                    const auto p2 = fillType.gradient->point2;
-                    const auto r = p1.getDistanceFrom(p2);
-                    const auto props = D2D1::RadialGradientBrushProperties({ p1.x, p1.y }, {}, r, r);
-
-                    deviceContext.context->CreateRadialGradientBrush(props,
-                        brushProps,
-                        gradientStops,
-                        radialGradient.resetAndGetPointerAddress());
-                    currentBrush = radialGradient;
-                }
-                else
-                {
-                    const auto p1 = fillType.gradient->point1;
-                    const auto p2 = fillType.gradient->point2;
-                    const auto props = D2D1::LinearGradientBrushProperties({ p1.x, p1.y }, { p2.x, p2.y });
-
-                    deviceContext.context->CreateLinearGradientBrush(props,
-                        brushProps,
-                        gradientStops,
-                        linearGradient.resetAndGetPointerAddress());
-
-                    currentBrush = linearGradient;
-                }
-                */
             }
 
             updateColourBrush();
