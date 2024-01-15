@@ -364,7 +364,7 @@ namespace juce
                 ID2D1Factory2* factory,
                 ID2D1DeviceContext1* deviceContext,
                 float dpiScaleFactor,
-                int frameNumber)
+                [[maybe_unused]] int frameNumber)
             {
                 if (path.getModificationCount() == 0 || !path.isCacheEnabled() || !path.shouldBeCached())
                 {
@@ -452,7 +452,7 @@ namespace juce
                 float xScaleFactor,
                 float yScaleFactor,
                 float dpiScaleFactor,
-                int frameNumber)
+                [[maybe_unused]] int frameNumber)
             {
                 if (path.getModificationCount() == 0 || !path.isCacheEnabled() || !path.shouldBeCached())
                 {

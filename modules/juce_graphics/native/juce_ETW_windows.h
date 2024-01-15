@@ -148,6 +148,8 @@ JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 
 #define TraceLoggingWriteWrapper(hProvider, eventName, ...)
 
+#define GET_COMPONENT_DEPTH(component)
+
 #endif
 
 #define TRACE_LOG_D2D_RESOURCE(code) \
