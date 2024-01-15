@@ -262,7 +262,7 @@ bool ColourGradient::ColourPoint::operator!= (ColourPoint other) const noexcept
 
 uint64 ColourGradient::getHash() const noexcept
 {
-    return DefaultHashFunctions::generateHash(reinterpret_cast<uint8 const*>(colours.getRawDataPointer()), (uint64)colours.size() * (uint64)sizeof(ColourPoint));
+    return DefaultHashFunctions::generateHash(reinterpret_cast<uint8 const*>(colours.getRawDataPointer()), (size_t)colours.size() * sizeof(ColourPoint));
 }
 
 

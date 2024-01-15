@@ -458,8 +458,6 @@ namespace juce
 
         void compareImages(Image& image1, Image& image2, std::function<bool(uint8*, uint8*)> compareBytes)
         {
-            DBG("Comparing format " + String{ image1.getFormat() } + " to " + String{ image2.getFormat() });
-
             {
                 //
                 // BitmapData width & height should match
