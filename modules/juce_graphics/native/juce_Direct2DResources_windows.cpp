@@ -363,7 +363,8 @@ namespace juce
             ID2D1GeometryRealization* getGeometryRealisation(const Path& path,
                 ID2D1Factory2* factory,
                 ID2D1DeviceContext1* deviceContext,
-                float dpiScaleFactor)
+                float dpiScaleFactor,
+                int frameNumber)
             {
                 if (path.getModificationCount() == 0 || !path.isCacheEnabled() || !path.shouldBeCached())
                 {
@@ -381,7 +382,11 @@ namespace juce
                         cachedGeometry->pathModificationCount = 0;
                     }
 
-                    if (!cachedGeometry->geometryRealisation)
+                    if (cachedGeometry->geometryRealisation)
+                    {
+                        TRACE_LOG_D2D_PAINT_CALL(etw::filledGeometryRealizationCacheHit, frameNumber);
+                    }
+                    else
                     {
 #if JUCE_DIRECT2D_METRICS
                         auto t1 = Time::getHighResolutionTicks();
@@ -405,6 +410,8 @@ namespace juce
                             {
                             case S_OK:
                                 cachedGeometry->pathModificationCount = path.getModificationCount();
+
+                                TRACE_LOG_D2D_PAINT_CALL(etw::filledGeometryRealizationCreated, frameNumber);
                                 break;
 
                             case E_OUTOFMEMORY:
@@ -444,7 +451,8 @@ namespace juce
                 ID2D1DeviceContext1* deviceContext,
                 float xScaleFactor,
                 float yScaleFactor,
-                float dpiScaleFactor)
+                float dpiScaleFactor,
+                int frameNumber)
             {
                 if (path.getModificationCount() == 0 || !path.isCacheEnabled() || !path.shouldBeCached())
                 {
@@ -462,7 +470,11 @@ namespace juce
                         cachedGeometry->pathModificationCount = 0;
                     }
 
-                    if (!cachedGeometry->geometryRealisation)
+                    if (cachedGeometry->geometryRealisation)
+                    {
+                        TRACE_LOG_D2D_PAINT_CALL(etw::strokedGeometryRealizationCacheHit, frameNumber);
+                    }
+                    else
                     {
 #if JUCE_DIRECT2D_METRICS
                         auto t1 = Time::getHighResolutionTicks();
@@ -497,6 +509,8 @@ namespace juce
                                 {
                                 case S_OK:
                                     cachedGeometry->pathModificationCount = path.getModificationCount();
+
+                                    TRACE_LOG_D2D_PAINT_CALL(etw::strokedGeometryRealizationCreated, frameNumber);
                                     break;
 
                                 case E_OUTOFMEMORY:

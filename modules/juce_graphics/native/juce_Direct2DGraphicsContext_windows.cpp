@@ -662,7 +662,7 @@ namespace juce
 
     bool Direct2DGraphicsContext::startFrame()
     {
-        TRACE_LOG_D2D_START_FRAME;
+        TRACE_LOG_D2D_PAINT_START(frameNumber);
 
         if (currentState = getPimpl()->startFrame(); currentState != nullptr)
         {
@@ -708,23 +708,25 @@ namespace juce
         getPimpl()->finishFrame();
 
         currentState = nullptr;
+
+        TRACE_LOG_D2D_PAINT_END(frameNumber++);
     }
 
     void Direct2DGraphicsContext::setOrigin(Point<int> o)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::setOrigin);
+        TRACE_LOG_D2D_PAINT_CALL(etw::setOrigin, frameNumber);
         currentState->currentTransform.setOrigin(o);
     }
 
     void Direct2DGraphicsContext::addTransform(const AffineTransform& transform)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::addTransform);
+        TRACE_LOG_D2D_PAINT_CALL(etw::addTransform, frameNumber);
         currentState->currentTransform.addTransform(transform);
     }
 
     bool Direct2DGraphicsContext::clipToRectangle(const Rectangle<int>& r)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangle);
+        TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangle, frameNumber);
 
         //
         // Transform the rectangle and update the current clip region
@@ -758,6 +760,8 @@ namespace juce
 
                 currentState->pushTransformedRectangleGeometryClipLayer(getPimpl()->rectangleGeometryUnitSize, transform);
             }
+
+            TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangleDone, frameNumber);
         }
 
         return !isClipEmpty();
@@ -765,7 +769,7 @@ namespace juce
 
     bool Direct2DGraphicsContext::clipToRectangleList(const RectangleList<int>& clipRegion)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangleList);
+        TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangleList, frameNumber);
 
         //
         // Just one rectangle?
@@ -789,6 +793,8 @@ namespace juce
                 currentState->currentTransform.getTransform(),
                 D2D1_FILL_MODE_WINDING,
                 D2D1_FIGURE_BEGIN_FILLED));
+
+            TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangleListDone, frameNumber);
         }
 
         return !isClipEmpty();
@@ -801,7 +807,7 @@ namespace juce
             return;
         }
 
-        TRACE_LOG_D2D_PAINT_CALL(etw::excludeClipRectangle);
+        TRACE_LOG_D2D_PAINT_CALL(etw::excludeClipRectangle, frameNumber);
 
         //
         // To exclude the rectangle r, build a rectangle list with r as the first rectangle and a very large rectangle as the second.
@@ -821,23 +827,27 @@ namespace juce
                 currentState->currentTransform.getTransform(),
                 D2D1_FILL_MODE_ALTERNATE,
                 D2D1_FIGURE_BEGIN_FILLED));
+
+            TRACE_LOG_D2D_PAINT_CALL(etw::excludeClipRectangleDone, frameNumber);
         }
     }
 
     void Direct2DGraphicsContext::clipToPath(const Path& path, const AffineTransform& transform)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::clipToPath);
+        TRACE_LOG_D2D_PAINT_CALL(etw::clipToPath, frameNumber);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             currentState->pushGeometryClipLayer(
                 direct2d::pathToPathGeometry(getPimpl()->getDirect2DFactory(), path, currentState->currentTransform.getTransformWith(transform), D2D1_FIGURE_BEGIN_FILLED));
+
+            TRACE_LOG_D2D_PAINT_CALL(etw::clipToPathDone, frameNumber);
         }
     }
 
     void Direct2DGraphicsContext::clipToImageAlpha(const Image& sourceImage, const AffineTransform& transform)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::clipToImageAlpha);
+        TRACE_LOG_D2D_PAINT_CALL(etw::clipToImageAlpha, frameNumber);
 
         if (sourceImage.isNull())
         {
@@ -894,6 +904,8 @@ namespace juce
                     layerParams.opacityBrush = brush;
 
                     currentState->pushLayer(layerParams);
+
+                    TRACE_LOG_D2D_PAINT_CALL(etw::clipToImageAlphaDone, frameNumber);
                 }
             }
         }
@@ -916,63 +928,75 @@ namespace juce
 
     void Direct2DGraphicsContext::saveState()
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::saveState);
+        TRACE_LOG_D2D_PAINT_CALL(etw::saveState, frameNumber);
 
         currentState = getPimpl()->pushSavedState();
+
+        TRACE_LOG_D2D_PAINT_CALL(etw::saveStateDone, frameNumber);
     }
 
     void Direct2DGraphicsContext::restoreState()
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::restoreState);
+        TRACE_LOG_D2D_PAINT_CALL(etw::restoreState, frameNumber);
 
         currentState = getPimpl()->popSavedState();
         currentState->updateColourBrush();
         jassert(currentState);
+
+        TRACE_LOG_D2D_PAINT_CALL(etw::restoreStateDone, frameNumber);
     }
 
     void Direct2DGraphicsContext::beginTransparencyLayer(float opacity)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::beginTransparencyLayer);
+        TRACE_LOG_D2D_PAINT_CALL(etw::beginTransparencyLayer, frameNumber);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             currentState->pushTransparencyLayer(opacity);
+
+            TRACE_LOG_D2D_PAINT_CALL(etw::beginTransparencyLayerDone, frameNumber);
         }
     }
 
     void Direct2DGraphicsContext::endTransparencyLayer()
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::endTransparencyLayer);
+        TRACE_LOG_D2D_PAINT_CALL(etw::endTransparencyLayer, frameNumber);
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             currentState->popTopLayer();
+
+            TRACE_LOG_D2D_PAINT_CALL(etw::endTransparencyLayerDone, frameNumber);
         }
     }
 
     void Direct2DGraphicsContext::setFill(const FillType& fillType)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::setFill);
+        TRACE_LOG_D2D_PAINT_CALL(etw::setFill, frameNumber);
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             currentState->fillType = fillType;
             currentState->updateCurrentBrush();
+
+            TRACE_LOG_D2D_PAINT_CALL(etw::setFillDone, frameNumber);
         }
     }
 
     void Direct2DGraphicsContext::setOpacity(float newOpacity)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::setOpacity);
+        TRACE_LOG_D2D_PAINT_CALL(etw::setOpacity, frameNumber);
 
         currentState->setOpacity(newOpacity);
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             currentState->updateCurrentBrush();
+
+            TRACE_LOG_D2D_PAINT_CALL(etw::setOpacityDone, frameNumber);
         }
     }
 
     void Direct2DGraphicsContext::setInterpolationQuality(Graphics::ResamplingQuality quality)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::setInterpolationQuality);
+        TRACE_LOG_D2D_PAINT_CALL(etw::setInterpolationQuality, frameNumber);
 
         switch (quality)
         {
@@ -1004,7 +1028,7 @@ namespace juce
 
     void Direct2DGraphicsContext::fillRect(const Rectangle<float>& r)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::fillRect);
+        TRACE_LOG_D2D_PAINT_CALL(etw::fillRect, frameNumber);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1012,6 +1036,8 @@ namespace juce
             {
                 updateDeviceContextTransform();
                 deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
+
+                TRACE_LOG_D2D_PAINT_CALL(etw::fillRectDone, frameNumber);
             }
         }
     }
@@ -1034,7 +1060,7 @@ namespace juce
 
     bool Direct2DGraphicsContext::drawRect(const Rectangle<float>& r, float lineThickness)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::drawRect);
+        TRACE_LOG_D2D_PAINT_CALL(etw::drawRect, frameNumber);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1045,6 +1071,8 @@ namespace juce
                 deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromBottom(lineThickness)), brush);
                 deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromLeft(lineThickness)), brush);
                 deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromRight(lineThickness)), brush);
+
+                TRACE_LOG_D2D_PAINT_CALL(etw::drawRectDone, frameNumber);
             }
         }
 
@@ -1053,7 +1081,7 @@ namespace juce
 
     void Direct2DGraphicsContext::fillPath(const Path& p, const AffineTransform& transform)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::fillPath);
+        TRACE_LOG_D2D_PAINT_CALL(etw::fillPath, frameNumber);
 
         if (p.isEmpty())
         {
@@ -1075,10 +1103,13 @@ namespace juce
                 if (auto geometryRealisation = getPimpl()->getFilledGeometryCache().getGeometryRealisation(p,
                     factory,
                     deviceContext,
-                    getPhysicalPixelScaleFactor()))
+                    getPhysicalPixelScaleFactor(),
+                    frameNumber))
                 {
                     updateDeviceContextTransform(transform);
                     deviceContext->DrawGeometryRealization(geometryRealisation, brush);
+
+                    TRACE_LOG_D2D_PAINT_CALL(etw::fillGeometryRealizationDone, frameNumber);
                     return;
                 }
 
@@ -1089,6 +1120,7 @@ namespace juce
                 {
                     updateDeviceContextTransform();
                     deviceContext->FillGeometry(geometry, brush);
+                    TRACE_LOG_D2D_PAINT_CALL(etw::fillGeometryDone, frameNumber);
                 }
             }
         }
@@ -1096,7 +1128,7 @@ namespace juce
 
     bool Direct2DGraphicsContext::drawPath(const Path& p, const PathStrokeType& strokeType, const AffineTransform& transform)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::drawPath);
+        TRACE_LOG_D2D_PAINT_CALL(etw::drawPath, frameNumber);
 
         if (p.isEmpty())
         {
@@ -1123,10 +1155,14 @@ namespace juce
                         deviceContext,
                         xScale,
                         yScale,
-                        getPhysicalPixelScaleFactor()))
+                        getPhysicalPixelScaleFactor(),
+                        frameNumber))
                     {
                         updateDeviceContextTransform(AffineTransform::scale(1.0f / xScale, 1.0f / yScale, pathBounds.getX(), pathBounds.getY()).followedBy(transform));
                         deviceContext->DrawGeometryRealization(geometryRealisation, brush);
+
+                        TRACE_LOG_D2D_PAINT_CALL(etw::drawGeometryRealizationDone, frameNumber);
+
                         return true;
                     }
                 }
@@ -1140,6 +1176,8 @@ namespace juce
                     {
                         updateDeviceContextTransform();
                         deviceContext->DrawGeometry(geometry, brush, strokeType.getStrokeThickness(), strokeStyle);
+
+                        TRACE_LOG_D2D_PAINT_CALL(etw::drawGeometryDone, frameNumber);
                     }
                 }
             }
@@ -1150,7 +1188,7 @@ namespace juce
 
     void Direct2DGraphicsContext::drawImage(const Image& image, const AffineTransform& transform)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::drawImage);
+        TRACE_LOG_D2D_PAINT_CALL(etw::drawImage, frameNumber);
 
         if (image.isNull())
         {
@@ -1188,6 +1226,8 @@ namespace juce
                     currentState->interpolationMode,
                     &sourceRectF,
                     {});
+
+                TRACE_LOG_D2D_PAINT_CALL(etw::drawImageDone, frameNumber);
             }
         }
     }
@@ -1199,7 +1239,7 @@ namespace juce
 
     bool Direct2DGraphicsContext::drawLineWithThickness(const Line<float>& line, float lineThickness)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::drawLine);
+        TRACE_LOG_D2D_PAINT_CALL(etw::drawLine, frameNumber);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1210,6 +1250,8 @@ namespace juce
                     D2D1::Point2F(line.getEndX(), line.getEndY()),
                     brush,
                     lineThickness);
+
+                TRACE_LOG_D2D_PAINT_CALL(etw::drawLineDone, frameNumber);
             }
         }
 
@@ -1218,9 +1260,11 @@ namespace juce
 
     void Direct2DGraphicsContext::setFont(const Font& newFont)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::setFont);
+        TRACE_LOG_D2D_PAINT_CALL(etw::setFont, frameNumber);
 
         currentState->setFont(newFont);
+
+        TRACE_LOG_D2D_PAINT_CALL(etw::setFontDone, frameNumber);
     }
 
     const Font& Direct2DGraphicsContext::getFont()
@@ -1230,17 +1274,19 @@ namespace juce
 
     void Direct2DGraphicsContext::drawGlyph(int glyphNumber, const AffineTransform& transform)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::drawGlyph);
+        TRACE_LOG_D2D_PAINT_CALL(etw::drawGlyph, frameNumber);
 
         getPimpl()->glyphRun.glyphIndices[0] = (uint16)glyphNumber;
         getPimpl()->glyphRun.glyphOffsets[0] = {};
 
         drawGlyphCommon(1, currentState->font, transform, {});
+
+        TRACE_LOG_D2D_PAINT_CALL(etw::drawGlyphDone, frameNumber);
     }
 
     bool Direct2DGraphicsContext::drawTextLayout(const AttributedString& text, const Rectangle<float>& area)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::drawTextLayout);
+        TRACE_LOG_D2D_PAINT_CALL(etw::drawTextLayout, frameNumber);
 
         auto deviceContext = getPimpl()->getDeviceContext();
         auto directWriteFactory = getPimpl()->getDirectWriteFactory();
@@ -1260,6 +1306,8 @@ namespace juce
                     textLayout,
                     brush,
                     D2D1_DRAW_TEXT_OPTIONS_NONE);
+
+                TRACE_LOG_D2D_PAINT_CALL(etw::drawTextLayoutDone, frameNumber);
             }
         }
 
@@ -1278,7 +1326,7 @@ namespace juce
 
     bool Direct2DGraphicsContext::drawRoundedRectangle(Rectangle<float> area, float cornerSize, float lineThickness)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::drawRoundedRectangle);
+        TRACE_LOG_D2D_PAINT_CALL(etw::drawRoundedRectangle, frameNumber);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1287,6 +1335,8 @@ namespace juce
                 updateDeviceContextTransform();
                 D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
                 deviceContext->DrawRoundedRectangle(roundedRect, brush, lineThickness);
+
+                TRACE_LOG_D2D_PAINT_CALL(etw::drawRoundedRectangleDone, frameNumber);
             }
         }
 
@@ -1295,7 +1345,7 @@ namespace juce
 
     bool Direct2DGraphicsContext::fillRoundedRectangle(Rectangle<float> area, float cornerSize)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::fillRoundedRectangle);
+        TRACE_LOG_D2D_PAINT_CALL(etw::fillRoundedRectangle, frameNumber);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1304,6 +1354,8 @@ namespace juce
                 updateDeviceContextTransform();
                 D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
                 deviceContext->FillRoundedRectangle(roundedRect, brush);
+
+                TRACE_LOG_D2D_PAINT_CALL(etw::fillRoundedRectangleDone, frameNumber);
             }
         }
 
@@ -1312,7 +1364,7 @@ namespace juce
 
     bool Direct2DGraphicsContext::drawEllipse(Rectangle<float> area, float lineThickness)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::drawEllipse);
+        TRACE_LOG_D2D_PAINT_CALL(etw::drawEllipse, frameNumber);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1323,14 +1375,17 @@ namespace juce
                 auto         centre = area.getCentre();
                 D2D1_ELLIPSE ellipse{ { centre.x, centre.y }, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
                 deviceContext->DrawEllipse(ellipse, brush, lineThickness, nullptr);
+
+                TRACE_LOG_D2D_PAINT_CALL(etw::drawEllipseDone, frameNumber);
             }
         }
+
         return true;
     }
 
     bool Direct2DGraphicsContext::fillEllipse(Rectangle<float> area)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::fillEllipse);
+        TRACE_LOG_D2D_PAINT_CALL(etw::fillEllipse, frameNumber);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1341,8 +1396,11 @@ namespace juce
                 auto         centre = area.getCentre();
                 D2D1_ELLIPSE ellipse{ { centre.x, centre.y }, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
                 deviceContext->FillEllipse(ellipse, brush);
+
+                TRACE_LOG_D2D_PAINT_CALL(etw::fillEllipseDone, frameNumber);
             }
         }
+
         return true;
     }
 
@@ -1352,7 +1410,7 @@ namespace juce
         const AffineTransform& transform,
         Rectangle<float>              underlineArea)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::drawGlyphRun);
+        TRACE_LOG_D2D_PAINT_CALL(etw::drawGlyphRun, frameNumber);
 
         if (currentState->fillType.isInvisible())
         {

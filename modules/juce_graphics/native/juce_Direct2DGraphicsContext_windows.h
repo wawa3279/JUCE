@@ -248,6 +248,8 @@ public:
 
     //==============================================================================
 protected:
+    int frameNumber = 0;
+
     struct SavedState;
     SavedState* currentState = nullptr;
 

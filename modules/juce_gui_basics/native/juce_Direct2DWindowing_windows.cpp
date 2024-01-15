@@ -366,8 +366,6 @@ private:
 
         if (usingDirect2DRendering())
         {
-            TRACE_LOG_PARENT_WINDOW_MESSAGE(message);
-
             switch (message)
             {
             case WM_PAINT:
