@@ -117,7 +117,6 @@ namespace juce
             static Direct2DBitmap fromImage(Image const& image, ID2D1DeviceContext1* deviceContext, Image::PixelFormat outputFormat)
             {
                 jassert(outputFormat == Image::ARGB || outputFormat == Image::SingleChannel);
-                jassert(image.getPixelData()->createType()->getTypeID() != NativeImageType{}.getTypeID());
 
                 //
                 // Calling Image::convertedToFormat could cause unchecked recursion since convertedToFormat
@@ -126,7 +125,8 @@ namespace juce
                 // Use a software image for the conversion instead so the Graphics::drawImageAt call doesn't go
                 // through the Direct2D renderer
                 //
-                // Be sure to explicitly set the DPI to 96.0 for the image
+                // Be sure to explicitly set the DPI to 96.0 for the image; otherwise it will default to the screen DPI
+                // and may be scaled incorrectly
                 //
                 Image convertedImage = SoftwareImageType{}.convert(image).convertedToFormat(outputFormat);
                 Image::BitmapData bitmapData{ convertedImage, Image::BitmapData::readWrite };
