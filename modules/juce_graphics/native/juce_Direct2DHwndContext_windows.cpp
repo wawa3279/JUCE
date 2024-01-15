@@ -81,12 +81,15 @@ namespace juce
                 }
 
 #if JUCE_DIRECT2D_METRICS
-                deviceResources.filledGeometryCache.createGeometryMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGeometryTime);
-                deviceResources.filledGeometryCache.createGeometryRealisationMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createFilledGRTime);
-                deviceResources.strokedGeometryCache.createGeometryMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGeometryTime);
-                deviceResources.strokedGeometryCache.createGeometryRealisationMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createStrokedGRTime);
-                deviceResources.linearGradientCache.createGradientMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGradientTime);
-                deviceResources.radialGradientCache.createGradientMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGradientTime);
+                if (owner.paintStats)
+                {
+                    deviceResources.filledGeometryCache.createGeometryMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGeometryTime);
+                    deviceResources.filledGeometryCache.createGeometryRealisationMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createFilledGRTime);
+                    deviceResources.strokedGeometryCache.createGeometryMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGeometryTime);
+                    deviceResources.strokedGeometryCache.createGeometryRealisationMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createStrokedGRTime);
+                    deviceResources.linearGradientCache.createGradientMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGradientTime);
+                    deviceResources.radialGradientCache.createGradientMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGradientTime);
+                }
 #endif
             }
 

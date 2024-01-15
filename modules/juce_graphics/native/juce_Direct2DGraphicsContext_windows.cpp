@@ -1062,15 +1062,19 @@ namespace juce
     {
         TRACE_LOG_D2D_PAINT_CALL(etw::drawRect, frameNumber);
 
+        if (r.getWidth() * 0.5f < lineThickness || r.getHeight() * 0.5f < lineThickness)
+        {
+            return false;
+        }
+
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             if (auto brush = currentState->getCurrentBrush())
             {
                 updateDeviceContextTransform();
-                deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromTop(lineThickness)), brush);
-                deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromBottom(lineThickness)), brush);
-                deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromLeft(lineThickness)), brush);
-                deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromRight(lineThickness)), brush);
+
+                auto reducedR = r.reduced(lineThickness * 0.5f);
+                deviceContext->DrawRectangle(direct2d::rectangleToRectF(reducedR), brush, lineThickness);
 
                 TRACE_LOG_D2D_PAINT_CALL(etw::drawRectDone, frameNumber);
             }
