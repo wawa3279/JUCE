@@ -271,6 +271,32 @@ struct ScopedGeometryWithSink
     ComSmartPtr<ID2D1GeometrySink> sink;
 };
 
+static ComSmartPtr<ID2D1Geometry> exclusionRectToPathGeometry(ID2D1Factory* factory,
+    const Rectangle<int> excludedRegion,
+    const AffineTransform& transform)
+{
+    //
+    // To exclude the rectangle r, create a geometry with excludedRegion r as the first rectangle
+    // and a very large rectangle as the second.
+    //
+    // Specify D2D1_FILL_MODE_ALTERNATE so the inside of r is *outside*
+    // the geometry and everything else on the screen is inside the geometry.
+    //
+    ScopedGeometryWithSink objects{ factory, D2D1_FILL_MODE_ALTERNATE };
+
+    if (objects.sink != nullptr)
+    {
+        direct2d::rectToGeometrySink(excludedRegion, objects.sink, transform, D2D1_FIGURE_BEGIN_FILLED);
+
+        auto constexpr size = Direct2DGraphicsContext::maxFrameSize;
+        direct2d::rectToGeometrySink({ -size, -size, size * 2, size * 2 }, objects.sink, transform, D2D1_FIGURE_BEGIN_FILLED);
+
+        return { (ID2D1Geometry*)objects.geometry };
+    }
+
+    return nullptr;
+}
+
 static ComSmartPtr<ID2D1Geometry> rectListToPathGeometry (ID2D1Factory* factory,
                                                           const RectangleList<int>& clipRegion,
                                                           const AffineTransform& transform,

@@ -130,7 +130,7 @@ namespace juce
             : colourBrush(colourBrush_),
             adapter(adapter_),
             deviceResources(deviceResources_),
-            clipRegion(frameSize_)
+            clipList(frameSize_)
         {
             currentBrush = colourBrush;
 
@@ -149,7 +149,7 @@ namespace juce
             currentTransform(previousState_->currentTransform),
             adapter(previousState_->adapter),
             deviceResources(previousState_->deviceResources),
-            clipRegion(previousState_->clipRegion),
+            clipList(previousState_->clipList),
             font(previousState_->font),
             fillType(previousState_->fillType),
             interpolationMode(previousState_->interpolationMode)
@@ -192,11 +192,10 @@ namespace juce
             pushLayer(layerParameters);
         }
 
-        void pushAxisAlignedClipLayer(Rectangle<int> r)
+        void pushAxisAlignedClipLayer(Rectangle<float> r)
         {
-            r = r.transformedBy(currentTransform.getTransform());
+            DBG("   pushAxisAlignedClipLayer " << r.toString());
             deviceResources.deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-
             pushedLayers.emplace_back(popAxisAlignedLayerFlag);
         }
 
@@ -340,7 +339,7 @@ namespace juce
 
         DirectX::DXGI::Adapter::Ptr& adapter;
         direct2d::DeviceResources& deviceResources;
-        Rectangle<int>           clipRegion;
+        RectangleList<int> clipList;
 
         Font font;
 
@@ -416,7 +415,6 @@ namespace juce
             deviceResources.release();
         }
 
-        virtual Rectangle<int> getFrameSize() = 0;
         virtual ID2D1Image* getDeviceContextTarget() = 0;
 
         virtual void updatePaintAreas() = 0;
@@ -596,6 +594,8 @@ namespace juce
             return paintAreas;
         }
 
+        virtual Rectangle<int> getFrameSize() = 0;
+
         void setDeviceContextTransform(AffineTransform transform)
         {
             deviceResources.deviceContext.setTransform(transform);
@@ -656,6 +656,7 @@ namespace juce
         bool                                opaque = true;
         float                               targetAlpha = 1.0f;
         D2D1_COLOR_F                        backgroundColor{};
+        RectangleList<int> exclusionRectangles{ { -maxFrameSize, -maxFrameSize, maxFrameSize * 2, maxFrameSize * 2 } };
 
     private:
         HWND                                hwnd = nullptr;
@@ -690,7 +691,7 @@ namespace juce
                 auto const& paintAreas = getPimpl()->getPaintAreas();
                 if (paintAreas.getNumRectangles() == 1)
                 {
-                    currentState->pushAxisAlignedClipLayer(paintAreas.getRectangle(0));
+                    currentState->pushAxisAlignedClipLayer(paintAreas.getRectangle(0).toFloat());
                 }
                 else
                 {
@@ -741,69 +742,107 @@ namespace juce
     {
         TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangle, frameNumber);
 
-        //
-        // Transform the rectangle and update the current clip region
-        //
-        auto currentTransform = currentState->currentTransform.getTransform();
-        auto transformedR = r.transformedBy(currentTransform);
-        currentState->clipRegion = currentState->clipRegion.getIntersection(transformedR);
+        DBG("cliptorectangle " << r.toString());
 
-        if (auto deviceContext = getPimpl()->getDeviceContext())
+        if (currentState->currentTransform.isOnlyTranslated)
         {
-            if (currentState->currentTransform.isAxisAligned())
-            {
-                //
-                // The current world transform is axis-aligned; push an axis aligned clip layer for better
-                // performance
-                //
-                currentState->pushAxisAlignedClipLayer(r);
-            }
-            else
-            {
-                //
-                // The current world transform is more complex; push a transformed geometry clip layer
-                //
-                // Instead of allocating a Geometry and then discarding it, use the ID2D1RectangleGeometry already
-                // created by the pimpl. rectangleGeometryUnitSize is a 1x1 rectangle at the origin,
-                // so pass a transform that scales, translates, and then applies the world transform.
-                //
-                auto transform = AffineTransform::scale(static_cast<float> (r.getWidth()), static_cast<float> (r.getHeight()))
-                    .translated(r.toFloat().getTopLeft())
-                    .followedBy(currentState->currentTransform.getTransform());
+            auto translatedR = currentState->currentTransform.translated(r);
+            currentState->clipList.clipTo(translatedR);
+            currentState->pushAxisAlignedClipLayer(translatedR.toFloat());
+        }
+        else if (currentState->currentTransform.isAxisAligned())
+        {
+            auto transformedR = currentState->currentTransform.transformed(r);
+            currentState->clipList.clipTo(transformedR);
+            currentState->pushAxisAlignedClipLayer(transformedR.toFloat());
+        }
+        else
+        {
+            jassertfalse;
 
-                currentState->pushTransformedRectangleGeometryClipLayer(getPimpl()->rectangleGeometryUnitSize, transform);
-            }
+            //
+            // The current world transform is more complex; push a transformed geometry clip layer
+            //
+            // Instead of allocating a Geometry and then discarding it, use the ID2D1RectangleGeometry already
+            // created by the pimpl. rectangleGeometryUnitSize is a 1x1 rectangle at the origin,
+            // so pass a transform that scales, translates, and then applies the world transform.
+            //
+            auto transform = AffineTransform::scale(static_cast<float> (r.getWidth()), static_cast<float> (r.getHeight()))
+                .translated(r.toFloat().getTopLeft())
+                .followedBy(currentState->currentTransform.getTransform());
 
-            TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangleDone, frameNumber);
+            currentState->pushTransformedRectangleGeometryClipLayer(getPimpl()->rectangleGeometryUnitSize, transform);
         }
 
         return !isClipEmpty();
     }
 
-    bool Direct2DGraphicsContext::clipToRectangleList(const RectangleList<int>& clipRegion)
+    bool Direct2DGraphicsContext::clipToRectangleList(const RectangleList<int>& newClipList)
     {
-        TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangleList, frameNumber);
+        auto const& transform = currentState->currentTransform;
+
+        TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangleList);
+
+        {
+#if JUCE_DEBUG
+            String line{ "cliptorectlist " };
+            for (auto const& r: newClipList)
+            {
+                line << r.toString() << "  ";
+            }
+            DBG(line);
+#endif
+        }
 
         //
         // Just one rectangle?
         //
-        if (clipRegion.getNumRectangles() == 1)
+        if (newClipList.getNumRectangles() == 1)
         {
-            return clipToRectangle(clipRegion.getRectangle(0));
+            return clipToRectangle(newClipList.getRectangle(0));
         }
 
         //
-        // Transform the rectangles and update the current clip region
+        // Update the clip list
         //
-        auto const currentTransform = currentState->currentTransform.getTransform();
-        auto       transformedR = clipRegion.getBounds().transformedBy(currentTransform);
-        currentState->clipRegion = currentState->clipRegion.getIntersection(transformedR);
+        if (transform.isIdentity())
+        {
+            currentState->clipList.clipTo(newClipList);
+        }
+        else if (transform.isOnlyTranslated)
+        {
+            RectangleList<int> offsetList(newClipList);
+            offsetList.offsetAll(transform.offset);
+            currentState->clipList.clipTo(offsetList);
+        }
+        else if (!transform.isRotated)
+        {
+            RectangleList<int> scaledList;
+
+            for (auto& i : newClipList)
+                scaledList.add(transform.transformed(i));
+
+            currentState->clipList.clipTo(scaledList);
+        }
+        else
+        {
+            jassertfalse;
+        }
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
+#if JUCE_DEBUG
+            String line = "   ";
+            for (auto const& r : newClipList)
+            {
+                line << r.toString() << "  ";
+            }
+            DBG(line);
+#endif
+
             currentState->pushGeometryClipLayer(direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(),
-                clipRegion,
-                currentState->currentTransform.getTransform(),
+                newClipList,
+                transform.getTransform(),
                 D2D1_FILL_MODE_WINDING,
                 D2D1_FIGURE_BEGIN_FILLED));
 
@@ -815,6 +854,7 @@ namespace juce
 
     void Direct2DGraphicsContext::excludeClipRectangle(const Rectangle<int>& r)
     {
+        DBG("excludeClipRectangle " << r.toString());
         if (r.isEmpty())
         {
             return;
@@ -830,24 +870,54 @@ namespace juce
         //
         // Have to use addWithoutMerging to build the rectangle list to keep the rectangles separate.
         //
-        RectangleList<int> rectangles{ r };
+
+        Rectangle<int> transformedR;
+        auto& transform = currentState->currentTransform;
+
+        if (transform.isOnlyTranslated)
+        {
+            transformedR = transform.translated(r);
+
+            currentState->clipList.subtract(transformedR);
+        }
+        else if (! transform.isRotated)
+        {
+            transformedR = transform.transformed(r);
+
+            currentState->clipList.subtract(transformedR);
+        }
+        else
+        {
+            jassertfalse;
+        }
+
+        //
+        // To exclude the rectangle r, build a rectangle list with r as the first rectangle and a very large rectangle as the second.
+        //
+        // Then, convert that rectangle list to a geometry, but specify D2D1_FILL_MODE_ALTERNATE so the inside of r is *outside*
+        // the geometry and everything else on the screen is inside the geometry.
+        //
+        RectangleList<int> rectangles{ transformedR };
         rectangles.addWithoutMerging({ -maxFrameSize, -maxFrameSize, maxFrameSize * 2, maxFrameSize * 2 });
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-            currentState->pushGeometryClipLayer(direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(),
-                rectangles,
-                currentState->currentTransform.getTransform(),
-                D2D1_FILL_MODE_ALTERNATE,
-                D2D1_FIGURE_BEGIN_FILLED));
-
-            TRACE_LOG_D2D_PAINT_CALL(etw::excludeClipRectangleDone, frameNumber);
+            currentState->pushGeometryClipLayer(
+                direct2d::exclusionRectToPathGeometry(getPimpl()->getDirect2DFactory(),
+                    transformedR,
+                    currentState->currentTransform.getTransform()));
         }
     }
 
     void Direct2DGraphicsContext::clipToPath(const Path& path, const AffineTransform& transform)
     {
         TRACE_LOG_D2D_PAINT_CALL(etw::clipToPath, frameNumber);
+
+        //
+        // Set the clip list to the full size of the frame to match
+        // the software renderer
+        //
+        currentState->clipList = getPimpl()->getFrameSize();
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -866,6 +936,12 @@ namespace juce
         {
             return;
         }
+
+        //
+        // Set the clip list to the full size of the frame to match
+        // the software renderer
+        //
+        currentState->clipList = getPimpl()->getFrameSize();
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -926,12 +1002,17 @@ namespace juce
 
     bool Direct2DGraphicsContext::clipRegionIntersects(const Rectangle<int>& r)
     {
+        if (currentState->currentTransform.isOnlyTranslated)
+        {
+            return currentState->clipList.intersects(currentState->currentTransform.translated(r));
+        }
+
         return getClipBounds().intersects(r);
     }
 
     Rectangle<int> Direct2DGraphicsContext::getClipBounds() const
     {
-        return currentState->currentTransform.deviceSpaceToUserSpace(currentState->clipRegion);
+        return currentState->currentTransform.deviceSpaceToUserSpace(currentState->clipList.getBounds());
     }
 
     bool Direct2DGraphicsContext::isClipEmpty() const
@@ -1031,7 +1112,7 @@ namespace juce
     {
         if (replaceExistingContents)
         {
-            currentState->pushAxisAlignedClipLayer(r);
+            currentState->pushAxisAlignedClipLayer(currentState->currentTransform.transformed(r.toFloat()));
             getPimpl()->clearBackground();
             currentState->popTopLayer();
         }
@@ -1062,14 +1143,14 @@ namespace juce
 #endif
 
                     auto translatedR = currentState->currentTransform.translated(r);
-                    brush->SetTransform(direct2d::transformToMatrix(currentState->currentTransform.getTransform()));
+                    //brush->SetTransform(direct2d::transformToMatrix(currentState->currentTransform.getTransform()));
                     deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
                     return;
                 }
 
                 if (currentState->currentTransform.isAxisAligned())
                 {
-                    brush->SetTransform(direct2d::transformToMatrix(currentState->currentTransform.getTransform()));
+                    //brush->SetTransform(direct2d::transformToMatrix(currentState->currentTransform.getTransform()));
                     deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.transformed(r)), brush);
                     return;
                 }
@@ -1183,6 +1264,7 @@ namespace juce
                 //
                 // Use a cached geometry realisation?
                 //
+#if 0
                 if (auto geometryRealisation = getPimpl()->getFilledGeometryCache().getGeometryRealisation(p,
                     factory,
                     deviceContext,
@@ -1192,11 +1274,12 @@ namespace juce
                     deviceContext->DrawGeometryRealization(geometryRealisation, brush);
                     return;
                 }
+#endif
 
                 //
                 // Create and fill the geometry
                 //
-                if (auto geometry = direct2d::pathToPathGeometry(factory, p, transform, D2D1_FIGURE_BEGIN_FILLED))
+                if (auto geometry = direct2d::pathToPathGeometry(factory, p, currentState->currentTransform.getTransformWith(transform), D2D1_FIGURE_BEGIN_FILLED))
                 {
                     deviceContext->FillGeometry(geometry, brush);
                 }
@@ -1222,6 +1305,7 @@ namespace juce
                 //
                 // Use a cached geometry realisation?
                 //
+#if 0
                 if (auto pathBounds = p.getBounds(); !pathBounds.isEmpty())
                 {
                     auto transformedPathBounds = p.getBoundsTransformed(transform);
@@ -1243,11 +1327,12 @@ namespace juce
                         return true;
                     }
                 }
+#endif
 
                 //
                 // Create and draw a geometry
                 //
-                if (auto geometry = direct2d::pathToPathGeometry(factory, p, transform, D2D1_FIGURE_BEGIN_HOLLOW))
+                if (auto geometry = direct2d::pathToPathGeometry(factory, p, currentState->currentTransform.getTransformWith(transform), D2D1_FIGURE_BEGIN_HOLLOW))
                 {
                     if (auto strokeStyle = direct2d::pathStrokeTypeToStrokeStyle(factory, strokeType))
                     {
@@ -1293,11 +1378,11 @@ namespace juce
             {
                 auto sourceRectF = direct2d::rectangleToRectF(imageClipArea);
 
-                auto worldTransform = currentState->currentTransform.getTransformWith(transform);
+                auto imageTransform = currentState->currentTransform.getTransformWith(transform);
 
-               if (worldTransform.isOnlyTranslation())
+               if (imageTransform.isOnlyTranslation())
                 {
-                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.toFloat() + Point<float>{ worldTransform.getTranslationX(), worldTransform.getTranslationY() });
+                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.toFloat() + Point<float>{ imageTransform.getTranslationX(), imageTransform.getTranslationY() });
 
                     deviceContext->DrawBitmap(d2d1Bitmap,
                         &destinationRect,
@@ -1309,9 +1394,9 @@ namespace juce
                     return;
                 }
 
-                if (direct2d::isTransformAxisAligned(worldTransform))
+                if (direct2d::isTransformAxisAligned(imageTransform))
                 {
-                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.toFloat().transformedBy(worldTransform));
+                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.toFloat().transformedBy(imageTransform));
 
                     deviceContext->DrawBitmap(d2d1Bitmap,
                         &destinationRect,
@@ -1578,27 +1663,31 @@ namespace juce
         //
         // Draw the glyph run
         //
-        auto scaledTransform = AffineTransform::scale(dwriteFontFace.fontHorizontalScale, 1.0f).followedBy(transform);
-        auto glyphRunTransform = scaledTransform.followedBy(currentState->currentTransform.getTransform());
+        {
+	        auto scaledTransform = AffineTransform::scale(dwriteFontFace.fontHorizontalScale, 1.0f).followedBy(transform);
+	        auto glyphRunTransform = scaledTransform.followedBy(currentState->currentTransform.getTransform());
 
-        getPimpl()->setDeviceContextTransform(glyphRunTransform);
+            getPimpl()->setDeviceContextTransform(glyphRunTransform);
 
-        DWRITE_GLYPH_RUN directWriteGlyphRun;
-        directWriteGlyphRun.fontFace = dwriteFontFace.fontFace;
-        directWriteGlyphRun.fontEmSize = dwriteFontFace.getEmSize();
-        directWriteGlyphRun.glyphCount = (UINT32) numGlyphs;
-        directWriteGlyphRun.glyphIndices = getPimpl()->glyphRun.glyphIndices.getData();
-        directWriteGlyphRun.glyphAdvances = getPimpl()->glyphRun.glyphAdvances.getData();
-        directWriteGlyphRun.glyphOffsets = getPimpl()->glyphRun.glyphOffsets.getData();
-        directWriteGlyphRun.isSideways = FALSE;
-        directWriteGlyphRun.bidiLevel = 0;
+	        DWRITE_GLYPH_RUN directWriteGlyphRun;
+	        directWriteGlyphRun.fontFace = dwriteFontFace.fontFace;
+	        directWriteGlyphRun.fontEmSize = dwriteFontFace.getEmSize();
+	        directWriteGlyphRun.glyphCount = (UINT32) numGlyphs;
+	        directWriteGlyphRun.glyphIndices = getPimpl()->glyphRun.glyphIndices.getData();
+	        directWriteGlyphRun.glyphAdvances = getPimpl()->glyphRun.glyphAdvances.getData();
+	        directWriteGlyphRun.glyphOffsets = getPimpl()->glyphRun.glyphOffsets.getData();
+	        directWriteGlyphRun.isSideways = FALSE;
+	        directWriteGlyphRun.bidiLevel = 0;
 
-        //
-        // The gradient brushes are position-dependent, so need to undo the device context transform
-        //
-        SavedState::ScopedBrushTransformInverter brushTransformInverter{ currentState, scaledTransform };
+	        //
+	        // The gradient brushes are position-dependent, so need to undo the device context transform
+	        //
+	        //SavedState::ScopedBrushTransformInverter brushTransformInverter{ currentState, scaledTransform };
 
-        deviceContext->DrawGlyphRun({}, &directWriteGlyphRun, brush);
+	        deviceContext->DrawGlyphRun({}, &directWriteGlyphRun, brush);
+
+            getPimpl()->resetDeviceContextTransform();
+        }
 
         //
         // Draw the underline
@@ -1607,21 +1696,7 @@ namespace juce
         {
             fillRect(underlineArea);
         }
-
-        getPimpl()->setDeviceContextTransform({});
     }
-
-    /*
-    void Direct2DGraphicsContext::updateDeviceContextTransform()
-    {
-        getPimpl()->setDeviceContextTransform(currentState->currentTransform.getTransform());
-    }
-
-    void Direct2DGraphicsContext::updateDeviceContextTransform(AffineTransform chainedTransform)
-    {
-        getPimpl()->setDeviceContextTransform(currentState->currentTransform.getTransformWith(chainedTransform));
-    }
-    */
 
     Direct2DGraphicsContext::ScopedTransform::ScopedTransform(Pimpl& pimpl_, SavedState* state_) :
         pimpl(pimpl_),
