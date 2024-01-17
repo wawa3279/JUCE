@@ -171,7 +171,7 @@ namespace juce
             //
             // Pass nullptr for the PushLayer layer parameter to allow Direct2D to manage the layers (Windows 8 or later)
             //
-            deviceContext.context->PushLayer(layerParameters, nullptr);
+            deviceResources.deviceContext.context->PushLayer(layerParameters, nullptr);
 
             pushedLayers.emplace_back(popLayerFlag);
         }
@@ -195,7 +195,7 @@ namespace juce
         void pushAxisAlignedClipLayer(Rectangle<int> r)
         {
             r = r.transformedBy(currentTransform.getTransform());
-            deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+            deviceResources.deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
 
             pushedLayers.emplace_back(popAxisAlignedLayerFlag);
         }
@@ -731,6 +731,11 @@ namespace juce
     bool Direct2DGraphicsContext::clipToRectangle(const Rectangle<int>& r)
     {
         TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangle, frameNumber);
+
+        if (r.isEmpty())
+        {
+
+        }
 
         //
         // Transform the rectangle and update the current clip region
