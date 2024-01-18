@@ -194,7 +194,7 @@ namespace juce
 
         void pushAxisAlignedClipLayer(Rectangle<float> r)
         {
-            DBG("   pushAxisAlignedClipLayer " << r.toString());
+            //DBG("   pushAxisAlignedClipLayer " << r.toString());
             deviceResources.deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
             pushedLayers.emplace_back(popAxisAlignedLayerFlag);
         }
@@ -347,38 +347,6 @@ namespace juce
 
         D2D1_INTERPOLATION_MODE interpolationMode = D2D1_INTERPOLATION_MODE_LINEAR;
 
-        //
-        // Bitmap & gradient brushes are position-dependent and are therefore affected by transforms
-        //
-        // Drawing text affects the world transform, so those brushes need an inverse transform to undo the world transform
-        //
-        struct ScopedBrushTransformInverter
-        {
-            ScopedBrushTransformInverter(SavedState const* const state_, AffineTransform const& transformToInvert_)
-                : state(state_)
-            {
-                //
-                // Set the brush transform if the current brush is not the solid color brush
-                //
-                if (state_->currentBrush && state_->currentBrush != state_->colourBrush)
-                {
-                    state_->currentBrush->SetTransform(direct2d::transformToMatrix(transformToInvert_.inverted()));
-                    resetTransform = true;
-                }
-            }
-
-            ~ScopedBrushTransformInverter()
-            {
-                if (resetTransform)
-                {
-                    state->currentBrush->SetTransform(D2D1::IdentityMatrix());
-                }
-            }
-
-            SavedState const* const state;
-            bool                    resetTransform = false;
-        };
-
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SavedState)
     };
 
@@ -516,8 +484,12 @@ namespace juce
             //
             // SetTarget(nullptr) so the device context doesn't hold a reference to the swap chain buffer
             //
+            auto t1 = Time::getHighResolutionTicks();
             auto hr = deviceResources.deviceContext.context->EndDraw();
             deviceResources.deviceContext.context->SetTarget(nullptr);
+            auto t2 = Time::getHighResolutionTicks();
+
+            owner.paintStats->addValueTicks(direct2d::PaintStats::endDrawDuration, t2 - t1);
 
             jassert(SUCCEEDED(hr));
 
@@ -742,7 +714,7 @@ namespace juce
     {
         TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangle, frameNumber);
 
-        DBG("cliptorectangle " << r.toString());
+        //DBG("cliptorectangle " << r.toString());
 
         if (currentState->currentTransform.isOnlyTranslated)
         {
@@ -758,7 +730,10 @@ namespace juce
         }
         else
         {
-            jassertfalse;
+            //
+            // Match the software renderer by setting the clip list to the full size of the frame
+            //
+            currentState->clipList = getPimpl()->getFrameSize();
 
             //
             // The current world transform is more complex; push a transformed geometry clip layer
@@ -784,7 +759,7 @@ namespace juce
         TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangleList);
 
         {
-#if JUCE_DEBUG
+#if  0 //JUCE_DEBUG
             String line{ "cliptorectlist " };
             for (auto const& r: newClipList)
             {
@@ -826,12 +801,12 @@ namespace juce
         }
         else
         {
-            jassertfalse;
+            currentState->clipList = getPimpl()->getFrameSize();
         }
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-#if JUCE_DEBUG
+#if 0 // JUCE_DEBUG
             String line = "   ";
             for (auto const& r : newClipList)
             {
@@ -854,7 +829,8 @@ namespace juce
 
     void Direct2DGraphicsContext::excludeClipRectangle(const Rectangle<int>& r)
     {
-        DBG("excludeClipRectangle " << r.toString());
+        //DBG("excludeClipRectangle " << r.toString());
+
         if (r.isEmpty())
         {
             return;
@@ -863,50 +839,58 @@ namespace juce
         TRACE_LOG_D2D_PAINT_CALL(etw::excludeClipRectangle, frameNumber);
 
         //
-        // To exclude the rectangle r, build a rectangle list with r as the first rectangle and a very large rectangle as the second.
+        // To exclude the rectangle r, build a geometry out of two rectangles, with r as the first rectangle and a very large rectangle as the second.
         //
-        // Then, convert that rectangle list to a geometry, but specify D2D1_FILL_MODE_ALTERNATE so the inside of r is *outside*
-        // the geometry and everything else on the screen is inside the geometry.
+        // Specify D2D1_FILL_MODE_ALTERNATE so the inside of r is *outside* the geometry and everything else on the screen is inside the geometry.
         //
-        // Have to use addWithoutMerging to build the rectangle list to keep the rectangles separate.
-        //
-
-        Rectangle<int> transformedR;
         auto& transform = currentState->currentTransform;
 
         if (transform.isOnlyTranslated)
         {
-            transformedR = transform.translated(r);
+            auto translatedR = transform.translated(r);
+
+            currentState->clipList.subtract(translatedR);
+
+            auto t1 = Time::getHighResolutionTicks();
+
+            auto geometry = direct2d::exclusionRectToPathGeometry(getPimpl()->getDirect2DFactory(),
+                translatedR,
+                {});
+
+            auto t2 = Time::getHighResolutionTicks();
+
+            currentState->pushGeometryClipLayer(geometry);
+
+            auto t3 = Time::getHighResolutionTicks();
+
+            paintStats->addValueTicks(direct2d::PaintStats::createGeometryTime, t2 - t1);
+            paintStats->addValueTicks(direct2d::PaintStats::pushGeometryLayerTime, t3 - t2);
+
+            return;
+        }
+
+        if (! transform.isRotated)
+        {
+            auto transformedR  = transform.transformed(r);
 
             currentState->clipList.subtract(transformedR);
-        }
-        else if (! transform.isRotated)
-        {
-            transformedR = transform.transformed(r);
 
-            currentState->clipList.subtract(transformedR);
-        }
-        else
-        {
-            jassertfalse;
-        }
-
-        //
-        // To exclude the rectangle r, build a rectangle list with r as the first rectangle and a very large rectangle as the second.
-        //
-        // Then, convert that rectangle list to a geometry, but specify D2D1_FILL_MODE_ALTERNATE so the inside of r is *outside*
-        // the geometry and everything else on the screen is inside the geometry.
-        //
-        RectangleList<int> rectangles{ transformedR };
-        rectangles.addWithoutMerging({ -maxFrameSize, -maxFrameSize, maxFrameSize * 2, maxFrameSize * 2 });
-
-        if (auto deviceContext = getPimpl()->getDeviceContext())
-        {
             currentState->pushGeometryClipLayer(
                 direct2d::exclusionRectToPathGeometry(getPimpl()->getDirect2DFactory(),
                     transformedR,
-                    currentState->currentTransform.getTransform()));
+                    {}));
+            return;
         }
+
+        //
+        // Match the behavior of the software renderer
+        //
+        currentState->clipList = getPimpl()->getFrameSize();
+
+        currentState->pushGeometryClipLayer(
+            direct2d::exclusionRectToPathGeometry(getPimpl()->getDirect2DFactory(),
+                r,
+                currentState->currentTransform.getTransform()));
     }
 
     void Direct2DGraphicsContext::clipToPath(const Path& path, const AffineTransform& transform)
@@ -973,8 +957,9 @@ namespace juce
                 //
                 ComSmartPtr<ID2D1BitmapBrush> brush;
                 auto                          brushTransform = currentState->currentTransform.getTransformWith(transform);
-                auto                          matrix = direct2d::transformToMatrix(brushTransform);
-                D2D1_BRUSH_PROPERTIES         brushProps = { 1.0f, matrix };
+                //auto                          matrix = direct2d::transformToMatrix(brushTransform);
+                D2D1_BRUSH_PROPERTIES         brushProps = { 1.0f, D2D1::IdentityMatrix() };
+                    //matrix };
 
                 auto bitmapBrushProps = D2D1::BitmapBrushProperties(D2D1_EXTEND_MODE_CLAMP, D2D1_EXTEND_MODE_CLAMP);
                 auto hr = deviceContext->CreateBitmapBrush(d2d1Bitmap, bitmapBrushProps, brushProps, brush.resetAndGetPointerAddress());
@@ -1203,40 +1188,31 @@ namespace juce
             return false;
         }
 
+        //
+        // ID2D1DeviceContext::DrawRectangle centers the stroke around the edges of the specified rectangle, but
+        // the software renderer contains the stroke within the rectangle
+        //
+        // To match the software renderer, reduce the rectangle by half the stroke width
+        //
+        if (r.getWidth() * 0.5f < lineThickness || r.getHeight() * 0.5f < lineThickness)
+        {
+            return false;
+        }
+
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             if (auto brush = currentState->getCurrentBrush())
             {
+                auto reducedR = r.reduced(lineThickness * 0.5f);
+
                 if (currentState->currentTransform.isOnlyTranslated)
                 {
-                    deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(Rectangle<float>{ r }.removeFromTop(lineThickness))), brush);
-                    deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(Rectangle<float>{ r }.removeFromBottom(lineThickness))), brush);
-                    deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(Rectangle<float>{ r }.removeFromLeft(lineThickness))), brush);
-                    deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(Rectangle<float>{ r }.removeFromRight(lineThickness))), brush);
+                    deviceContext->DrawRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(reducedR)), brush, lineThickness);
                     return true;
                 }
 
-                if (currentState->currentTransform.isAxisAligned())
-                {
-                    deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.transformed(Rectangle<float>{ r }.removeFromTop(lineThickness))), brush);
-                    deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.transformed(Rectangle<float>{ r }.removeFromBottom(lineThickness))), brush);
-                    deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.transformed(Rectangle<float>{ r }.removeFromLeft(lineThickness))), brush);
-                    deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.transformed(Rectangle<float>{ r }.removeFromRight(lineThickness))), brush);
-                    return true;
-                }
-
-                //
-                // ID2D1DeviceContext::DrawRectangle centers the stroke around the edges of the specified rectangle, but
-                // the software renderer contains the stroke within the rectangle
-                //
-                // To match the software renderer, reduce the rectangle by half the stroke width
-                //
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
-
-                deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromTop(lineThickness)), brush);
-                deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromBottom(lineThickness)), brush);
-                deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromLeft(lineThickness)), brush);
-                deviceContext->FillRectangle(direct2d::rectangleToRectF(Rectangle<float>{ r }.removeFromRight(lineThickness)), brush);
+                deviceContext->DrawRectangle(direct2d::rectangleToRectF(reducedR), brush, lineThickness);
             }
         }
 
@@ -1408,7 +1384,6 @@ namespace juce
                 }
 
                 ScopedTransform scopedTransform{ *getPimpl(), currentState, transform };
-
                 deviceContext->DrawBitmap(d2d1Bitmap,
                     nullptr,
                     currentState->fillType.getOpacity(),
@@ -1434,8 +1409,16 @@ namespace juce
         {
             if (auto brush = currentState->getCurrentBrush())
             {
-                ScopedTransform scopedTransform{ *getPimpl(), currentState };
+                if (currentState->currentTransform.isOnlyTranslated)
+                {
+                    auto offset = currentState->currentTransform.offset.toFloat();
+                    auto start = line.getStart() + offset;
+                    auto end = line.getEnd() + offset;
+                    deviceContext->DrawLine(D2D1::Point2F(start.x, start.y), D2D1::Point2F(end.x, end.y), brush, lineThickness);
+                    return true;
+                }
 
+                ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 deviceContext->DrawLine(D2D1::Point2F(line.getStartX(), line.getStartY()),
                     D2D1::Point2F(line.getEndX(), line.getEndY()),
                     brush,
@@ -1484,7 +1467,6 @@ namespace juce
         if (deviceContext && directWriteFactory && fontCollection && brush)
         {
             ScopedTransform scopedTransform{ *getPimpl(), currentState };
-
             auto translatedArea = area;
             auto textLayout =
                 DirectWriteTypeLayout::createDirectWriteTextLayout(text, translatedArea, *directWriteFactory, *fontCollection, *deviceContext);
@@ -1520,8 +1502,14 @@ namespace juce
         {
             if (auto brush = currentState->getCurrentBrush())
             {
-                ScopedTransform scopedTransform{ *getPimpl(), currentState };
+                if (currentState->currentTransform.isOnlyTranslated)
+                {
+                    D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(currentState->currentTransform.translated(area)), cornerSize, cornerSize };
+                    deviceContext->DrawRoundedRectangle(roundedRect, brush, lineThickness);
+                    return true;
+                }
 
+                ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
                 deviceContext->DrawRoundedRectangle(roundedRect, brush, lineThickness);
             }
@@ -1538,8 +1526,14 @@ namespace juce
         {
             if (auto brush = currentState->getCurrentBrush())
             {
-                ScopedTransform scopedTransform{ *getPimpl(), currentState };
+                if (currentState->currentTransform.isOnlyTranslated)
+                {
+                    D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(currentState->currentTransform.translated(area)), cornerSize, cornerSize };
+                    deviceContext->FillRoundedRectangle(roundedRect, brush);
+                    return true;
+                }
 
+                ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
                 deviceContext->FillRoundedRectangle(roundedRect, brush);
             }
@@ -1556,8 +1550,17 @@ namespace juce
         {
             if (auto brush = currentState->getCurrentBrush())
             {
-                ScopedTransform scopedTransform{ *getPimpl(), currentState };
+                if (currentState->currentTransform.isOnlyTranslated)
+                {
+                    area = currentState->currentTransform.translated(area);
+                    auto centre = area.getCentre();
 
+                    D2D1_ELLIPSE ellipse{ { centre.x, centre.y}, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
+                    deviceContext->DrawEllipse(ellipse, brush, lineThickness);
+                    return true;
+                }
+
+                ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 auto         centre = area.getCentre();
                 D2D1_ELLIPSE ellipse{ { centre.x, centre.y }, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
                 deviceContext->DrawEllipse(ellipse, brush, lineThickness, nullptr);
@@ -1575,8 +1578,17 @@ namespace juce
         {
             if (auto brush = currentState->getCurrentBrush())
             {
-                ScopedTransform scopedTransform{ *getPimpl(), currentState };
+                if (currentState->currentTransform.isOnlyTranslated)
+                {
+                    area = currentState->currentTransform.translated(area);
+                    auto centre = area.getCentre();
 
+                    D2D1_ELLIPSE ellipse{ { centre.x, centre.y}, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
+                    deviceContext->FillEllipse(ellipse, brush);
+                    return true;
+                }
+
+                ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 auto         centre = area.getCentre();
                 D2D1_ELLIPSE ellipse{ { centre.x, centre.y }, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
                 deviceContext->FillEllipse(ellipse, brush);
@@ -1678,11 +1690,6 @@ namespace juce
 	        directWriteGlyphRun.glyphOffsets = getPimpl()->glyphRun.glyphOffsets.getData();
 	        directWriteGlyphRun.isSideways = FALSE;
 	        directWriteGlyphRun.bidiLevel = 0;
-
-	        //
-	        // The gradient brushes are position-dependent, so need to undo the device context transform
-	        //
-	        //SavedState::ScopedBrushTransformInverter brushTransformInverter{ currentState, scaledTransform };
 
 	        deviceContext->DrawGlyphRun({}, &directWriteGlyphRun, brush);
 
