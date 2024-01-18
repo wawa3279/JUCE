@@ -777,7 +777,7 @@ namespace juce
 
                 if (deviceContext.context == nullptr)
                 {
-                    hr = adapter->direct2DDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE,
+                    hr = adapter->direct2DDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_ENABLE_MULTITHREADED_OPTIMIZATIONS,
                         deviceContext.context.resetAndGetPointerAddress());
                     if (FAILED(hr)) return hr;
                 }
