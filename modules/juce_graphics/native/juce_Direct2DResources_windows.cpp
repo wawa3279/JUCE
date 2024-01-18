@@ -571,7 +571,7 @@ namespace juce
                 gradientMap.clear();
             }
 
-            void get(ColourGradient const&, float, ID2D1DeviceContext1*, ComSmartPtr<BrushType>&);
+            void get(ColourGradient const&, ID2D1DeviceContext1*, ComSmartPtr<BrushType>&);
 
 #if JUCE_DIRECT2D_METRICS
             StatisticsAccumulator<double>* createGradientMsecStats = nullptr;
@@ -650,7 +650,7 @@ namespace juce
         };
 
         template<>
-        void ColourGradientCache<ID2D1LinearGradientBrush>::get(ColourGradient const& gradient, float opacity, ID2D1DeviceContext1* deviceContext, ComSmartPtr<ID2D1LinearGradientBrush>& brush)
+        void ColourGradientCache<ID2D1LinearGradientBrush>::get(ColourGradient const& gradient, ID2D1DeviceContext1* deviceContext, ComSmartPtr<ID2D1LinearGradientBrush>& brush)
         {
             jassert(!gradient.isRadial);
 
@@ -663,9 +663,6 @@ namespace juce
             auto hash = calculateGradientHash(gradient);
             if (gradientMap.getCachedBrush(hash, brush); brush != nullptr)
             {
-                brush->SetOpacity(opacity);
-                brush->SetStartPoint({ p1.x, p1.y });
-                brush->SetEndPoint({ p2.x, p2.y });
                 return;
             }
 
@@ -679,7 +676,7 @@ namespace juce
             ComSmartPtr<ID2D1GradientStopCollection> gradientStops;
             makeGradientStopCollection(gradient, deviceContext, gradientStops);
 
-            D2D1_BRUSH_PROPERTIES brushProps = { opacity, D2D1::IdentityMatrix() };
+            D2D1_BRUSH_PROPERTIES brushProps = { 1.0f, D2D1::IdentityMatrix() };
             const auto linearGradientBrushProperties = D2D1::LinearGradientBrushProperties({ p1.x, p1.y }, { p2.x, p2.y });
 
             deviceContext->CreateLinearGradientBrush(linearGradientBrushProperties,
@@ -697,7 +694,7 @@ namespace juce
         }
 
         template<>
-        void ColourGradientCache<ID2D1RadialGradientBrush>::get(ColourGradient const& gradient, float opacity, ID2D1DeviceContext1* deviceContext, ComSmartPtr<ID2D1RadialGradientBrush>& brush)
+        void ColourGradientCache<ID2D1RadialGradientBrush>::get(ColourGradient const& gradient, ID2D1DeviceContext1* deviceContext, ComSmartPtr<ID2D1RadialGradientBrush>& brush)
         {
             jassert(gradient.isRadial);
 
@@ -711,10 +708,6 @@ namespace juce
             auto hash = calculateGradientHash(gradient);
             if (gradientMap.getCachedBrush(hash, brush); brush != nullptr)
             {
-                brush->SetOpacity(opacity);
-                brush->SetCenter({ p1.x, p1.y });
-                brush->SetRadiusX(r);
-                brush->SetRadiusY(r);
                 return;
             }
 
@@ -728,7 +721,7 @@ namespace juce
             ComSmartPtr<ID2D1GradientStopCollection> gradientStops;
             makeGradientStopCollection(gradient, deviceContext, gradientStops);
 
-            D2D1_BRUSH_PROPERTIES brushProps = { opacity, D2D1::IdentityMatrix() };
+            D2D1_BRUSH_PROPERTIES brushProps = { 1.0F, D2D1::IdentityMatrix() };
             const auto radialGradientBrushProperties = D2D1::RadialGradientBrushProperties({ p1.x, p1.y }, {}, r, r);
 
             deviceContext->CreateRadialGradientBrush(radialGradientBrushProperties,
