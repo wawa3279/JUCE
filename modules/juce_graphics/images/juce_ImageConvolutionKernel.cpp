@@ -99,25 +99,31 @@ void ImageConvolutionKernel::applyToImage (Image& destImage,
                                            const Image& sourceImage,
                                            const Rectangle<int>& destinationArea) const
 {
-    if (sourceImage == destImage)
+    if (sourceImage.getWidth() != destImage.getWidth()
+            || sourceImage.getHeight() != destImage.getHeight()
+            || sourceImage.getFormat() != destImage.getFormat())
     {
-        destImage.duplicateIfShared();
-    }
-    else
-    {
-        if (sourceImage.getWidth() != destImage.getWidth()
-             || sourceImage.getHeight() != destImage.getHeight()
-             || sourceImage.getFormat() != destImage.getFormat())
-        {
-            jassertfalse;
-            return;
-        }
+        jassertfalse;
+        return;
     }
 
     auto area = destinationArea.getIntersection (destImage.getBounds());
 
     if (area.isEmpty())
         return;
+
+#if 0
+    if (auto convolvedImage = sourceImage.getPixelData()->applyNativeConvolutionKernelEffect(*this, destinationArea); convolvedImage.has_value())
+    {
+        destImage = *convolvedImage;
+        return;
+    }
+#endif
+
+	if (sourceImage == destImage)
+	{
+		destImage.duplicateIfShared();
+	}
 
     auto right = area.getRight();
     auto bottom = area.getBottom();

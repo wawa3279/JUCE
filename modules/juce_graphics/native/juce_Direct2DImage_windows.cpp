@@ -324,6 +324,36 @@ namespace juce
         return {};
 	}
 
+	std::optional<juce::Image> Direct2DPixelData::applyNativeConvolutionKernelEffect(const ImageConvolutionKernel& kernel, const Rectangle<int>& area)
+	{
+		ComSmartPtr<ID2D1Effect> effect;
+
+		if (deviceResources.deviceContext.context)
+		{
+			deviceResources.deviceContext.context->CreateEffect(CLSID_D2D1ConvolveMatrix, effect.resetAndGetPointerAddress());
+			if (effect)
+			{
+				effect->SetInput(0, getAdapterD2D1Bitmap(imageAdapter));
+				effect->SetValue(D2D1_CONVOLVEMATRIX_PROP_KERNEL_SIZE_X, kernel.getKernelSize());
+                effect->SetValue(D2D1_CONVOLVEMATRIX_PROP_KERNEL_SIZE_Y, kernel.getKernelSize());
+                effect->SetValue(D2D1_CONVOLVEMATRIX_PROP_KERNEL_MATRIX, kernel.getKernelValues());
+
+				Direct2DPixelData::Ptr effectedPixelData = new Direct2DPixelData{ pixelFormat, bitmapArea, true, imageAdapter };
+				if (auto effectedPixelDataContext = effectedPixelData->deviceResources.deviceContext.context)
+				{
+					effectedPixelDataContext->SetTarget(effectedPixelData->getAdapterD2D1Bitmap(imageAdapter));
+					effectedPixelDataContext->BeginDraw();
+					effectedPixelDataContext->DrawImage(effect);
+					effectedPixelDataContext->EndDraw();
+					effectedPixelDataContext->SetTarget(nullptr);
+				}
+				return { Image{ effectedPixelData } };
+			}
+		}
+
+		return {};
+	}
+
 	std::unique_ptr<ImageType> Direct2DPixelData::createType() const
     {
         return std::make_unique<NativeImageType>(getDPIScalingFactor());

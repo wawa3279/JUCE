@@ -56,6 +56,8 @@ public:
     */
     void setKernelValue (int x, int y, float value) noexcept;
 
+    float const* getKernelValues() const noexcept { return values; }
+
     /** Rescales all values in the kernel to make the total add up to a fixed value.
 
         This will multiply all values in the kernel by (desiredTotalSum / currentTotalSum).
