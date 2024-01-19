@@ -1075,7 +1075,7 @@ namespace juce
                 d2d1Bitmap = direct2DPixelData->getAdapterD2D1Bitmap(getPimpl()->getAdapter());
             }
 
-            if (! d2d1Bitmap || d2d1Bitmap->GetPixelFormat().format != DXGI_FORMAT_A8_UNORM)
+            if (! d2d1Bitmap)
             {
                 //
                 // Convert sourceImage to single-channel alpha-only maskImage
@@ -1093,9 +1093,8 @@ namespace juce
                 //
                 ComSmartPtr<ID2D1BitmapBrush> brush;
                 auto                          brushTransform = currentState->currentTransform.getTransformWith(transform);
-                //auto                          matrix = direct2d::transformToMatrix(brushTransform);
-                D2D1_BRUSH_PROPERTIES         brushProps = { 1.0f, D2D1::IdentityMatrix() };
-                    //matrix };
+                auto                          matrix = direct2d::transformToMatrix(brushTransform);
+                D2D1_BRUSH_PROPERTIES         brushProps = { 1.0f, matrix };
 
                 auto bitmapBrushProps = D2D1::BitmapBrushProperties(D2D1_EXTEND_MODE_CLAMP, D2D1_EXTEND_MODE_CLAMP);
                 auto hr = deviceContext->CreateBitmapBrush(d2d1Bitmap, bitmapBrushProps, brushProps, brush.resetAndGetPointerAddress());
@@ -1105,7 +1104,7 @@ namespace juce
                     //
                     // Push the clipping layer onto the layer stack
                     //
-                    // Don't maskTransform in the LayerParameters struct; that only applies to geometry clipping
+                    // Don't set maskTransform in the LayerParameters struct; that only applies to geometry clipping
                     // Do set the contentBounds member, transformed appropriately
                     //
                     auto layerParams = D2D1::LayerParameters();
