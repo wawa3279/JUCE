@@ -46,14 +46,14 @@ void GlowEffect::applyEffect (Image& image, Graphics& g, float scaleFactor, floa
 		blurKernel.createGaussianBlur(radius);
 		blurKernel.rescaleAllValues(radius);
 
-		blurKernel.applyToImage(temp, image, image.getBounds());
+		blurKernel.applyToImage (temp, image, image.getBounds());
 	}
 
-    g.setColour (colour.withMultipliedAlpha (alpha));
-    g.drawImageAt (temp, offset.x, offset.y, true);
+	g.setColour (colour.withMultipliedAlpha (alpha));
+	g.drawImageAt (temp, offset.x, offset.y, true);
 
-    g.setOpacity (alpha);
-    g.drawImageAt (image, offset.x, offset.y, false);
+	g.setOpacity (alpha);
+	g.drawImageAt (image, offset.x, offset.y, false);
 }
 
 } // namespace juce
