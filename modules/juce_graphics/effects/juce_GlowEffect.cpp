@@ -31,14 +31,23 @@ void GlowEffect::setGlowProperties (float newRadius, Colour newColour, Point<int
 
 void GlowEffect::applyEffect (Image& image, Graphics& g, float scaleFactor, float alpha)
 {
-    Image temp (image.getFormat(), image.getWidth(), image.getHeight(), true);
+    Image temp;
 
-    ImageConvolutionKernel blurKernel (roundToInt (radius * scaleFactor * 2.0f));
+	if (auto blurredImage = image.getPixelData()->applyNativeGaussianBlurEffect(radius); blurredImage.has_value())
+	{
+		temp = *blurredImage;
+	}
+	else
+	{
+		temp = Image{ image.getFormat(), image.getWidth(), image.getHeight(), true };
 
-    blurKernel.createGaussianBlur (radius);
-    blurKernel.rescaleAllValues (radius);
+		ImageConvolutionKernel blurKernel(roundToInt(radius * scaleFactor * 2.0f));
 
-    blurKernel.applyToImage (temp, image, image.getBounds());
+		blurKernel.createGaussianBlur(radius);
+		blurKernel.rescaleAllValues(radius);
+
+		blurKernel.applyToImage(temp, image, image.getBounds());
+	}
 
     g.setColour (colour.withMultipliedAlpha (alpha));
     g.drawImageAt (temp, offset.x, offset.y, true);

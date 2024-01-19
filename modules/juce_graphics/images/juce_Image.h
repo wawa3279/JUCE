@@ -463,6 +463,7 @@ public:
         can internally depend on another ImagePixelData via it's member variables. */
     virtual int getSharedCount() const noexcept;
 
+	virtual std::optional<Image> applyNativeGaussianBlurEffect(float /*radius*/) { return {}; }
 	virtual std::optional<Image> applyNativeDropShadowEffect(float /*radius*/, Colour /*colour*/) { return {}; }
 	virtual std::optional<Image> applyNativeConvolutionKernelEffect(const ImageConvolutionKernel&, const Rectangle<int>&) { return {}; }
 

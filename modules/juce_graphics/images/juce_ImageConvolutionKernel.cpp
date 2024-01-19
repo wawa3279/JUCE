@@ -112,13 +112,11 @@ void ImageConvolutionKernel::applyToImage (Image& destImage,
     if (area.isEmpty())
         return;
 
-#if 0
     if (auto convolvedImage = sourceImage.getPixelData()->applyNativeConvolutionKernelEffect(*this, destinationArea); convolvedImage.has_value())
     {
         destImage = *convolvedImage;
         return;
     }
-#endif
 
 	if (sourceImage == destImage)
 	{

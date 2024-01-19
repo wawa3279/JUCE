@@ -295,7 +295,36 @@ namespace juce
         return bitmapArea.getDPIScalingFactor();
     }
 
-	std::optional<juce::Image> Direct2DPixelData::applyNativeDropShadowEffect(float radius, Colour colour)
+    std::optional<Image> Direct2DPixelData::applyNativeGaussianBlurEffect(float radius)
+    {
+		ComSmartPtr<ID2D1Effect> effect;
+
+		if (deviceResources.deviceContext.context)
+		{
+			deviceResources.deviceContext.context->CreateEffect(CLSID_D2D1GaussianBlur, effect.resetAndGetPointerAddress());
+			if (effect)
+			{
+				effect->SetInput(0, getAdapterD2D1Bitmap(imageAdapter));
+				effect->SetValue(D2D1_GAUSSIANBLUR_PROP_STANDARD_DEVIATION, radius / 6.0f);
+
+				Direct2DPixelData::Ptr effectedPixelData = new Direct2DPixelData{ pixelFormat, bitmapArea, true, imageAdapter };
+				if (auto effectedPixelDataContext = effectedPixelData->deviceResources.deviceContext.context)
+				{
+					effectedPixelDataContext->SetTarget(effectedPixelData->getAdapterD2D1Bitmap(imageAdapter));
+					effectedPixelDataContext->BeginDraw();
+					effectedPixelDataContext->DrawImage(effect);
+					effectedPixelDataContext->EndDraw();
+					effectedPixelDataContext->SetTarget(nullptr);
+				}
+				return { Image{ effectedPixelData } };
+			}
+		}
+
+		return {};
+    }
+
+
+	std::optional<Image> Direct2DPixelData::applyNativeDropShadowEffect(float radius, Colour colour)
 	{
         ComSmartPtr<ID2D1Effect> effect;
 
@@ -324,7 +353,7 @@ namespace juce
         return {};
 	}
 
-	std::optional<juce::Image> Direct2DPixelData::applyNativeConvolutionKernelEffect(const ImageConvolutionKernel& kernel, const Rectangle<int>& area)
+	std::optional<Image> Direct2DPixelData::applyNativeConvolutionKernelEffect(const ImageConvolutionKernel& kernel, const Rectangle<int>& area)
 	{
 		ComSmartPtr<ID2D1Effect> effect;
 
