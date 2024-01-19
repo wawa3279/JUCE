@@ -295,7 +295,37 @@ namespace juce
         return bitmapArea.getDPIScalingFactor();
     }
 
-    std::unique_ptr<ImageType> Direct2DPixelData::createType() const
+	std::optional<juce::Image> Direct2DPixelData::applyNativeDropShadowEffect(float radius, Colour colour)
+	{
+        ComSmartPtr<ID2D1Effect> effect;
+
+        if (deviceResources.deviceContext.context)
+        {
+            deviceResources.deviceContext.context->CreateEffect(CLSID_D2D1Shadow, effect.resetAndGetPointerAddress());
+            if (effect)
+            {
+                effect->SetInput(0, getAdapterD2D1Bitmap(imageAdapter));
+                effect->SetValue(D2D1_SHADOW_PROP_BLUR_STANDARD_DEVIATION, radius / 6.0f);
+                effect->SetValue(D2D1_SHADOW_PROP_COLOR, D2D1_VECTOR_4F{ colour.getFloatRed(), colour.getFloatGreen(), colour.getFloatBlue(), 1.0f /*colour.getFloatAlpha()*/ });
+
+                Direct2DPixelData::Ptr effectedPixelData = new Direct2DPixelData{ pixelFormat, bitmapArea, true, imageAdapter };
+                if (effectedPixelData->deviceResources.deviceContext.context)
+                {
+                    auto context = effectedPixelData->deviceResources.deviceContext.context;
+                    context->SetTarget(effectedPixelData->getAdapterD2D1Bitmap(imageAdapter));
+                    context->BeginDraw();
+                    context->DrawImage(effect);
+                    context->EndDraw();
+                    context->SetTarget(nullptr);
+                }
+                return { Image{ effectedPixelData } };
+            }
+        }
+
+        return {};
+	}
+
+	std::unique_ptr<ImageType> Direct2DPixelData::createType() const
     {
         return std::make_unique<NativeImageType>(getDPIScalingFactor());
     }

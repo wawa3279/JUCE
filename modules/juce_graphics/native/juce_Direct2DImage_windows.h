@@ -168,6 +168,8 @@ public:
 
     float getDPIScalingFactor() const noexcept;
 
+    std::optional<Image> applyNativeDropShadowEffect(float radius, Colour color) override;
+
     std::unique_ptr<ImageType> createType() const override;
 
     using Ptr = ReferenceCountedObjectPtr<Direct2DPixelData>;

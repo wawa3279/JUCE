@@ -104,6 +104,7 @@
  #pragma comment (lib, "DXGI.lib")
  #pragma comment (lib, "D3D11.lib")
  #pragma comment (lib, "DComp.lib")
+ #pragma comment (lib, "dxguid.lib")
  #endif
 #endif
 
