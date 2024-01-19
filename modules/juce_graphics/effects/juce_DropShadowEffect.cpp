@@ -74,8 +74,8 @@ void DropShadow::drawForImage (Graphics& g, const Image& srcImage) const
     {
         if (auto shadowedImage = srcImage.getPixelData()->applyNativeDropShadowEffect((float)radius, colour); shadowedImage.has_value())
         {
-			g.setColour(colour);
-			g.drawImageAt(*shadowedImage, offset.x, offset.y, false);
+            g.setColour(colour);
+            g.drawImageAt(*shadowedImage, offset.x, offset.y, false);
             return;
         }
 
@@ -108,12 +108,12 @@ void DropShadow::drawForPath (Graphics& g, const Path& path) const
                                                              (float) (offset.y - area.getY())));
         }
 
-		if (auto shadowedImage = renderedPath.getPixelData()->applyNativeDropShadowEffect((float)radius, colour); shadowedImage.has_value())
-		{
-			g.setColour(colour);
-			g.drawImageAt(*shadowedImage, offset.x, offset.y, false);
-			return;
-		}
+        if (auto shadowedImage = renderedPath.getPixelData()->applyNativeDropShadowEffect((float)radius, colour); shadowedImage.has_value())
+        {
+            g.setColour(colour);
+            g.drawImageAt(*shadowedImage, offset.x, offset.y, false);
+            return;
+        }
 
         blurSingleChannelImage (renderedPath, radius);
 

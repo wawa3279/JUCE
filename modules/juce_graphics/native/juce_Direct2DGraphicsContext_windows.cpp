@@ -1827,22 +1827,22 @@ namespace juce
         // Draw the glyph run
         //
         {
-	        auto scaledTransform = AffineTransform::scale(dwriteFontFace.fontHorizontalScale, 1.0f).followedBy(transform);
-	        auto glyphRunTransform = scaledTransform.followedBy(currentState->currentTransform.getTransform());
+            auto scaledTransform = AffineTransform::scale(dwriteFontFace.fontHorizontalScale, 1.0f).followedBy(transform);
+            auto glyphRunTransform = scaledTransform.followedBy(currentState->currentTransform.getTransform());
 
             getPimpl()->setDeviceContextTransform(glyphRunTransform);
 
-	        DWRITE_GLYPH_RUN directWriteGlyphRun;
-	        directWriteGlyphRun.fontFace = dwriteFontFace.fontFace;
-	        directWriteGlyphRun.fontEmSize = dwriteFontFace.getEmSize();
-	        directWriteGlyphRun.glyphCount = (UINT32) numGlyphs;
-	        directWriteGlyphRun.glyphIndices = getPimpl()->glyphRun.glyphIndices.getData();
-	        directWriteGlyphRun.glyphAdvances = getPimpl()->glyphRun.glyphAdvances.getData();
-	        directWriteGlyphRun.glyphOffsets = getPimpl()->glyphRun.glyphOffsets.getData();
-	        directWriteGlyphRun.isSideways = FALSE;
-	        directWriteGlyphRun.bidiLevel = 0;
+            DWRITE_GLYPH_RUN directWriteGlyphRun;
+            directWriteGlyphRun.fontFace = dwriteFontFace.fontFace;
+            directWriteGlyphRun.fontEmSize = dwriteFontFace.getEmSize();
+            directWriteGlyphRun.glyphCount = (UINT32)numGlyphs;
+            directWriteGlyphRun.glyphIndices = getPimpl()->glyphRun.glyphIndices.getData();
+            directWriteGlyphRun.glyphAdvances = getPimpl()->glyphRun.glyphAdvances.getData();
+            directWriteGlyphRun.glyphOffsets = getPimpl()->glyphRun.glyphOffsets.getData();
+            directWriteGlyphRun.isSideways = FALSE;
+            directWriteGlyphRun.bidiLevel = 0;
 
-	        deviceContext->DrawGlyphRun({}, &directWriteGlyphRun, brush);
+            deviceContext->DrawGlyphRun({}, &directWriteGlyphRun, brush);
 
             getPimpl()->resetDeviceContextTransform();
         }
