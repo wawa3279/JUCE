@@ -36,6 +36,8 @@ void GlowEffect::applyEffect (Image& image, Graphics& g, float scaleFactor, floa
     if (auto blurredImage = image.getPixelData()->applyNativeGaussianBlurEffect(radius); blurredImage.has_value())
     {
         temp = *blurredImage;
+
+        g.setColour(colour);
     }
     else
     {
@@ -47,9 +49,10 @@ void GlowEffect::applyEffect (Image& image, Graphics& g, float scaleFactor, floa
         blurKernel.rescaleAllValues(radius);
 
         blurKernel.applyToImage (temp, image, image.getBounds());
+
+        g.setColour(colour.withMultipliedAlpha(alpha));
     }
 
-    g.setColour (colour.withMultipliedAlpha (alpha));
     g.drawImageAt (temp, offset.x, offset.y, true);
 
     g.setOpacity (alpha);
