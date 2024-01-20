@@ -1328,6 +1328,8 @@ namespace juce
                 if (auto brush = currentState->getTranslatedBrush())
                 {
                     deviceContext->DrawRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(reducedR)), brush, lineThickness);
+
+                    TRACE_LOG_D2D_DRAW_RECT(etw::drawRectTranslated, r, lineThickness)
                 }
                 return true;
             }
@@ -1336,6 +1338,8 @@ namespace juce
             {
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 deviceContext->DrawRectangle(direct2d::rectangleToRectF(reducedR), brush, lineThickness);
+
+                TRACE_LOG_D2D_DRAW_RECT(etw::drawRectTransformed, r, lineThickness)
             }
         }
 
