@@ -817,6 +817,15 @@ static LeastRecentlyUsedCacheTests leastRecentlyUsedCacheTests;
 
 #if JUCE_ETW_TRACELOGGING
 
+JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE("-Wgnu-zero-variadic-macro-arguments")
+JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE("-Wmissing-prototypes")
+JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE("-Wc++98-compat-extra-semi")
+TRACELOGGING_DEFINE_PROVIDER (JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE,
+                              "JuceEtwTraceLogging",
+                              // {6A612E78-284D-4DDB-877A-5F521EB33132}
+                              (0x6a612e78, 0x284d, 0x4ddb, 0x87, 0x7a, 0x5f, 0x52, 0x1e, 0xb3, 0x31, 0x32));
+JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+
 ETWEventProvider::ETWEventProvider()
 {
     auto hr = TraceLoggingRegister (JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE);

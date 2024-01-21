@@ -54,6 +54,7 @@
 #if JUCE_ETW_TRACELOGGING
   #include <evntrace.h>
   #include <TraceLoggingProvider.h>
+  #include "native/juce_ETW_windows.h"
 #endif
 
  #if JUCE_MINGW
@@ -135,7 +136,6 @@
  #include "native/juce_IconHelpers_mac.cpp"
 
 #elif JUCE_WINDOWS
- #include "native/juce_ETW_windows.h"
  #include "native/juce_DirectX_windows.h"
  #include "native/juce_DirectWriteCustomFontCollection_windows.cpp"
  #include "native/juce_DirectX_windows.cpp"

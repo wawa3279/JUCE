@@ -125,7 +125,12 @@ namespace juce
             gradientCacheHit,
             gradientCreated,
 
-            paintEntireComponent,
+            reduceClipRegionRectangle,
+            reduceClipRegionRectangleList,
+            reduceClipRegionPath,
+            excludeClipRegion,
+            fillAll,
+
             paintComponentAndChildren,
             paintWithinParentContext
         };
@@ -142,11 +147,181 @@ JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 
 #define TraceLoggingWriteWrapper(hProvider, eventName, ...) TraceLoggingWrite(hProvider, eventName, __VA_ARGS__)
 
+#define SCOPED_TRACE_EVENT_INT_RECT(code, area, keyword) \
+struct ScopedTraceEvent \
+{ \
+    ScopedTraceEvent(Rectangle<int> area)\
+    {\
+        array[0] = area.getX(); array[1] = area.getY(); array[2] = area.getWidth(); array[3] = area.getHeight();\
+    }\
+    ~ScopedTraceEvent()\
+    {\
+        int64 elapsedTicks = Time::getHighResolutionTicks() - startTicks;\
+        TraceLoggingWriteWrapper(JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE, \
+            # code,\
+            TraceLoggingLevel(TRACE_LEVEL_INFORMATION), \
+            TraceLoggingKeyword(keyword), \
+            TraceLoggingInt32(code, "code"), \
+            TraceLoggingInt64(elapsedTicks, "elapsedTicks"), \
+            TraceLoggingInt32FixedArray(array, 4, "area"));\
+    }\
+\
+    int64 startTicks = Time::getHighResolutionTicks();\
+    int32_t array[4];\
+} ste{ area };
+
+#define SCOPED_TRACE_EVENT_INT_XYWH(code, x, y, w, h, keyword) \
+struct ScopedTraceEvent \
+{ \
+    ~ScopedTraceEvent()\
+    {\
+        int64 elapsedTicks = Time::getHighResolutionTicks() - startTicks;\
+        TraceLoggingWriteWrapper(JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE, \
+            # code,\
+            TraceLoggingLevel(TRACE_LEVEL_INFORMATION), \
+            TraceLoggingKeyword(keyword), \
+            TraceLoggingInt32(code, "code"), \
+            TraceLoggingInt64(elapsedTicks, "elapsedTicks"), \
+            TraceLoggingInt32FixedArray(array, 4, "area"));\
+    }\
+\
+    int64 startTicks = Time::getHighResolutionTicks();\
+    int32_t array[4];\
+} ste; \
+ste.array[0] = x; ste.array[1] = y; ste.array[2] = w; ste.array[3] = h;
+
+#define SCOPED_TRACE_EVENT_FLOAT_RECT(code, area, keyword) \
+struct ScopedTraceEvent \
+{ \
+    ScopedTraceEvent(Rectangle<float> area)\
+    {\
+        array[0] = area.getX(); array[1] = area.getY(); array[2] = area.getWidth(); array[3] = area.getHeight();\
+    }\
+    ~ScopedTraceEvent()\
+    {\
+        int64 elapsedTicks = Time::getHighResolutionTicks() - startTicks;\
+        TraceLoggingWriteWrapper(JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE, \
+            # code,\
+            TraceLoggingLevel(TRACE_LEVEL_INFORMATION), \
+            TraceLoggingKeyword(keyword), \
+            TraceLoggingInt32(code, "code"), \
+            TraceLoggingInt64(elapsedTicks, "elapsedTicks"), \
+            TraceLoggingFloat32FixedArray(array, 4, "area"));\
+    }\
+\
+    int64 startTicks = Time::getHighResolutionTicks();\
+    float array[4];\
+} ste{ area };
+
+#define SCOPED_TRACE_EVENT_FLOAT_XYWH(code, x, y, w, h, keyword) \
+struct ScopedTraceEvent \
+{ \
+    ~ScopedTraceEvent()\
+    {\
+        int64 elapsedTicks = Time::getHighResolutionTicks() - startTicks;\
+        TraceLoggingWriteWrapper(JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE, \
+            # code,\
+            TraceLoggingLevel(TRACE_LEVEL_INFORMATION), \
+            TraceLoggingKeyword(keyword), \
+            TraceLoggingInt32(code, "code"), \
+            TraceLoggingInt64(elapsedTicks, "elapsedTicks"), \
+            TraceLoggingFloat32FixedArray(array, 4, "area"));\
+    }\
+\
+    int64 startTicks = Time::getHighResolutionTicks();\
+    float array[4];\
+} ste; \
+ste.array[0] = x; ste.array[1] = y; ste.array[2] = w; ste.array[3] = h;
+
+#define SCOPED_TRACE_EVENT_INT_RECT_LIST(code, list, keyword) \
+struct ScopedTraceEvent \
+{ \
+    ScopedTraceEvent(RectangleList<int> const& list) :\
+        array{ list.getNumRectangles() * 4, false }, \
+        arrayLength(list.getNumRectangles() * 4) \
+    {\
+        int32* dest = array.getData();\
+\
+        for (auto const& r : list)\
+        {\
+            dest[0] = r.getX(); dest[1] = r.getY(); dest[2] = r.getWidth(); dest[3] = r.getHeight();\
+        }\
+    }\
+    ~ScopedTraceEvent()\
+    {\
+        int64_t elapsedTicks = Time::getHighResolutionTicks() - startTicks;\
+        TraceLoggingWriteWrapper(JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE,\
+            # code,\
+            TraceLoggingLevel(TRACE_LEVEL_INFORMATION),\
+            TraceLoggingKeyword(keyword),\
+            TraceLoggingInt32(code, "code"),\
+            TraceLoggingInt64(elapsedTicks, "elapsedTicks"),\
+            TraceLoggingInt32Array(array, arrayLength, "list"));\
+    }\
+    \
+    int64 startTicks = Time::getHighResolutionTicks();\
+    HeapBlock<int32_t> array;\
+    int arrayLength = 0;\
+} ste{ list };
+
+#define SCOPED_TRACE_EVENT_FLOAT_RECT_LIST(code, list, keyword) \
+struct ScopedTraceEvent \
+{ \
+    ScopedTraceEvent(RectangleList<float> const& list) :\
+        array{ list.getNumRectangles() * 4, false }, \
+        arrayLength(list.getNumRectangles() * 4) \
+    {\
+        float* dest = array.getData();\
+\
+        for (auto const& r : list)\
+        {\
+            dest[0] = r.getX(); dest[1] = r.getY(); dest[2] = r.getWidth(); dest[3] = r.getHeight();\
+        }\
+    }\
+    ~ScopedTraceEvent()\
+    {\
+        int64_t elapsedTicks = Time::getHighResolutionTicks() - startTicks;\
+        TraceLoggingWriteWrapper(JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE,\
+            # code,\
+            TraceLoggingLevel(TRACE_LEVEL_INFORMATION),\
+            TraceLoggingKeyword(keyword),\
+            TraceLoggingInt32(code, "code"),\
+            TraceLoggingInt64(elapsedTicks, "elapsedTicks"),\
+            TraceLoggingFloat32Array(array, arrayLength, "list"));\
+    }\
+    \
+    int64 startTicks = Time::getHighResolutionTicks();\
+    HeapBlock<float> array;\
+    int arrayLength = 0;\
+} ste{ list };
+
 #else
 
 #define TraceLoggingWriteWrapper(hProvider, eventName, ...)
 
 #endif
+
+#define TRACE_LOG_D2D(code) \
+    TraceLoggingWriteWrapper (JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE, \
+                   # code, \
+                   TraceLoggingLevel (TRACE_LEVEL_INFORMATION), \
+                   TraceLoggingKeyword (etw::direct2dKeyword), \
+                   TraceLoggingInt32 (code, "code"))
+
+#define TRACE_LOG(code, keyword) \
+    TraceLoggingWriteWrapper (JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE, \
+                   # code, \
+                   TraceLoggingLevel (TRACE_LEVEL_INFORMATION), \
+                   TraceLoggingKeyword (keyword), \
+                   TraceLoggingInt32 (code, "code"))
+
+#define TRACE_LOG_INT_VALUE(code, keyword, value, name) \
+    TraceLoggingWriteWrapper (JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE, \
+                   # code, \
+                   TraceLoggingLevel (TRACE_LEVEL_INFORMATION), \
+                   TraceLoggingKeyword (etw::keyword), \
+                   TraceLoggingInt32 (code, "code") \
+                   TraceLoggingInt32 (value, name))
 
 #define TRACE_LOG_D2D_RESOURCE(code) \
     TraceLoggingWriteWrapper (JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE, \

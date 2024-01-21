@@ -166,6 +166,8 @@ bool Graphics::isVectorDevice() const
 
 bool Graphics::reduceClipRegion (Rectangle<int> area)
 {
+    SCOPED_TRACE_EVENT_INT_RECT(etw::reduceClipRegionRectangle, area, etw::graphicsKeyword)
+
     saveStateIfPending();
     return context.clipToRectangle (area);
 }
@@ -177,6 +179,8 @@ bool Graphics::reduceClipRegion (int x, int y, int w, int h)
 
 bool Graphics::reduceClipRegion (const RectangleList<int>& clipRegion)
 {
+    SCOPED_TRACE_EVENT_INT_RECT_LIST(etw::reduceClipRegionRectangleList, clipRegion, etw::graphicsKeyword)
+
     saveStateIfPending();
     return context.clipToRectangleList (clipRegion);
 }
@@ -197,6 +201,8 @@ bool Graphics::reduceClipRegion (const Image& image, const AffineTransform& tran
 
 void Graphics::excludeClipRegion (Rectangle<int> rectangleToExclude)
 {
+    SCOPED_TRACE_EVENT_INT_RECT(etw::excludeClipRegion, rectangleToExclude, etw::graphicsKeyword)
+
     saveStateIfPending();
     context.excludeClipRectangle (rectangleToExclude);
 }
@@ -502,31 +508,43 @@ void Graphics::drawFittedText (const String& text, int x, int y, int width, int 
 //==============================================================================
 void Graphics::fillRect (Rectangle<int> r) const
 {
+    SCOPED_TRACE_EVENT_INT_RECT(etw::fillRect, r, etw::graphicsKeyword)
+
     context.fillRect (r, false);
 }
 
 void Graphics::fillRect (Rectangle<float> r) const
 {
+    SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillRect, r, etw::graphicsKeyword)
+
     context.fillRect (r);
 }
 
 void Graphics::fillRect (int x, int y, int width, int height) const
 {
+    SCOPED_TRACE_EVENT_INT_XYWH(etw::fillRect, x, y, width, height, etw::graphicsKeyword)
+
     context.fillRect (coordsToRectangle (x, y, width, height), false);
 }
 
 void Graphics::fillRect (float x, float y, float width, float height) const
 {
+    SCOPED_TRACE_EVENT_FLOAT_XYWH(etw::fillRect, x, y, width, height, etw::graphicsKeyword)
+
     fillRect (coordsToRectangle (x, y, width, height));
 }
 
 void Graphics::fillRectList (const RectangleList<float>& rectangles) const
 {
+    SCOPED_TRACE_EVENT_FLOAT_RECT_LIST(etw::fillRectList, rectangles, etw::graphicsKeyword)
+
     context.fillRectList (rectangles);
 }
 
 void Graphics::fillRectList (const RectangleList<int>& rects) const
 {
+    SCOPED_TRACE_EVENT_INT_RECT_LIST(etw::fillRectList, rects, etw::graphicsKeyword)
+
     for (auto& r : rects)
         context.fillRect (r, false);
 }
