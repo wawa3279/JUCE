@@ -482,6 +482,7 @@ namespace juce
     protected:
         Direct2DGraphicsContext& owner;
         SharedResourcePointer<DirectX> directX;
+        SharedResourcePointer<DirectWrite> directWrite;
         float                                   dpiScalingFactor = 1.0f;
         juce::RectangleList<int> paintAreas;
 
@@ -715,12 +716,12 @@ namespace juce
 
         auto getDirectWriteFactory()
         {
-            return directX->directWrite.getFactory();
+            return directWrite->getFactory();
         }
 
         auto getSystemFonts()
         {
-            return directX->directWrite.getSystemFonts();
+            return directWrite->getSystemFonts();
         }
 
         auto& getFilledGeometryCache()

@@ -25,32 +25,32 @@ namespace juce
 
 class DirectWriteCustomFontCollectionLoader;
 
+//==============================================================================
+//
+// DirectWrite
+//
+
+class DirectWrite
+{
+public:
+    DirectWrite();
+    ~DirectWrite();
+
+    IDWriteFactory* getFactory() const { return directWriteFactory; }
+    IDWriteFontCollection* getSystemFonts() const { return systemFonts; }
+    IDWriteFontFamily* getFontFamilyForRawData(const void* data, size_t dataSize);
+    OwnedArray<DirectWriteCustomFontCollectionLoader>& getCustomFontCollectionLoaders() { return customFontCollectionLoaders; }
+
+private:
+    ComSmartPtr<IDWriteFactory> directWriteFactory;
+    ComSmartPtr<IDWriteFontCollection> systemFonts;
+    OwnedArray<DirectWriteCustomFontCollectionLoader> customFontCollectionLoaders;
+};
+
 struct DirectX
 {
     DirectX() = default;
     ~DirectX() = default;
-
-    //==============================================================================
-    //
-    // DirectWrite
-    //
-
-    class DirectWrite
-    {
-    public:
-        DirectWrite();
-        ~DirectWrite();
-
-        IDWriteFactory* getFactory() const { return directWriteFactory; }
-        IDWriteFontCollection* getSystemFonts() const { return systemFonts; }
-        IDWriteFontFamily* getFontFamilyForRawData(const void* data, size_t dataSize);
-        OwnedArray<DirectWriteCustomFontCollectionLoader>& getCustomFontCollectionLoaders() { return customFontCollectionLoaders; }
-
-    private:
-        ComSmartPtr<IDWriteFactory> directWriteFactory;
-        ComSmartPtr<IDWriteFontCollection> systemFonts;
-        OwnedArray<DirectWriteCustomFontCollectionLoader> customFontCollectionLoaders;
-    } directWrite;
 
     //==============================================================================
     //
@@ -220,7 +220,6 @@ struct DirectX
             Adapters(IDXGIFactory2* factory_) :
                 factory(factory_)
             {
-                updateAdapters();
             }
 
             ~Adapters()
@@ -266,7 +265,7 @@ struct DirectX
 
             IDXGIFactory2* getFactory() const { return factory; }
 
-            Adapter::Ptr const getAdapterForHwnd(HWND hwnd) const
+            Adapter::Ptr const getAdapterForHwnd(HWND hwnd)
             {
                 if (auto monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL))
                 {
@@ -289,7 +288,7 @@ struct DirectX
                 return getDefaultAdapter();
             }
 
-            Adapter::Ptr getDefaultAdapter() const
+            Adapter::Ptr getDefaultAdapter()
             {
                 return adapterArray.getFirst();
             }
