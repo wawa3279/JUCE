@@ -247,6 +247,9 @@ public:
     static int constexpr minFrameSize = 1;
     static int constexpr maxFrameSize = 16384;
 
+#if JUCE_ETW_TRACELOGGING
+    int frameNumber = -2;
+#endif
 
     //==============================================================================
 protected:

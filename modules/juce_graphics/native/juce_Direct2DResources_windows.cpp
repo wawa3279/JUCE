@@ -872,8 +872,6 @@ namespace juce
 
                     if (SUCCEEDED(hr))
                     {
-                        TRACE_LOG_D2D_CREATE_RESOURCE("swapchain");
-
                         //
                         // Get the waitable swap chain presentation event and set the maximum frame latency
                         //
@@ -889,8 +887,6 @@ namespace juce
                             if (SUCCEEDED(hr))
                             {
                                 state = State::chainAllocated;
-
-                                TRACE_LOG_D2D_RESOURCE(etw::createSwapChain);
                             }
                         }
                     }
@@ -928,8 +924,6 @@ namespace juce
 
                         if (SUCCEEDED(hr))
                         {
-                            TRACE_LOG_D2D_RESOURCE(etw::createSwapChainBuffer);
-
                             state = State::bufferAllocated;
                         }
                     }

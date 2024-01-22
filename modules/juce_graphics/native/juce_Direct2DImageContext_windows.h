@@ -29,6 +29,10 @@ namespace juce
 
         void startFrame(ID2D1Bitmap1* bitmap, float dpiScaleFactor);
 
+#if JUCE_ETW_TRACELOGGING
+        static int imageFrameNumber;
+#endif
+
     private:
         struct ImagePimpl;
         std::unique_ptr<ImagePimpl> pimpl;

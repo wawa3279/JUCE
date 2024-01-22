@@ -186,6 +186,8 @@ namespace juce
 
     void Direct2DPixelData::initialiseBitmapData(Image::BitmapData& bitmap, int x, int y, Image::BitmapData::ReadWriteMode mode)
     {
+        TRACE_LOG_D2D_IMAGE_MAP_DATA;
+
         x += deviceIndependentClipArea.getX();
         y += deviceIndependentClipArea.getY();
 
@@ -385,6 +387,8 @@ namespace juce
 
     Direct2DPixelData::Direct2DBitmapReleaser::~Direct2DBitmapReleaser()
     {
+        TRACE_LOG_D2D_IMAGE_UNMAP_DATA;
+
         mappableBitmap->unmap(pixelData.adapterBitmap.getD2D1Bitmap(), mode);
         pixelData.mappableBitmaps.removeObject(mappableBitmap);
     }

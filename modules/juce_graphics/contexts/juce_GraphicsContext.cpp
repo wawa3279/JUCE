@@ -19,6 +19,10 @@
 namespace juce
 {
 
+#if JUCE_ETW_TRACELOGGING
+    int Graphics::etwFrameNumber = 0;
+#endif
+
 struct GraphicsFontHelpers
 {
     static auto compareFont (const Font& a, const Font& b) { return Font::compare (a, b); }
@@ -142,17 +146,26 @@ Graphics::Graphics (const Image& imageToDrawOnto)
     : contextHolder (imageToDrawOnto.createLowLevelContext()),
       context (*contextHolder)
 {
+#if JUCE_ETW_TRACELOGGING
+    ++etwFrameNumber;
+#endif
+
     jassert (imageToDrawOnto.isValid()); // Can't draw into a null image!
 }
 
 Graphics::Graphics (LowLevelGraphicsContext& internalContext) noexcept
     : context (internalContext)
 {
+#if JUCE_ETW_TRACELOGGING
+    ++etwFrameNumber;
+#endif
 }
 
 //==============================================================================
 void Graphics::resetToDefaultState()
 {
+    SCOPED_TRACE_EVENT(etw::resetToDefaultState, etwFrameNumber, etw::graphicsKeyword);
+
     saveStateIfPending();
     context.setFill (FillType());
     context.setFont (Font());
@@ -166,7 +179,7 @@ bool Graphics::isVectorDevice() const
 
 bool Graphics::reduceClipRegion (Rectangle<int> area)
 {
-    SCOPED_TRACE_EVENT_INT_RECT(etw::reduceClipRegionRectangle, area, etw::graphicsKeyword)
+    SCOPED_TRACE_EVENT_INT_RECT(etw::reduceClipRegionRectangle, etwFrameNumber, area, etw::graphicsKeyword)
 
     saveStateIfPending();
     return context.clipToRectangle (area);
@@ -179,7 +192,7 @@ bool Graphics::reduceClipRegion (int x, int y, int w, int h)
 
 bool Graphics::reduceClipRegion (const RectangleList<int>& clipRegion)
 {
-    SCOPED_TRACE_EVENT_INT_RECT_LIST(etw::reduceClipRegionRectangleList, clipRegion, etw::graphicsKeyword)
+    SCOPED_TRACE_EVENT_INT_RECT_LIST(etw::reduceClipRegionRectangleList, etwFrameNumber, clipRegion, etw::graphicsKeyword)
 
     saveStateIfPending();
     return context.clipToRectangleList (clipRegion);
@@ -187,6 +200,8 @@ bool Graphics::reduceClipRegion (const RectangleList<int>& clipRegion)
 
 bool Graphics::reduceClipRegion (const Path& path, const AffineTransform& transform)
 {
+    SCOPED_TRACE_EVENT(etw::reduceClipRegionPath, etwFrameNumber, etw::graphicsKeyword);
+
     saveStateIfPending();
     context.clipToPath (path, transform);
     return ! context.isClipEmpty();
@@ -194,6 +209,8 @@ bool Graphics::reduceClipRegion (const Path& path, const AffineTransform& transf
 
 bool Graphics::reduceClipRegion (const Image& image, const AffineTransform& transform)
 {
+    SCOPED_TRACE_EVENT(etw::reduceClipRegionImage, etwFrameNumber, etw::graphicsKeyword);
+
     saveStateIfPending();
     context.clipToImageAlpha (image, transform);
     return ! context.isClipEmpty();
@@ -201,7 +218,7 @@ bool Graphics::reduceClipRegion (const Image& image, const AffineTransform& tran
 
 void Graphics::excludeClipRegion (Rectangle<int> rectangleToExclude)
 {
-    SCOPED_TRACE_EVENT_INT_RECT(etw::excludeClipRegion, rectangleToExclude, etw::graphicsKeyword)
+    SCOPED_TRACE_EVENT_INT_RECT(etw::excludeClipRegion, etwFrameNumber, rectangleToExclude, etw::graphicsKeyword)
 
     saveStateIfPending();
     context.excludeClipRectangle (rectangleToExclude);
@@ -219,12 +236,16 @@ Rectangle<int> Graphics::getClipBounds() const
 
 void Graphics::saveState()
 {
+    SCOPED_TRACE_EVENT(etw::saveState, etwFrameNumber, etw::graphicsKeyword);
+
     saveStateIfPending();
     saveStatePending = true;
 }
 
 void Graphics::restoreState()
 {
+    SCOPED_TRACE_EVENT(etw::restoreState, etwFrameNumber, etw::graphicsKeyword);
+
     if (saveStatePending)
         saveStatePending = false;
     else
@@ -235,6 +256,8 @@ void Graphics::saveStateIfPending()
 {
     if (saveStatePending)
     {
+        SCOPED_TRACE_EVENT(etw::saveState, etwFrameNumber, etw::graphicsKeyword);
+
         saveStatePending = false;
         context.saveState();
     }
@@ -253,6 +276,8 @@ void Graphics::setOrigin (int x, int y)
 
 void Graphics::addTransform (const AffineTransform& transform)
 {
+    SCOPED_TRACE_EVENT(etw::addTransform, etwFrameNumber, etw::graphicsKeyword);
+
     saveStateIfPending();
     context.addTransform (transform);
 }
@@ -264,12 +289,16 @@ bool Graphics::clipRegionIntersects (Rectangle<int> area) const
 
 void Graphics::beginTransparencyLayer (float layerOpacity)
 {
+    SCOPED_TRACE_EVENT(etw::beginTransparencyLayer, etwFrameNumber, etw::graphicsKeyword);
+
     saveStateIfPending();
     context.beginTransparencyLayer (layerOpacity);
 }
 
 void Graphics::endTransparencyLayer()
 {
+    SCOPED_TRACE_EVENT(etw::endTransparencyLayer, etwFrameNumber, etw::graphicsKeyword);
+
     context.endTransparencyLayer();
 }
 
@@ -508,42 +537,42 @@ void Graphics::drawFittedText (const String& text, int x, int y, int width, int 
 //==============================================================================
 void Graphics::fillRect (Rectangle<int> r) const
 {
-    SCOPED_TRACE_EVENT_INT_RECT(etw::fillRect, r, etw::graphicsKeyword)
+    SCOPED_TRACE_EVENT_INT_RECT(etw::fillRect, etwFrameNumber, r, etw::graphicsKeyword)
 
     context.fillRect (r, false);
 }
 
 void Graphics::fillRect (Rectangle<float> r) const
 {
-    SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillRect, r, etw::graphicsKeyword)
+    SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillRect, etwFrameNumber, r, etw::graphicsKeyword)
 
     context.fillRect (r);
 }
 
 void Graphics::fillRect (int x, int y, int width, int height) const
 {
-    SCOPED_TRACE_EVENT_INT_XYWH(etw::fillRect, x, y, width, height, etw::graphicsKeyword)
+    SCOPED_TRACE_EVENT_INT_XYWH(etw::fillRect, etwFrameNumber, x, y, width, height, etw::graphicsKeyword)
 
     context.fillRect (coordsToRectangle (x, y, width, height), false);
 }
 
 void Graphics::fillRect (float x, float y, float width, float height) const
 {
-    SCOPED_TRACE_EVENT_FLOAT_XYWH(etw::fillRect, x, y, width, height, etw::graphicsKeyword)
+    SCOPED_TRACE_EVENT_FLOAT_XYWH(etw::fillRect, etwFrameNumber, x, y, width, height, etw::graphicsKeyword)
 
     fillRect (coordsToRectangle (x, y, width, height));
 }
 
 void Graphics::fillRectList (const RectangleList<float>& rectangles) const
 {
-    SCOPED_TRACE_EVENT_FLOAT_RECT_LIST(etw::fillRectList, rectangles, etw::graphicsKeyword)
+    SCOPED_TRACE_EVENT_FLOAT_RECT_LIST(etw::fillRectList, etwFrameNumber, rectangles, etw::graphicsKeyword)
 
     context.fillRectList (rectangles);
 }
 
 void Graphics::fillRectList (const RectangleList<int>& rects) const
 {
-    SCOPED_TRACE_EVENT_INT_RECT_LIST(etw::fillRectList, rects, etw::graphicsKeyword)
+    SCOPED_TRACE_EVENT_INT_RECT_LIST(etw::fillRectList, etwFrameNumber, rects, etw::graphicsKeyword)
 
     for (auto& r : rects)
         context.fillRect (r, false);
@@ -551,11 +580,15 @@ void Graphics::fillRectList (const RectangleList<int>& rects) const
 
 void Graphics::fillAll() const
 {
+    SCOPED_TRACE_EVENT(etw::fillAll, etwFrameNumber, etw::graphicsKeyword);
+
     context.fillAll();
 }
 
 void Graphics::fillAll (Colour colourToUse) const
 {
+    SCOPED_TRACE_EVENT(etw::fillAll, etwFrameNumber, etw::graphicsKeyword);
+
     if (! colourToUse.isTransparent())
     {
         context.saveState();
@@ -569,12 +602,16 @@ void Graphics::fillAll (Colour colourToUse) const
 //==============================================================================
 void Graphics::fillPath (const Path& path) const
 {
+    SCOPED_TRACE_EVENT(etw::fillPath, etwFrameNumber, etw::graphicsKeyword);
+
     if (! (context.isClipEmpty() || path.isEmpty()))
         context.fillPath (path, AffineTransform());
 }
 
 void Graphics::fillPath (const Path& path, const AffineTransform& transform) const
 {
+    SCOPED_TRACE_EVENT(etw::fillPath, etwFrameNumber, etw::graphicsKeyword);
+
     if (! (context.isClipEmpty() || path.isEmpty()))
         context.fillPath (path, transform);
 }
@@ -583,6 +620,8 @@ void Graphics::strokePath (const Path& path,
                            const PathStrokeType& strokeType,
                            const AffineTransform& transform) const
 {
+    SCOPED_TRACE_EVENT(etw::strokePath, etwFrameNumber, etw::graphicsKeyword);
+
     if (context.drawPath(path, strokeType, transform))
     {
         return;
@@ -611,6 +650,8 @@ void Graphics::drawRect (Rectangle<int> r, int lineThickness) const
 
 void Graphics::drawRect (Rectangle<float> r, const float lineThickness) const
 {
+    SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawRect, etwFrameNumber, r, etw::graphicsKeyword);
+
     jassert (r.getWidth() >= 0.0f && r.getHeight() >= 0.0f);
 
     if (context.drawRect(r, lineThickness))
