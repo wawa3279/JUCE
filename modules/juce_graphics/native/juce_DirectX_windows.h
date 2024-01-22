@@ -220,6 +220,7 @@ struct DirectX
             Adapters(IDXGIFactory2* factory_) :
                 factory(factory_)
             {
+                updateAdapters();
             }
 
             ~Adapters()

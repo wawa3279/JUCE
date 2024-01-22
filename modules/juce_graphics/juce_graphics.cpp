@@ -64,6 +64,15 @@
 
  JUCE_END_IGNORE_WARNINGS_MSVC
 
+ #if ! JUCE_DONT_AUTOLINK_TO_WIN32_LIBRARIES
+  #pragma comment (lib, "Dwrite.lib")
+  #pragma comment (lib, "D2d1.lib")
+  #pragma comment (lib, "DXGI.lib")
+  #pragma comment (lib, "D3D11.lib")
+  #pragma comment (lib, "DComp.lib")
+  #pragma comment (lib, "dxguid.lib")
+#endif
+
 #elif JUCE_IOS
  #import <QuartzCore/QuartzCore.h>
  #import <CoreText/CoreText.h>
