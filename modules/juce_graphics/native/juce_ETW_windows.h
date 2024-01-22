@@ -344,6 +344,14 @@ ste.frameNumber = etwFrameNumber;
 
 #define TraceLoggingWriteWrapper(hProvider, eventName, ...)
 
+#define SCOPED_TRACE_EVENT(code, etwFrameNumber, keyword)
+#define SCOPED_TRACE_EVENT_INT_RECT(code, etwFrameNumber, area, keyword)
+#define SCOPED_TRACE_EVENT_INT_XYWH(code, etwFrameNumber, x, y, w, h, keyword)
+#define SCOPED_TRACE_EVENT_FLOAT_RECT(code, etwFrameNumber, area, keyword)
+#define SCOPED_TRACE_EVENT_FLOAT_XYWH(code, etwFrameNumber, x, y, w, h, keyword)
+#define SCOPED_TRACE_EVENT_INT_RECT_LIST(code, etwFrameNumber, list, keyword)
+#define SCOPED_TRACE_EVENT_FLOAT_RECT_LIST(code, etwFrameNumber, list, keyword)
+
 #endif
 
 #define TRACE_LOG_D2D_PAINT_START(frameNumber) \
