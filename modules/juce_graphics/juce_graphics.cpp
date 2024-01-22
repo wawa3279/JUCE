@@ -54,8 +54,8 @@
 #if JUCE_ETW_TRACELOGGING
   #include <evntrace.h>
   #include <TraceLoggingProvider.h>
-  #include "native/juce_ETW_windows.h"
 #endif
+#include "native/juce_ETW_windows.h"
 
  #if JUCE_MINGW
   #include <malloc.h>
