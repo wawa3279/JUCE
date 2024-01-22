@@ -167,7 +167,7 @@ void Graphics::resetToDefaultState()
 #if JUCE_ETW_TRACELOGGING
     SCOPED_TRACE_EVENT(etw::resetToDefaultState, etwFrameNumber, etw::graphicsKeyword);
 #endif
-    
+
     saveStateIfPending();
     context.setFill (FillType());
     context.setFont (Font());
@@ -275,7 +275,7 @@ void Graphics::saveStateIfPending()
 #if JUCE_ETW_TRACELOGGING
         SCOPED_TRACE_EVENT(etw::saveState, etwFrameNumber, etw::graphicsKeyword);
 #endif
-        
+
         saveStatePending = false;
         context.saveState();
     }
@@ -564,7 +564,7 @@ void Graphics::fillRect (Rectangle<int> r) const
 #if JUCE_ETW_TRACELOGGING
     SCOPED_TRACE_EVENT_INT_RECT(etw::fillRect, etwFrameNumber, r, etw::graphicsKeyword)
 #endif
-    
+
     context.fillRect (r, false);
 }
 
@@ -573,7 +573,7 @@ void Graphics::fillRect (Rectangle<float> r) const
 #if JUCE_ETW_TRACELOGGING
     SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillRect, etwFrameNumber, r, etw::graphicsKeyword)
 #endif
-    
+
     context.fillRect (r);
 }
 
@@ -582,7 +582,7 @@ void Graphics::fillRect (int x, int y, int width, int height) const
 #if JUCE_ETW_TRACELOGGING
     SCOPED_TRACE_EVENT_INT_XYWH(etw::fillRect, etwFrameNumber, x, y, width, height, etw::graphicsKeyword)
 #endif
-    
+
     context.fillRect (coordsToRectangle (x, y, width, height), false);
 }
 
@@ -591,7 +591,7 @@ void Graphics::fillRect (float x, float y, float width, float height) const
 #if JUCE_ETW_TRACELOGGING
     SCOPED_TRACE_EVENT_FLOAT_XYWH(etw::fillRect, etwFrameNumber, x, y, width, height, etw::graphicsKeyword)
 #endif
-    
+
     fillRect (coordsToRectangle (x, y, width, height));
 }
 
@@ -600,7 +600,7 @@ void Graphics::fillRectList (const RectangleList<float>& rectangles) const
 #if JUCE_ETW_TRACELOGGING
     SCOPED_TRACE_EVENT_FLOAT_RECT_LIST(etw::fillRectList, etwFrameNumber, rectangles, etw::graphicsKeyword)
 #endif
-    
+
     context.fillRectList (rectangles);
 }
 
@@ -609,7 +609,7 @@ void Graphics::fillRectList (const RectangleList<int>& rects) const
 #if JUCE_ETW_TRACELOGGING
     SCOPED_TRACE_EVENT_INT_RECT_LIST(etw::fillRectList, etwFrameNumber, rects, etw::graphicsKeyword)
 #endif
-    
+
     for (auto& r : rects)
         context.fillRect (r, false);
 }
@@ -619,7 +619,7 @@ void Graphics::fillAll() const
 #if JUCE_ETW_TRACELOGGING
     SCOPED_TRACE_EVENT(etw::fillAll, etwFrameNumber, etw::graphicsKeyword);
 #endif
-    
+
     context.fillAll();
 }
 
@@ -628,7 +628,7 @@ void Graphics::fillAll (Colour colourToUse) const
 #if JUCE_ETW_TRACELOGGING
     SCOPED_TRACE_EVENT(etw::fillAll, etwFrameNumber, etw::graphicsKeyword);
 #endif
-    
+
     if (! colourToUse.isTransparent())
     {
         context.saveState();
@@ -645,7 +645,7 @@ void Graphics::fillPath (const Path& path) const
 #if JUCE_ETW_TRACELOGGING
     SCOPED_TRACE_EVENT(etw::fillPath, etwFrameNumber, etw::graphicsKeyword);
 #endif
-    
+
     if (! (context.isClipEmpty() || path.isEmpty()))
         context.fillPath (path, AffineTransform());
 }
@@ -655,7 +655,7 @@ void Graphics::fillPath (const Path& path, const AffineTransform& transform) con
 #if JUCE_ETW_TRACELOGGING
     SCOPED_TRACE_EVENT(etw::fillPath, etwFrameNumber, etw::graphicsKeyword);
 #endif
-    
+
     if (! (context.isClipEmpty() || path.isEmpty()))
         context.fillPath (path, transform);
 }
@@ -667,7 +667,7 @@ void Graphics::strokePath (const Path& path,
 #if JUCE_ETW_TRACELOGGING
     SCOPED_TRACE_EVENT(etw::strokePath, etwFrameNumber, etw::graphicsKeyword);
 #endif
-    
+
     if (context.drawPath(path, strokeType, transform))
     {
         return;
@@ -699,7 +699,7 @@ void Graphics::drawRect (Rectangle<float> r, const float lineThickness) const
 #if JUCE_ETW_TRACELOGGING
     SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawRect, etwFrameNumber, r, etw::graphicsKeyword);
 #endif
-    
+
     jassert (r.getWidth() >= 0.0f && r.getHeight() >= 0.0f);
 
     if (context.drawRect(r, lineThickness))
