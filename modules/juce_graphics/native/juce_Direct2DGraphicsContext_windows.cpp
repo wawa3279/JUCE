@@ -342,11 +342,14 @@ namespace juce
                     linearGradient->SetEndPoint({ p2.x, p2.y });
                 }
 
+                auto brushTransform = fillType.transform.translated(currentTransform.offset.toFloat());
+                currentBrush->SetTransform(direct2d::transformToMatrix(brushTransform));
                 currentBrush->SetOpacity(fillType.getOpacity());
             }
             else if (fillType.isTiledImage())
             {
-                bitmapBrush->SetTransform(D2D1::Matrix3x2F::Translation((float)currentTransform.offset.x, (float)currentTransform.offset.y));
+                auto brushTransform = fillType.transform.translated(currentTransform.offset.toFloat());
+                bitmapBrush->SetTransform(direct2d::transformToMatrix(brushTransform));
                 bitmapBrush->SetOpacity(fillType.getOpacity());
             }
 
@@ -377,11 +380,14 @@ namespace juce
                     linearGradient->SetEndPoint({ p2.x, p2.y });
                 }
 
+                auto brushTransform = fillType.transform.translated(currentTransform.offset.toFloat());
+                currentBrush->SetTransform(direct2d::transformToMatrix(brushTransform));
                 currentBrush->SetOpacity(fillType.getOpacity());
             }
             else if (fillType.isTiledImage())
             {
-                bitmapBrush->SetTransform(direct2d::transformToMatrix(currentTransform.getTransform()));
+                auto brushTransform = fillType.transform.translated(currentTransform.offset.toFloat());
+                bitmapBrush->SetTransform(direct2d::transformToMatrix(brushTransform));
                 bitmapBrush->SetOpacity(fillType.getOpacity());
             }
 
@@ -412,6 +418,7 @@ namespace juce
                     linearGradient->SetEndPoint({ p2.x, p2.y });
                 }
 
+                currentBrush->SetTransform(direct2d::transformToMatrix(currentTransform.getTransformWith(transform)));
                 currentBrush->SetOpacity(fillType.getOpacity());
             }
             else if (fillType.isTiledImage())
