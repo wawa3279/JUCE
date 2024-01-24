@@ -309,7 +309,11 @@ namespace juce
                 effect->SetInput(0, getAdapterD2D1Bitmap(imageAdapter));
                 effect->SetValue(D2D1_GAUSSIANBLUR_PROP_STANDARD_DEVIATION, radius);
 
-                Direct2DPixelData::Ptr effectedPixelData = new Direct2DPixelData{ pixelFormat, bitmapArea, true, imageAdapter };
+                if (! effectedPixelData)
+                {
+                    effectedPixelData = new Direct2DPixelData{ pixelFormat, bitmapArea, true, imageAdapter };
+                }
+
                 if (auto effectedPixelDataContext = effectedPixelData->deviceResources.deviceContext.context)
                 {
                     effectedPixelDataContext->SetTarget(effectedPixelData->getAdapterD2D1Bitmap(imageAdapter));
@@ -339,7 +343,11 @@ namespace juce
                 effect->SetValue(D2D1_SHADOW_PROP_BLUR_STANDARD_DEVIATION, radius / 6.0f);
                 effect->SetValue(D2D1_SHADOW_PROP_COLOR, D2D1_VECTOR_4F{ colour.getFloatRed(), colour.getFloatGreen(), colour.getFloatBlue(), 1.0f });
 
-                Direct2DPixelData::Ptr effectedPixelData = new Direct2DPixelData{ pixelFormat, bitmapArea, true, imageAdapter };
+                if (!effectedPixelData)
+                {
+                    effectedPixelData = new Direct2DPixelData{ pixelFormat, bitmapArea, true, imageAdapter };
+                }
+
                 if (auto effectedPixelDataContext = effectedPixelData->deviceResources.deviceContext.context)
                 {
                     effectedPixelDataContext->SetTarget(effectedPixelData->getAdapterD2D1Bitmap(imageAdapter));

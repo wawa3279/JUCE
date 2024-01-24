@@ -344,6 +344,7 @@ private:
     bool const                clearImage;
     AdapterBitmap adapterBitmap;
     ReferenceCountedArray<MappableBitmap> mappableBitmaps;
+    Direct2DPixelData::Ptr effectedPixelData;
 
     JUCE_LEAK_DETECTOR(Direct2DPixelData)
 };
