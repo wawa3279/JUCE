@@ -236,8 +236,13 @@ public:
         return {};
     }
 
+    int getFrameNumber() const override
+    {
+        return frameNumber;
+    }
+
 #if JUCE_DIRECT2D_METRICS
-    direct2d::PaintStats::Ptr paintStats;
+    direct2d::PaintStats::Ptr paintStats = new direct2d::PaintStats{};
 #endif
 
     //==============================================================================
@@ -246,10 +251,6 @@ public:
     //
     static int constexpr minFrameSize = 1;
     static int constexpr maxFrameSize = 16384;
-
-#if JUCE_ETW_TRACELOGGING
-    int frameNumber = -2;
-#endif
 
     //==============================================================================
 protected:

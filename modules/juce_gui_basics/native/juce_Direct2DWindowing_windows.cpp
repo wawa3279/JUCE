@@ -152,9 +152,6 @@ private:
     #if JUCE_ETW_TRACELOGGING
     SharedResourcePointer<ETWEventProvider> etwEventProvider;
     #endif
-#if JUCE_DIRECT2D_METRICS
-    direct2d::PaintStats::Ptr paintStats = new direct2d::PaintStats{};
-#endif
     std::unique_ptr<Direct2DHwndContext> direct2DContext;
 
     void handlePaintMessage() override
@@ -219,10 +216,6 @@ private:
         // Direct2DLowLevelGraphicsContext::endFrame calls ID2D1DeviceContext::EndDraw to finish painting
         // and then tells the swap chain to present the next swap chain back buffer.
         //
-#if JUCE_ETW_TRACELOGGING
-        direct2DContext->frameNumber = Graphics::etwFrameNumber;
-#endif
-
         if (direct2DContext->startFrame())
         {
             handlePaint (*direct2DContext);

@@ -76,6 +76,7 @@ namespace juce
             fillRectList,
             drawRectTranslated,
             drawRectTransformed,
+            drawRect,
             fillPath,
             strokePath,
             drawPath,
@@ -354,6 +355,14 @@ ste.frameNumber = etwFrameNumber;
 #define SCOPED_TRACE_EVENT_FLOAT_RECT_LIST(code, etwFrameNumber, list, keyword)
 
 #endif
+
+#define TRACE_LOG_D2D_PAINT_CALL(code, frameNumber) \
+    TraceLoggingWriteWrapper (JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE, \
+                   "D2D paint start", \
+                   TraceLoggingLevel (TRACE_LEVEL_INFORMATION), \
+                   TraceLoggingKeyword (etw::paintKeyword | etw::direct2dKeyword), \
+                   TraceLoggingInt32 (frameNumber, "frame"), \
+                   TraceLoggingInt32 (code, "code"))
 
 #define TRACE_LOG_D2D_PAINT_START(frameNumber) \
     TraceLoggingWriteWrapper (JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE, \
