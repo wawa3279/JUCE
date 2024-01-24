@@ -1224,7 +1224,7 @@ namespace juce
         {
             SCOPED_TRACE_EVENT_INT_RECT(etw::fillRectReplace,frameNumber, r, etw::direct2dKeyword);
 
-            currentState->pushAxisAlignedClipLayer(currentState->currentTransform.transformed(r.toFloat()));
+            clipToRectangle(r);
             getPimpl()->clearBackground();
             currentState->popTopLayer();
         }
