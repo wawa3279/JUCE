@@ -293,7 +293,7 @@ private:
             oldValue = ttc->getTooltip();
         }
 
-        bool perform()
+        bool perform() override
         {
             showCorrectTab();
 
@@ -307,7 +307,7 @@ private:
             return false;
         }
 
-        bool undo()
+        bool undo() override
         {
             showCorrectTab();
 
@@ -341,12 +341,12 @@ public:
         document.addChangeListener (this);
     }
 
-    ~ComponentPositionProperty()
+    ~ComponentPositionProperty() override
     {
         document.removeChangeListener (this);
     }
 
-    void setPosition (const RelativePositionedRectangle& newPos)
+    void setPosition (const RelativePositionedRectangle& newPos) override
     {
         auto* l = document.getComponentLayout();
 
@@ -356,7 +356,7 @@ public:
         l->setComponentPosition (component, newPos, true);
     }
 
-    RelativePositionedRectangle getPosition() const
+    RelativePositionedRectangle getPosition() const override
     {
         return ComponentTypeHandler::getComponentPosition (component);
     }
@@ -432,7 +432,7 @@ private:
             oldValue = comp->getExplicitFocusOrder();
         }
 
-        bool perform()
+        bool perform() override
         {
             showCorrectTab();
             getComponent()->setExplicitFocusOrder (newValue);
@@ -440,7 +440,7 @@ private:
             return true;
         }
 
-        bool undo()
+        bool undo() override
         {
             showCorrectTab();
             getComponent()->setExplicitFocusOrder (oldValue);

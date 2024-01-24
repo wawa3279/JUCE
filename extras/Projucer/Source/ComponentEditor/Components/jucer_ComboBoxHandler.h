@@ -190,13 +190,13 @@ private:
         {
         }
 
-        void setState (bool newState)
+        void setState (bool newState) override
         {
             document.perform (new ComboEditableChangeAction (component, *document.getComponentLayout(), newState),
                               "Change combo box editability");
         }
 
-        bool getState() const
+        bool getState() const override
         {
             return component->isTextEditable();
         }
@@ -212,7 +212,7 @@ private:
                 oldState = comp->isTextEditable();
             }
 
-            bool perform()
+            bool perform() override
             {
                 showCorrectTab();
                 getComponent()->setEditableText (newState);
@@ -220,7 +220,7 @@ private:
                 return true;
             }
 
-            bool undo()
+            bool undo() override
             {
                 showCorrectTab();
                 getComponent()->setEditableText (oldState);
@@ -243,13 +243,13 @@ private:
         {
         }
 
-        void setJustification (Justification newJustification)
+        void setJustification (Justification newJustification) override
         {
             document.perform (new ComboJustifyChangeAction (component, *document.getComponentLayout(), newJustification),
                               "Change combo box justification");
         }
 
-        Justification getJustification() const        { return component->getJustificationType(); }
+        Justification getJustification() const override        { return component->getJustificationType(); }
 
     private:
         ComboBox* const component;
@@ -265,7 +265,7 @@ private:
             {
             }
 
-            bool perform()
+            bool perform() override
             {
                 showCorrectTab();
                 getComponent()->setJustificationType (newState);
@@ -273,7 +273,7 @@ private:
                 return true;
             }
 
-            bool undo()
+            bool undo() override
             {
                 showCorrectTab();
                 getComponent()->setJustificationType (oldState);
@@ -315,7 +315,7 @@ private:
                 oldState = comp->getProperties() ["items"];
             }
 
-            bool perform()
+            bool perform() override
             {
                 showCorrectTab();
                 getComponent()->getProperties().set ("items", newState);
@@ -324,7 +324,7 @@ private:
                 return true;
             }
 
-            bool undo()
+            bool undo() override
             {
                 showCorrectTab();
                 getComponent()->getProperties().set ("items", oldState);
@@ -367,7 +367,7 @@ private:
                 oldState = comp->getTextWhenNothingSelected();
             }
 
-            bool perform()
+            bool perform() override
             {
                 showCorrectTab();
                 getComponent()->setTextWhenNothingSelected (newState);
@@ -375,7 +375,7 @@ private:
                 return true;
             }
 
-            bool undo()
+            bool undo() override
             {
                 showCorrectTab();
                 getComponent()->setTextWhenNothingSelected (oldState);
@@ -417,7 +417,7 @@ private:
                 oldState = comp->getTextWhenNoChoicesAvailable();
             }
 
-            bool perform()
+            bool perform() override
             {
                 showCorrectTab();
                 getComponent()->setTextWhenNoChoicesAvailable (newState);
@@ -425,7 +425,7 @@ private:
                 return true;
             }
 
-            bool undo()
+            bool undo() override
             {
                 showCorrectTab();
                 getComponent()->setTextWhenNoChoicesAvailable (oldState);

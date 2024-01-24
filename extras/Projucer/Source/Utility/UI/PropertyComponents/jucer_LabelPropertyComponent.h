@@ -52,7 +52,7 @@ private:
     //==============================================================================
     struct LabelLookAndFeel final : public ProjucerLookAndFeel
     {
-        void drawPropertyComponentLabel (Graphics&, int, int, PropertyComponent&) {}
+        void drawPropertyComponentLabel (Graphics&, int, int, PropertyComponent&) override {}
     };
 
     void lookAndFeelChanged() override

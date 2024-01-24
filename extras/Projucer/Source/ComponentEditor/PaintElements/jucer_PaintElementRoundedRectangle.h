@@ -68,14 +68,14 @@ public:
             oldSize = element->getCornerSize();
         }
 
-        bool perform()
+        bool perform() override
         {
             showCorrectTab();
             getElement()->setCornerSize (newSize, false);
             return true;
         }
 
-        bool undo()
+        bool undo() override
         {
             showCorrectTab();
             getElement()->setCornerSize (oldSize, false);
@@ -244,12 +244,12 @@ private:
         {
         }
 
-        void buttonClicked()
+        void buttonClicked() override
         {
             element->convertToPath();
         }
 
-        String getButtonText() const
+        String getButtonText() const override
         {
             return "convert to a path";
         }

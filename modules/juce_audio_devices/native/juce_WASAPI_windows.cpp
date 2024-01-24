@@ -560,13 +560,13 @@ private:
     {
         SessionEventCallback (WASAPIDeviceBase& d) : owner (d) {}
 
-        JUCE_COMRESULT OnDisplayNameChanged (LPCWSTR, LPCGUID)                 { return S_OK; }
-        JUCE_COMRESULT OnIconPathChanged (LPCWSTR, LPCGUID)                    { return S_OK; }
-        JUCE_COMRESULT OnSimpleVolumeChanged (float, BOOL, LPCGUID)            { return S_OK; }
-        JUCE_COMRESULT OnChannelVolumeChanged (DWORD, float*, DWORD, LPCGUID)  { return S_OK; }
-        JUCE_COMRESULT OnGroupingParamChanged (LPCGUID, LPCGUID)               { return S_OK; }
+        JUCE_COMRESULT OnDisplayNameChanged (LPCWSTR, LPCGUID)                 override { return S_OK; }
+        JUCE_COMRESULT OnIconPathChanged (LPCWSTR, LPCGUID)                    override { return S_OK; }
+        JUCE_COMRESULT OnSimpleVolumeChanged (float, BOOL, LPCGUID)            override { return S_OK; }
+        JUCE_COMRESULT OnChannelVolumeChanged (DWORD, float*, DWORD, LPCGUID)  override { return S_OK; }
+        JUCE_COMRESULT OnGroupingParamChanged (LPCGUID, LPCGUID)               override { return S_OK; }
 
-        JUCE_COMRESULT OnStateChanged (AudioSessionState state)
+        JUCE_COMRESULT OnStateChanged (AudioSessionState state) override
         {
             switch (state)
             {
@@ -584,7 +584,7 @@ private:
             return S_OK;
         }
 
-        JUCE_COMRESULT OnSessionDisconnected (AudioSessionDisconnectReason reason)
+        JUCE_COMRESULT OnSessionDisconnected (AudioSessionDisconnectReason reason) override
         {
             if (reason == DisconnectReasonFormatChanged)
                 owner.deviceSampleRateChanged();
@@ -829,7 +829,7 @@ private:
         return result;
     }
 
-    DWORD getStreamFlags()
+    DWORD getStreamFlags() const
     {
         DWORD streamFlags = 0x40000; /*AUDCLNT_STREAMFLAGS_EVENTCALLBACK*/
 
@@ -1195,8 +1195,8 @@ private:
 
 //==============================================================================
 class WASAPIAudioIODevice final : public AudioIODevice,
-                             public Thread,
-                             private AsyncUpdater
+                                  public Thread,
+                                  private AsyncUpdater
 {
 public:
     WASAPIAudioIODevice (const String& deviceName,
@@ -1817,11 +1817,11 @@ private:
         explicit ChangeNotificationClient (WASAPIAudioIODeviceType* d)
             : ComBaseClassHelper (0), device (d) {}
 
-        JUCE_COMRESULT OnDeviceAdded (LPCWSTR)                             { return notify(); }
-        JUCE_COMRESULT OnDeviceRemoved (LPCWSTR)                           { return notify(); }
-        JUCE_COMRESULT OnDeviceStateChanged (LPCWSTR, DWORD)               { return notify(); }
-        JUCE_COMRESULT OnDefaultDeviceChanged (EDataFlow, ERole, LPCWSTR)  { return notify(); }
-        JUCE_COMRESULT OnPropertyValueChanged (LPCWSTR, const PROPERTYKEY) { return notify(); }
+        JUCE_COMRESULT OnDeviceAdded (LPCWSTR)                             override { return notify(); }
+        JUCE_COMRESULT OnDeviceRemoved (LPCWSTR)                           override { return notify(); }
+        JUCE_COMRESULT OnDeviceStateChanged (LPCWSTR, DWORD)               override { return notify(); }
+        JUCE_COMRESULT OnDefaultDeviceChanged (EDataFlow, ERole, LPCWSTR)  override { return notify(); }
+        JUCE_COMRESULT OnPropertyValueChanged (LPCWSTR, const PROPERTYKEY) override { return notify(); }
 
     private:
         WeakReference<WASAPIAudioIODeviceType> device;

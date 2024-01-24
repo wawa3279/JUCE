@@ -37,12 +37,12 @@ public:
         document.addChangeListener (this);
     }
 
-    ~ComponentColourProperty()
+    ~ComponentColourProperty() override
     {
         document.removeChangeListener (this);
     }
 
-    void changeListenerCallback (ChangeBroadcaster*)
+    void changeListenerCallback (ChangeBroadcaster*) override
     {
         refresh();
     }
@@ -69,12 +69,12 @@ public:
     }
 
     //==============================================================================
-    Colour getColour() const
+    Colour getColour() const override
     {
         return component->findColour (colourId);
     }
 
-    void setColour (Colour newColour)
+    void setColour (Colour newColour) override
     {
         if (component->findColour (colourId) != newColour)
         {
@@ -89,7 +89,7 @@ public:
         }
     }
 
-    void resetToDefault()
+    void resetToDefault() override
     {
         document.getUndoManager().undoCurrentTransactionOnly();
 
@@ -119,7 +119,7 @@ private:
         {
         }
 
-        bool perform()
+        bool perform() override
         {
             showCorrectTab();
 
@@ -135,7 +135,7 @@ private:
             return true;
         }
 
-        bool undo()
+        bool undo() override
         {
             showCorrectTab();
 

@@ -179,12 +179,12 @@ public:
             startThread();
         }
 
-        ~WriteThread()
+        ~WriteThread() override
         {
             stopThread (5000);
         }
 
-        void run()
+        void run() override
         {
             int n = 0;
 

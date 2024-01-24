@@ -114,7 +114,7 @@ class RelativeRectangleLocalScope final : public Expression::Scope
 public:
     RelativeRectangleLocalScope (const RelativeRectangle& rect_)  : rect (rect_) {}
 
-    Expression getSymbolValue (const String& symbol) const
+    Expression getSymbolValue (const String& symbol) const override
     {
         switch (RelativeCoordinate::StandardStrings::getTypeOf (symbol))
         {

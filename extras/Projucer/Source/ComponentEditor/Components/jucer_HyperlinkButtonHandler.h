@@ -120,7 +120,7 @@ private:
                 oldState = comp->getURL();
             }
 
-            bool perform()
+            bool perform() override
             {
                 showCorrectTab();
                 getComponent()->setURL (newState);
@@ -128,7 +128,7 @@ private:
                 return true;
             }
 
-            bool undo()
+            bool undo() override
             {
                 showCorrectTab();
                 getComponent()->setURL (oldState);

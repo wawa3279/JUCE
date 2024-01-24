@@ -162,7 +162,7 @@ private:
                 oldState = comp->actualClassName;
             }
 
-            bool perform()
+            bool perform() override
             {
                 showCorrectTab();
                 getComponent()->setClassName (newState);
@@ -170,7 +170,7 @@ private:
                 return true;
             }
 
-            bool undo()
+            bool undo() override
             {
                 showCorrectTab();
                 getComponent()->setClassName (oldState);
@@ -212,7 +212,7 @@ private:
                 oldState = comp->constructorParams;
             }
 
-            bool perform()
+            bool perform() override
             {
                 showCorrectTab();
                 getComponent()->setParams (newState);
@@ -220,7 +220,7 @@ private:
                 return true;
             }
 
-            bool undo()
+            bool undo() override
             {
                 showCorrectTab();
                 getComponent()->setParams (oldState);

@@ -336,7 +336,7 @@ public:
         : UnitTest ("OSCBinaryWriter class", UnitTestCategories::osc)
     {}
 
-    void runTest()
+    void runTest() override
     {
         beginTest ("writing OSC addresses");
         {
@@ -665,7 +665,7 @@ public:
         : UnitTest ("OSCRoundTripTests class", UnitTestCategories::osc)
     {}
 
-    void runTest()
+    void runTest() override
     {
         beginTest ("Empty OSC message");
         {
