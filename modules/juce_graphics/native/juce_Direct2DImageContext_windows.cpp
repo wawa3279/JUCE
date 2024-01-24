@@ -36,10 +36,6 @@
 namespace juce
 {
 
-#if JUCE_ETW_TRACELOGGING
-    int Direct2DImageContext::imageFrameNumber = 1000000;
-#endif
-
     //==============================================================================
 
     struct Direct2DImageContext::ImagePimpl : public Direct2DGraphicsContext::Pimpl
@@ -103,9 +99,6 @@ namespace juce
     Direct2DImageContext::Direct2DImageContext(DirectX::DXGI::Adapter::Ptr adapter_) :
         pimpl(new ImagePimpl{ *this, adapter_ })
     {
-#if JUCE_ETW_TRACELOGGING
-        frameNumber = imageFrameNumber++;
-#endif
     }
 
     Direct2DImageContext::~Direct2DImageContext()

@@ -84,17 +84,6 @@ namespace juce
             //
             void setTransform(AffineTransform newTransform)
             {
-#if 0
-                if (approximatelyEqual(transform.mat00, newTransform.mat00) && approximatelyEqual(transform.mat01, newTransform.mat01) &&
-                    approximatelyEqual(transform.mat02, newTransform.mat02) && approximatelyEqual(transform.mat10, newTransform.mat10) &&
-                    approximatelyEqual(transform.mat11, newTransform.mat11) && approximatelyEqual(transform.mat12, newTransform.mat12))
-                {
-                    return;
-                }
-#endif
-
-                //DBG("SetTransform " << newTransform.mat00 << ", " << newTransform.mat01 << ", " << newTransform.mat02);
-                //DBG("             " << newTransform.mat10 << ", " << newTransform.mat11 << ", " << newTransform.mat12);
                 context->SetTransform(transformToMatrix(newTransform));
                 transform = newTransform;
             }

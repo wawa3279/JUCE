@@ -465,7 +465,6 @@ public:
 
     virtual std::optional<Image> applyNativeGaussianBlurEffect(float /*radius*/) { return {}; }
     virtual std::optional<Image> applyNativeDropShadowEffect(float /*radius*/, Colour /*colour*/) { return {}; }
-    virtual std::optional<Image> applyNativeConvolutionKernelEffect(const ImageConvolutionKernel&, const Rectangle<int>&) { return {}; }
 
 
     /** The pixel format of the image data. */
