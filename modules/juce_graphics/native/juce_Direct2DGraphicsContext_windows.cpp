@@ -342,8 +342,6 @@ namespace juce
                     linearGradient->SetEndPoint({ p2.x, p2.y });
                 }
 
-                auto brushTransform = fillType.transform.translated(currentTransform.offset.toFloat());
-                currentBrush->SetTransform(direct2d::transformToMatrix(brushTransform));
                 currentBrush->SetOpacity(fillType.getOpacity());
             }
             else if (fillType.isTiledImage())
@@ -380,8 +378,6 @@ namespace juce
                     linearGradient->SetEndPoint({ p2.x, p2.y });
                 }
 
-                auto brushTransform = fillType.transform.translated(currentTransform.offset.toFloat());
-                currentBrush->SetTransform(direct2d::transformToMatrix(brushTransform));
                 currentBrush->SetOpacity(fillType.getOpacity());
             }
             else if (fillType.isTiledImage())
@@ -418,7 +414,6 @@ namespace juce
                     linearGradient->SetEndPoint({ p2.x, p2.y });
                 }
 
-                currentBrush->SetTransform(direct2d::transformToMatrix(currentTransform.getTransformWith(transform)));
                 currentBrush->SetOpacity(fillType.getOpacity());
             }
             else if (fillType.isTiledImage())
@@ -439,8 +434,8 @@ namespace juce
 
             if (fillType.isGradient())
             {
-                const auto p1 = fillType.gradient->point1;
-                const auto p2 = fillType.gradient->point2;
+                const auto p1 = fillType.gradient->point1.transformedBy(fillType.transform);
+                const auto p2 = fillType.gradient->point2.transformedBy(fillType.transform);
                 if (fillType.gradient->isRadial)
                 {
                     radialGradient->SetCenter({ p1.x, p1.y });
