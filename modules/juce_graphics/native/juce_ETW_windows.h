@@ -36,9 +36,9 @@ namespace juce
             componentKeyword = 512
         };
 
-        enum
+        enum : uint16
         {
-            direct2dPaintStart = 0xd2d0000,
+            direct2dPaintStart = 0,
             direct2dPaintEnd,
             present1SwapChainStart,
             present1SwapChainEnd,
@@ -144,7 +144,7 @@ namespace juce
     }
 }
 
-#if JUCE_ETW_TRACELOGGING
+#if JUCE_ETW_TRACELOGGING && JUCE_64BIT
 
 #define JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE ETWGlobalTraceLoggingProvider
 
