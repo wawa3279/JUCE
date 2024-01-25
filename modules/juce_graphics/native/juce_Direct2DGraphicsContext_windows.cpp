@@ -318,7 +318,7 @@ namespace juce
             }
         }
 
-        ID2D1Brush* getTranslatedBrush()
+        ID2D1Brush* getBrushWithWorldTransform()
         {
             if (fillType.isInvisible())
             {
@@ -327,8 +327,8 @@ namespace juce
 
             if (fillType.isGradient())
             {
-                const auto p1 = fillType.gradient->point1 + currentTransform.offset.toFloat();
-                const auto p2 = fillType.gradient->point2 + currentTransform.offset.toFloat();
+                const auto p1 = fillType.gradient->point1.transformedBy(currentTransform.getTransformWith(fillType.transform));
+                const auto p2 = fillType.gradient->point2.transformedBy(currentTransform.getTransformWith(fillType.transform));
                 if (fillType.gradient->isRadial)
                 {
                     radialGradient->SetCenter({ p1.x, p1.y });
@@ -346,86 +346,14 @@ namespace juce
             }
             else if (fillType.isTiledImage())
             {
-                auto brushTransform = fillType.transform.translated(currentTransform.offset.toFloat());
-                bitmapBrush->SetTransform(direct2d::transformToMatrix(brushTransform));
+                bitmapBrush->SetTransform(direct2d::transformToMatrix(currentTransform.getTransformWith(fillType.transform)));
                 bitmapBrush->SetOpacity(fillType.getOpacity());
             }
 
             return currentBrush;
         }
 
-        ID2D1Brush* getTransformedBrush()
-        {
-            if (fillType.isInvisible())
-            {
-                return nullptr;
-            }
-
-            if (fillType.isGradient())
-            {
-                const auto p1 = currentTransform.transformed(fillType.gradient->point1);
-                const auto p2 = currentTransform.transformed(fillType.gradient->point2);
-                if (fillType.gradient->isRadial)
-                {
-                    radialGradient->SetCenter({ p1.x, p1.y });
-                    float radius = p2.getDistanceFrom(p1);
-                    radialGradient->SetRadiusX(radius);
-                    radialGradient->SetRadiusY(radius);
-                }
-                else
-                {
-                    linearGradient->SetStartPoint({ p1.x, p1.y });
-                    linearGradient->SetEndPoint({ p2.x, p2.y });
-                }
-
-                currentBrush->SetOpacity(fillType.getOpacity());
-            }
-            else if (fillType.isTiledImage())
-            {
-                auto brushTransform = fillType.transform.translated(currentTransform.offset.toFloat());
-                bitmapBrush->SetTransform(direct2d::transformToMatrix(brushTransform));
-                bitmapBrush->SetOpacity(fillType.getOpacity());
-            }
-
-            return currentBrush;
-        }
-
-        ID2D1Brush* getTransformedBrush(const AffineTransform& transform)
-        {
-            if (fillType.isInvisible())
-            {
-                return nullptr;
-            }
-
-            if (fillType.isGradient())
-            {
-                const auto p1 = fillType.gradient->point1.transformedBy(currentTransform.getTransformWith(transform));
-                const auto p2 = fillType.gradient->point2.transformedBy(currentTransform.getTransformWith(transform));
-                if (fillType.gradient->isRadial)
-                {
-                    radialGradient->SetCenter({ p1.x, p1.y });
-                    float radius = p2.getDistanceFrom(p1);
-                    radialGradient->SetRadiusX(radius);
-                    radialGradient->SetRadiusY(radius);
-                }
-                else
-                {
-                    linearGradient->SetStartPoint({ p1.x, p1.y });
-                    linearGradient->SetEndPoint({ p2.x, p2.y });
-                }
-
-                currentBrush->SetOpacity(fillType.getOpacity());
-            }
-            else if (fillType.isTiledImage())
-            {
-                bitmapBrush->SetTransform(direct2d::transformToMatrix(currentTransform.getTransformWith(transform)));
-                bitmapBrush->SetOpacity(fillType.getOpacity());
-            }
-
-            return currentBrush;
-        }
-
-        ID2D1Brush* getBrush()
+        ID2D1Brush* getBrushWithoutWorldTransform()
         {
             if (fillType.isInvisible())
             {
@@ -450,6 +378,11 @@ namespace juce
                 }
 
                 currentBrush->SetOpacity(fillType.getOpacity());
+            }
+            else if (fillType.isTiledImage())
+            {
+                bitmapBrush->SetTransform(direct2d::transformToMatrix(currentTransform.getTransformWith(fillType.transform)));
+                bitmapBrush->SetOpacity(fillType.getOpacity());
             }
 
             return currentBrush;
@@ -1235,7 +1168,7 @@ namespace juce
         {
             if (currentState->currentTransform.isOnlyTranslated)
             {
-                if (auto brush = currentState->getTranslatedBrush())
+                if (auto brush = currentState->getBrushWithWorldTransform())
                 {
                     auto translatedR = r + currentState->currentTransform.offset.toFloat();
                     deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
@@ -1245,7 +1178,7 @@ namespace juce
 
             if (currentState->currentTransform.isAxisAligned())
             {
-                if (auto brush = currentState->getTransformedBrush())
+                if (auto brush = currentState->getBrushWithWorldTransform())
                 {
                     auto transformedR = currentState->currentTransform.transformed(r);
                     deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
@@ -1253,7 +1186,7 @@ namespace juce
                 return;
             }
 
-            if (auto brush = currentState->getBrush())
+            if (auto brush = currentState->getBrushWithoutWorldTransform())
             {
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
@@ -1269,7 +1202,7 @@ namespace juce
         {
             if (currentState->currentTransform.isOnlyTranslated)
             {
-                if (auto brush = currentState->getTranslatedBrush())
+                if (auto brush = currentState->getBrushWithWorldTransform())
                 {
                     for (auto const& r : list)
                     {
@@ -1281,7 +1214,7 @@ namespace juce
 
             if (currentState->currentTransform.isAxisAligned())
             {
-                if (auto brush = currentState->getTransformedBrush())
+                if (auto brush = currentState->getBrushWithWorldTransform())
                 {
                     for (auto const& r : list)
                     {
@@ -1291,7 +1224,7 @@ namespace juce
                 return;
             }
 
-            if (auto brush = currentState->getBrush())
+            if (auto brush = currentState->getBrushWithoutWorldTransform())
             {
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 for (auto const& r : list)
@@ -1323,14 +1256,14 @@ namespace juce
 
             if (currentState->currentTransform.isOnlyTranslated)
             {
-                if (auto brush = currentState->getTranslatedBrush())
+                if (auto brush = currentState->getBrushWithWorldTransform())
                 {
                     deviceContext->DrawRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(reducedR)), brush, lineThickness);
                 }
                 return true;
             }
 
-            if (auto brush = currentState->getTransformedBrush())
+            if (auto brush = currentState->getBrushWithoutWorldTransform())
             {
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 deviceContext->DrawRectangle(direct2d::rectangleToRectF(reducedR), brush, lineThickness);
@@ -1351,7 +1284,7 @@ namespace juce
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-            if (auto brush = currentState->getTransformedBrush(transform))
+            if (auto brush = currentState->getBrushWithWorldTransform())
             {
                 auto factory = getPimpl()->getDirect2DFactory();
 
@@ -1391,7 +1324,7 @@ namespace juce
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
-            if (auto brush = currentState->getTransformedBrush(transform))
+            if (auto brush = currentState->getBrushWithWorldTransform())
             {
                 auto factory = getPimpl()->getDirect2DFactory();
 
@@ -1524,7 +1457,7 @@ namespace juce
         {
             if (currentState->currentTransform.isOnlyTranslated)
             {
-                if (auto brush = currentState->getTranslatedBrush())
+                if (auto brush = currentState->getBrushWithWorldTransform())
                 {
                     auto offset = currentState->currentTransform.offset.toFloat();
                     auto start = line.getStart() + offset;
@@ -1534,7 +1467,7 @@ namespace juce
                 return true;
             }
 
-            if (auto brush = currentState->getBrush())
+            if (auto brush = currentState->getBrushWithoutWorldTransform())
             {
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 deviceContext->DrawLine(D2D1::Point2F(line.getStartX(), line.getStartY()),
@@ -1581,7 +1514,7 @@ namespace juce
         auto directWriteFactory = getPimpl()->getDirectWriteFactory();
         auto fontCollection = getPimpl()->getSystemFonts();
 
-        auto brush = currentState->getBrush();
+        auto brush = currentState->getBrushWithoutWorldTransform();
 
         if (deviceContext && directWriteFactory && fontCollection && brush)
         {
@@ -1621,7 +1554,7 @@ namespace juce
         {
             if (currentState->currentTransform.isOnlyTranslated)
             {
-                if (auto brush = currentState->getTranslatedBrush())
+                if (auto brush = currentState->getBrushWithWorldTransform())
                 {
                     D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(currentState->currentTransform.translated(area)), cornerSize, cornerSize };
                     deviceContext->DrawRoundedRectangle(roundedRect, brush, lineThickness);
@@ -1629,7 +1562,7 @@ namespace juce
                 return true;
             }
 
-            if (auto brush = currentState->getBrush())
+            if (auto brush = currentState->getBrushWithoutWorldTransform())
             {
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
@@ -1648,7 +1581,7 @@ namespace juce
         {
             if (currentState->currentTransform.isOnlyTranslated)
             {
-                if (auto brush = currentState->getTranslatedBrush())
+                if (auto brush = currentState->getBrushWithWorldTransform())
                 {
                     D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(currentState->currentTransform.translated(area)), cornerSize, cornerSize };
                     deviceContext->FillRoundedRectangle(roundedRect, brush);
@@ -1656,7 +1589,7 @@ namespace juce
                 return true;
             }
 
-            if (auto brush = currentState->getBrush())
+            if (auto brush = currentState->getBrushWithoutWorldTransform())
             {
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
@@ -1675,7 +1608,7 @@ namespace juce
         {
             if (currentState->currentTransform.isOnlyTranslated)
             {
-                if (auto brush = currentState->getTranslatedBrush())
+                if (auto brush = currentState->getBrushWithWorldTransform())
                 {
                     area = currentState->currentTransform.translated(area);
                     auto centre = area.getCentre();
@@ -1687,7 +1620,7 @@ namespace juce
                 return true;
             }
 
-            if (auto brush = currentState->getBrush())
+            if (auto brush = currentState->getBrushWithoutWorldTransform())
             {
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 auto         centre = area.getCentre();
@@ -1707,7 +1640,7 @@ namespace juce
         {
             if (currentState->currentTransform.isOnlyTranslated)
             {
-                if (auto brush = currentState->getTranslatedBrush())
+                if (auto brush = currentState->getBrushWithWorldTransform())
                 {
                     area = currentState->currentTransform.translated(area);
                     auto centre = area.getCentre();
@@ -1718,7 +1651,7 @@ namespace juce
                 return true;
             }
 
-            if (auto brush = currentState->getBrush())
+            if (auto brush = currentState->getBrushWithoutWorldTransform())
             {
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 auto         centre = area.getCentre();
@@ -1798,7 +1731,7 @@ namespace juce
             return;
         }
 
-        auto brush = currentState->getBrush();
+        auto brush = currentState->getBrushWithoutWorldTransform();
         if (! brush)
         {
             return;
