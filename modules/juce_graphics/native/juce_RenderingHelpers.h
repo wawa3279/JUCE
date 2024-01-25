@@ -110,7 +110,7 @@ public:
     template <typename RectangleOrPoint>
     RectangleOrPoint transformed (RectangleOrPoint r) const noexcept
     {
-        //jassert (! isOnlyTranslated);
+        jassert (! isOnlyTranslated);
         return r.transformedBy (complexTransform);
     }
 
