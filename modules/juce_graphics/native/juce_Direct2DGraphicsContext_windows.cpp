@@ -327,8 +327,9 @@ namespace juce
 
             if (fillType.isGradient())
             {
-                const auto p1 = fillType.gradient->point1.transformedBy(currentTransform.getTransformWith(fillType.transform));
-                const auto p2 = fillType.gradient->point2.transformedBy(currentTransform.getTransformWith(fillType.transform));
+                auto transform = currentTransform.getTransformWith(fillType.transform);
+                const auto p1 = fillType.gradient->point1.transformedBy(transform);
+                const auto p2 = fillType.gradient->point2.transformedBy(transform);
                 if (fillType.gradient->isRadial)
                 {
                     radialGradient->SetCenter({ p1.x, p1.y });
