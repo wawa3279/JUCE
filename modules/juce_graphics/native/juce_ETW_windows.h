@@ -144,7 +144,7 @@ namespace juce
     }
 }
 
-#if JUCE_ETW_TRACELOGGING && JUCE_64BIT
+#if JUCE_ETW_TRACELOGGING
 
 #define JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE ETWGlobalTraceLoggingProvider
 
@@ -298,7 +298,7 @@ struct ScopedTraceEvent \
             TraceLoggingInt32(code, "code"),\
             TraceLoggingInt32 (frameNumber, "frame"),\
             TraceLoggingInt64(elapsedTicks, "elapsedTicks"),\
-            TraceLoggingInt32Array(array, arrayLength, "list"));\
+            TraceLoggingInt32Array(array, (uint16)arrayLength, "list"));\
     }\
     \
     int64 startTicks = Time::getHighResolutionTicks();\
@@ -332,7 +332,7 @@ struct ScopedTraceEvent \
             TraceLoggingInt32(code, "code"),\
             TraceLoggingInt32 (frameNumber, "frame"),\
             TraceLoggingInt64(elapsedTicks, "elapsedTicks"),\
-            TraceLoggingFloat32Array(array, arrayLength, "list"));\
+            TraceLoggingFloat32Array(array, (uint16)arrayLength, "list"));\
     }\
     \
     int64 startTicks = Time::getHighResolutionTicks();\
