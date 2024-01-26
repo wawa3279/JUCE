@@ -408,6 +408,19 @@ namespace juce
 
     ImagePixelData::Ptr NativeImageType::create(Image::PixelFormat format, int width, int height, bool clearImage) const
     {
+        SharedResourcePointer<DirectX> directX;
+        if (!directX->dxgi.isReady())
+        {
+            //
+            // Make sure the DXGI factory exists
+            //
+            // The caller may be trying to create an Image from a static variable; if this is a DLL, then this is
+            // probably called from DllMain. You can't create a DXGI factory from DllMain, so fall back to a
+            // software image.
+            //
+            return new SoftwarePixelData{ format, width, height, clearImage };
+        }
+
         auto area = direct2d::DPIScalableArea<int>::fromDeviceIndependentArea({ width, height }, scaleFactor);
         return new Direct2DPixelData{ format, area, clearImage };
     }

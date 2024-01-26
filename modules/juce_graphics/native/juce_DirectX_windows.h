@@ -85,8 +85,12 @@ struct DirectX
                 [[maybe_unused]] auto hr = CreateDXGIFactory(__uuidof (IDXGIFactory2), (void**)result.resetAndGetPointerAddress());
 
                 //
-                // If this is a plugin or other DLL, the DXGI factory cannot be created in the context of DllMain.
-                // Try creating your image or window from the message thread
+                // If CreateDXGIFactory fails, check to see if this is being called in the context of DllMain.
+                // CreateDXGIFactory will always fail if called from the context of DllMain. In this case, the renderer
+                // will create a software image instead as a fallback, but that won't perform as well.
+                //
+                // You may be creating an Image as a static object, which will likely be created in the context of DllMain.
+                // Consider deferring your Image creation until later.
                 //
                 jassert(SUCCEEDED(hr));
 
@@ -103,6 +107,8 @@ struct DirectX
         {
             adapters.releaseAdapters();
         }
+
+        bool isReady() const noexcept { return factory != nullptr; }
 
         struct Adapter : public ReferenceCountedObject
         {
