@@ -2338,6 +2338,7 @@ protected:
             monitorUpdateTimer.emplace([this]
                 {
                     updateCurrentMonitorAndRefreshVBlankDispatcher(ForceRefreshDispatcher::yes);
+                    monitorUpdateTimer->startTimer(1000);
                 });
 
         suspendResumeRegistration = ScopedSuspendResumeNotificationRegistration{ hwnd };
