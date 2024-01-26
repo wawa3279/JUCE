@@ -1027,12 +1027,12 @@ public:
         DeleteObject (hBitmap);
     }
 
-    std::unique_ptr<ImageType> createType() const override    
-    { 
+    std::unique_ptr<ImageType> createType() const override
+    {
         //
         // WindowsBitmapImage needs to be a software bitmap, not a D2D bitmap
         //
-        return std::make_unique<SoftwareImageType>(); 
+        return std::make_unique<SoftwareImageType>();
     }
 
     std::unique_ptr<LowLevelGraphicsContext> createLowLevelContext() override
