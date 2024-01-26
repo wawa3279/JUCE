@@ -1416,62 +1416,12 @@ private:
 };
 
 //==============================================================================
-class SimpleTimer  : private Timer
-{
-public:
-    SimpleTimer (int intervalMs, std::function<void()> callbackIn)
-        : callback (std::move (callbackIn))
-    {
-        jassert (callback);
-        startTimer (intervalMs);
-    }
-
-    ~SimpleTimer() override
-    {
-        stopTimer();
-    }
-
-private:
-    void timerCallback() override
-    {
-        callback();
-    }
-
-    std::function<void()> callback;
-};
-
-//==============================================================================
 class HWNDComponentPeer  : public ComponentPeer,
                            protected ComponentPeer::VBlankListener,
                            private Timer
                           #if JUCE_MODULE_AVAILABLE_juce_audio_plugin_client
                            , public ModifierKeyReceiver
                           #endif
-        jassert (callback);
-        startTimer (intervalMs);
-    }
-
-    ~SimpleTimer() override
-    {
-        stopTimer();
-    }
-
-private:
-    void timerCallback() override
-    {
-        callback();
-    }
-
-    std::function<void()> callback;
-};
-
-//==============================================================================
-class HWNDComponentPeer final : public ComponentPeer,
-                                private VBlankListener,
-                                private Timer
-                               #if JUCE_MODULE_AVAILABLE_juce_audio_plugin_client
-                                , public ModifierKeyReceiver
-                               #endif
 {
 public:
     enum
@@ -1479,7 +1429,12 @@ public:
         softwareRenderingEngine = 0
     };
 
-        createWindow();
+    //==============================================================================
+    HWNDComponentPeer(Component& comp, int windowStyleFlags, HWND parent, bool nonRepainting, int currentRenderingEngine_ = softwareRenderingEngine)
+        : ComponentPeer(comp, windowStyleFlags),
+        dontRepaint(nonRepainting),
+        parentToAddTo(parent),
+        currentRenderingEngine(currentRenderingEngine_)
     {
     }
 
@@ -1499,12 +1454,7 @@ public:
             return ModifierKeys::currentModifiers;
         };
 
-        updateCurrentMonitorAndRefreshVBlankDispatcher();
-
-        if (parentToAddTo != nullptr)
-            monitorUpdateTimer.emplace (1000, [this] { updateCurrentMonitorAndRefreshVBlankDispatcher(); });
-
-        suspendResumeRegistration = ScopedSuspendResumeNotificationRegistration { hwnd };
+        createWindow();
     }
 
     ~HWNDComponentPeer() override
@@ -2385,7 +2335,7 @@ protected:
         updateCurrentMonitorAndRefreshVBlankDispatcher(ForceRefreshDispatcher::yes);
 
         if (parentToAddTo != nullptr)
-            monitorUpdateTimer.emplace(1000, [this]
+            monitorUpdateTimer.emplace([this]
                 {
                     updateCurrentMonitorAndRefreshVBlankDispatcher(ForceRefreshDispatcher::yes);
                 });
