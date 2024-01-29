@@ -297,7 +297,7 @@ namespace juce
         return bitmapArea.getDPIScalingFactor();
     }
 
-    std::optional<Image> Direct2DPixelData::applyNativeGaussianBlurEffect(float radius, int frameNumber)
+    std::optional<Image> Direct2DPixelData::applyNativeGaussianBlurEffect(float radius, [[maybe_unused]] int frameNumber)
     {
         SCOPED_TRACE_EVENT(etw::nativeGlowEffect, frameNumber, etw::graphicsKeyword);
 
@@ -332,7 +332,7 @@ namespace juce
     }
 
 
-    std::optional<Image> Direct2DPixelData::applyNativeDropShadowEffect(float radius, Colour colour, int frameNumber)
+    std::optional<Image> Direct2DPixelData::applyNativeDropShadowEffect(float radius, Colour colour, [[maybe_unused]] int frameNumber)
     {
         SCOPED_TRACE_EVENT(etw::nativeDropShadow, frameNumber, etw::graphicsKeyword);
 
