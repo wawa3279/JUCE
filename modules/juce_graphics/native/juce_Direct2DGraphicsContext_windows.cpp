@@ -78,6 +78,8 @@ namespace juce
     struct Direct2DGraphicsContext::SavedState
     {
     private:
+        Direct2DGraphicsContext& owner;
+
         //==============================================================================
         //
         // PushedLayer represents a Direct2D clipping or transparency layer
@@ -126,8 +128,9 @@ namespace juce
         //
         // Constructor for first stack entry
         //
-        SavedState(Rectangle<int> frameSize_, ComSmartPtr<ID2D1SolidColorBrush>& colourBrush_, DirectX::DXGI::Adapter::Ptr& adapter_, direct2d::DeviceResources& deviceResources_)
-            : colourBrush(colourBrush_),
+        SavedState(Direct2DGraphicsContext& owner_, Rectangle<int> frameSize_, ComSmartPtr<ID2D1SolidColorBrush>& colourBrush_, DirectX::DXGI::Adapter::Ptr& adapter_, direct2d::DeviceResources& deviceResources_)
+            : owner(owner_),
+            colourBrush(colourBrush_),
             adapter(adapter_),
             deviceResources(deviceResources_),
             clipList(frameSize_)
@@ -141,6 +144,7 @@ namespace juce
         // Constructor for subsequent entries
         //
         SavedState(SavedState const* const previousState_) :
+            owner(previousState_->owner),
             currentBrush(previousState_->currentBrush),
             colourBrush(previousState_->colourBrush),
             bitmapBrush(previousState_->bitmapBrush),
@@ -222,6 +226,13 @@ namespace juce
                 else
                 {
                     deviceResources.deviceContext.context->PopAxisAlignedClip();
+                }
+
+                {
+#if JUCE_DIRECT2D_METRICS
+                    direct2d::ScopedElapsedTime set{ owner.paintStats, direct2d::PaintStats::flushTime };
+#endif
+                    deviceResources.deviceContext.context->Flush();
                 }
 
                 pushedLayers.pop_back();
@@ -616,7 +627,7 @@ namespace juce
             jassert(savedClientStates.size() == 0);
 
             savedClientStates.push(
-                std::make_unique<SavedState>(initialClipRegion, deviceResources.colourBrush, adapter, deviceResources));
+                std::make_unique<SavedState>(owner, initialClipRegion, deviceResources.colourBrush, adapter, deviceResources));
 
             return getCurrentSavedState();
         }
