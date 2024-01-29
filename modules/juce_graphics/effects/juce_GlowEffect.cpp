@@ -33,7 +33,7 @@ void GlowEffect::applyEffect (Image& image, Graphics& g, float scaleFactor, floa
 {
     Image temp;
 
-    if (auto blurredImage = image.getPixelData()->applyNativeGaussianBlurEffect(radius); blurredImage.has_value())
+    if (auto blurredImage = image.getPixelData()->applyNativeGaussianBlurEffect(radius, g.getInternalContext().getFrameNumber()); blurredImage.has_value())
     {
         temp = *blurredImage;
 

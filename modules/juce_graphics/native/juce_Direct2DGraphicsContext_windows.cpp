@@ -891,8 +891,6 @@ namespace juce
                 transform.getTransform(),
                 D2D1_FILL_MODE_WINDING,
                 D2D1_FIGURE_BEGIN_FILLED));
-
-            TRACE_LOG_D2D_PAINT_CALL(etw::clipToRectangleListDone, frameNumber);
         }
 
         return !isClipEmpty();
@@ -906,8 +904,6 @@ namespace juce
         {
             return;
         }
-
-        TRACE_LOG_D2D_PAINT_CALL(etw::excludeClipRectangle, frameNumber);
 
         //
         // To exclude the rectangle r, build a geometry out of two rectangles, with r as the first rectangle and a very large rectangle as the second.
@@ -984,8 +980,6 @@ namespace juce
         {
             currentState->pushGeometryClipLayer(
                 direct2d::pathToPathGeometry(getPimpl()->getDirect2DFactory(), path, currentState->currentTransform.getTransformWith(transform), D2D1_FIGURE_BEGIN_FILLED));
-
-            TRACE_LOG_D2D_PAINT_CALL(etw::clipToPathDone, frameNumber);
         }
     }
 
@@ -1054,8 +1048,6 @@ namespace juce
                     layerParams.opacityBrush = brush;
 
                     currentState->pushLayer(layerParams);
-
-                    TRACE_LOG_D2D_PAINT_CALL(etw::clipToImageAlphaDone, frameNumber);
                 }
             }
         }
@@ -1086,8 +1078,6 @@ namespace juce
         SCOPED_TRACE_EVENT(etw::saveState, frameNumber, etw::direct2dKeyword);
 
         currentState = getPimpl()->pushSavedState();
-
-        TRACE_LOG_D2D_PAINT_CALL(etw::saveStateDone, frameNumber);
     }
 
     void Direct2DGraphicsContext::restoreState()
@@ -1097,8 +1087,6 @@ namespace juce
         currentState = getPimpl()->popSavedState();
         currentState->updateColourBrush();
         jassert(currentState);
-
-        TRACE_LOG_D2D_PAINT_CALL(etw::restoreStateDone, frameNumber);
     }
 
     void Direct2DGraphicsContext::beginTransparencyLayer(float opacity)
@@ -1108,8 +1096,6 @@ namespace juce
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             currentState->pushTransparencyLayer(opacity);
-
-            TRACE_LOG_D2D_PAINT_CALL(etw::beginTransparencyLayerDone, frameNumber);
         }
     }
 
@@ -1120,8 +1106,6 @@ namespace juce
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             currentState->popTopLayer();
-
-            TRACE_LOG_D2D_PAINT_CALL(etw::endTransparencyLayerDone, frameNumber);
         }
     }
 
@@ -1133,8 +1117,6 @@ namespace juce
         {
             currentState->fillType = fillType;
             currentState->updateCurrentBrush();
-
-            TRACE_LOG_D2D_PAINT_CALL(etw::setFillDone, frameNumber);
         }
     }
 
@@ -1146,8 +1128,6 @@ namespace juce
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             currentState->updateCurrentBrush();
-
-            TRACE_LOG_D2D_PAINT_CALL(etw::setOpacityDone, frameNumber);
         }
     }
 
@@ -1461,8 +1441,6 @@ namespace juce
                     currentState->interpolationMode,
                     &sourceRectF,
                     {});
-
-                TRACE_LOG_D2D_PAINT_CALL(etw::drawImageDone, frameNumber);
             }
         }
     }
@@ -1508,8 +1486,6 @@ namespace juce
         SCOPED_TRACE_EVENT(etw::setFont, frameNumber, etw::direct2dKeyword);
 
         currentState->setFont(newFont);
-
-        TRACE_LOG_D2D_PAINT_CALL(etw::setFontDone, frameNumber);
     }
 
     const Font& Direct2DGraphicsContext::getFont()
@@ -1525,8 +1501,6 @@ namespace juce
         getPimpl()->glyphRun.glyphOffsets[0] = {};
 
         drawGlyphCommon(1, currentState->font, transform, {});
-
-        TRACE_LOG_D2D_PAINT_CALL(etw::drawGlyphDone, frameNumber);
     }
 
     bool Direct2DGraphicsContext::drawTextLayout(const AttributedString& text, const Rectangle<float>& area)
@@ -1551,8 +1525,6 @@ namespace juce
                     textLayout,
                     brush,
                     D2D1_DRAW_TEXT_OPTIONS_NONE);
-
-                TRACE_LOG_D2D_PAINT_CALL(etw::drawTextLayoutDone, frameNumber);
             }
         }
 
