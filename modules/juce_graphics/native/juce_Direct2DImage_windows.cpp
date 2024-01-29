@@ -313,7 +313,7 @@ namespace juce
 
                 if (! effectedPixelData)
                 {
-                    effectedPixelData = new Direct2DPixelData{ pixelFormat, bitmapArea, true, imageAdapter };
+                    effectedPixelData = new Direct2DPixelData{ Image::ARGB, bitmapArea, true, imageAdapter };
                 }
 
                 if (auto effectedPixelDataContext = effectedPixelData->deviceResources.deviceContext.context)
@@ -349,7 +349,7 @@ namespace juce
 
                 if (!effectedPixelData)
                 {
-                    effectedPixelData = new Direct2DPixelData{ pixelFormat, bitmapArea, true, imageAdapter };
+                    effectedPixelData = new Direct2DPixelData{ Image::ARGB, bitmapArea, true, imageAdapter };
                 }
 
                 if (auto effectedPixelDataContext = effectedPixelData->deviceResources.deviceContext.context)
