@@ -327,7 +327,7 @@ ste.frameNumber = etwFrameNumber;
 
 #define TRACE_LOG_D2D_PAINT_CALL(code, frameNumber) \
     TraceLoggingWriteWrapper (JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE, \
-                   "D2D paint start", \
+                   "D2D paint", \
                    TraceLoggingLevel (TRACE_LEVEL_INFORMATION), \
                    TraceLoggingKeyword (etw::paintKeyword | etw::direct2dKeyword), \
                    TraceLoggingInt32 (frameNumber, "frame"), \
