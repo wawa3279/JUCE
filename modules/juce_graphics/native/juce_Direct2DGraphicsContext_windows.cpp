@@ -593,8 +593,8 @@ namespace juce
             {
                 SCOPED_TRACE_EVENT(etw::endDraw, owner.llgcFrameNumber, etw::direct2dKeyword);
 
-	            hr = deviceResources.deviceContext.context->EndDraw();
-	            deviceResources.deviceContext.context->SetTarget(nullptr);
+                hr = deviceResources.deviceContext.context->EndDraw();
+                deviceResources.deviceContext.context->SetTarget(nullptr);
             }
 
 #if JUCE_DIRECT2D_METRICS
