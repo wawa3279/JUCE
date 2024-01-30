@@ -1767,15 +1767,14 @@ void Component::paintEntireComponent (Graphics& g, bool ignoreAlphaLevel)
             ImageCache::addImageToCache (effectImage, imageHashCode);
         }
 
-        if (imageFormat == Image::ARGB)
-        {
-            effectImage.clear(effectImage.getBounds());
-        }
+        effectImage.clear(effectImage.getBounds(), (imageFormat == Image::ARGB) ? Colours::transparentBlack : Colours::black);
 
         {
             Graphics g2 (effectImage);
+
             g2.addTransform (AffineTransform::scale ((float) scaledBounds.getWidth()  / (float) getWidth(),
                                                      (float) scaledBounds.getHeight() / (float) getHeight()));
+
             paintComponentAndChildren (g2);
         }
 

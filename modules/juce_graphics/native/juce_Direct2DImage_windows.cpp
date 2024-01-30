@@ -320,6 +320,7 @@ namespace juce
                 {
                     effectedPixelDataContext->SetTarget(effectedPixelData->getAdapterD2D1Bitmap(imageAdapter));
                     effectedPixelDataContext->BeginDraw();
+                    effectedPixelDataContext->Clear();
                     effectedPixelDataContext->DrawImage(effect);
                     effectedPixelDataContext->EndDraw();
                     effectedPixelDataContext->SetTarget(nullptr);
@@ -356,6 +357,7 @@ namespace juce
                 {
                     effectedPixelDataContext->SetTarget(effectedPixelData->getAdapterD2D1Bitmap(imageAdapter));
                     effectedPixelDataContext->BeginDraw();
+                    effectedPixelDataContext->Clear();
                     effectedPixelDataContext->DrawImage(effect);
                     effectedPixelDataContext->EndDraw();
                     effectedPixelDataContext->SetTarget(nullptr);
