@@ -1072,7 +1072,7 @@ namespace juce
             return currentState->clipList.intersects(currentState->currentTransform.translated(r));
         }
 
-        return getClipBounds().intersects(r);
+        return currentState->clipList.intersects(r);
     }
 
     Rectangle<int> Direct2DGraphicsContext::getClipBounds() const
