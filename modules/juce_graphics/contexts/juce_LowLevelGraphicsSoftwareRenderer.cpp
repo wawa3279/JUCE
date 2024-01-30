@@ -23,6 +23,7 @@ LowLevelGraphicsSoftwareRenderer::LowLevelGraphicsSoftwareRenderer (const Image&
     : RenderingHelpers::StackBasedLowLevelGraphicsContext<RenderingHelpers::SoftwareRendererSavedState>
         (new RenderingHelpers::SoftwareRendererSavedState (image, image.getBounds()))
 {
+    TRACE_LOG_PAINT_CALL(etw::startGDIImage, llgcFrameNumber, etw::softwareRendererKeyword);
 }
 
 LowLevelGraphicsSoftwareRenderer::LowLevelGraphicsSoftwareRenderer (const Image& image, Point<int> origin,
@@ -30,8 +31,12 @@ LowLevelGraphicsSoftwareRenderer::LowLevelGraphicsSoftwareRenderer (const Image&
     : RenderingHelpers::StackBasedLowLevelGraphicsContext<RenderingHelpers::SoftwareRendererSavedState>
         (new RenderingHelpers::SoftwareRendererSavedState (image, initialClip, origin))
 {
+    TRACE_EVENT_INT_RECT_LIST(etw::startGDIFrame, llgcFrameNumber, initialClip, etw::softwareRendererKeyword);
 }
 
-LowLevelGraphicsSoftwareRenderer::~LowLevelGraphicsSoftwareRenderer() {}
+LowLevelGraphicsSoftwareRenderer::~LowLevelGraphicsSoftwareRenderer()
+{
+    TRACE_LOG_PAINT_CALL(etw::endGDIFrame, llgcFrameNumber, etw::softwareRendererKeyword);
+}
 
 } // namespace juce

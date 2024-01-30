@@ -242,11 +242,6 @@ public:
         return {};
     }
 
-    int getFrameNumber() const override
-    {
-        return frameNumber;
-    }
-
 #if JUCE_DIRECT2D_METRICS
     direct2d::PaintStats::Ptr paintStats = new direct2d::PaintStats{};
 #endif
@@ -260,8 +255,6 @@ public:
 
     //==============================================================================
 protected:
-    int frameNumber = 0;
-
     struct SavedState;
     SavedState* currentState = nullptr;
 

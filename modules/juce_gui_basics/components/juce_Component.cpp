@@ -1658,6 +1658,20 @@ void Component::paintWithinParentContext (Graphics& g)
 
 void Component::paintComponentAndChildren (Graphics& g)
 {
+#if JUCE_ETW_TRACELOGGING
+    {
+        int depth = 0;
+        auto parent = getParentComponent();
+        while (parent)
+        {
+            parent = parent->getParentComponent();
+            depth++;
+        }
+
+        TRACE_LOG_PAINT_COMPONENT_AND_CHILDREN(depth);
+    }
+#endif
+
     auto clipBounds = g.getClipBounds();
 
     if (flags.dontClipGraphicsFlag && getNumChildComponents() == 0)

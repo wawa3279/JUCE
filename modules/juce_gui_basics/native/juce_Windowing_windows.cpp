@@ -1836,6 +1836,7 @@ public:
 
     void repaint (const Rectangle<int>& area) override
     {
+        TRACE_EVENT_INT_RECT(etw::repaint, area, etw::paintKeyword);
         deferredRepaints.add ((area.toDouble() * getPlatformScaleFactor()).getSmallestIntegerContainer());
     }
 
@@ -2770,9 +2771,12 @@ protected:
                 {
                     auto context = component.getLookAndFeel()
                                     .createGraphicsContext (offscreenImage, { -x, -y }, contextClip);
+                    context->llgcFrameNumber = peerFrameNumber;
 
                     context->addTransform (AffineTransform::scale ((float) getPlatformScaleFactor()));
                     handlePaint (*context);
+
+                    peerFrameNumber++;
                 }
 
                 static_cast<WindowsBitmapImage*> (offscreenImage.getPixelData())
