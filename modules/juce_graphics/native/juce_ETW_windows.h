@@ -366,6 +366,7 @@ ste.frameNumber = etwFrameNumber;
 #define SCOPED_TRACE_EVENT_INT_RECT_LIST(code, etwFrameNumber, list, keyword)
 #define SCOPED_TRACE_EVENT_FLOAT_RECT_LIST(code, etwFrameNumber, list, keyword)
 #define TRACE_EVENT_INT_RECT_LIST(code, etwFrameNumber, list, keyword)
+#define TRACE_EVENT_INT_RECT(code, area, keyword)
 
 #endif
 
