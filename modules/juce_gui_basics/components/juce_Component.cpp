@@ -1741,8 +1741,23 @@ void Component::paintEntireComponent (Graphics& g, bool ignoreAlphaLevel)
 
         auto scaledBounds = getLocalBounds() * scale;
 
-        Image effectImage (flags.opaqueFlag ? Image::RGB : Image::ARGB,
-                           scaledBounds.getWidth(), scaledBounds.getHeight(), ! flags.opaqueFlag);
+        //
+        // Store the effect image in the image cache to avoid recreating it every time
+        //
+        auto imageFormat = flags.opaqueFlag ? Image::RGB : Image::ARGB;
+        int64 imageHashCode = scaledBounds.getWidth() | ((int64)scaledBounds.getHeight() << 24) | ((int64)imageFormat << 56);
+        auto effectImage = ImageCache::getFromHashCode (imageHashCode);
+        if (effectImage.isNull())
+        {
+            effectImage = Image{ imageFormat, scaledBounds.getWidth(), scaledBounds.getHeight(), !flags.opaqueFlag };
+            ImageCache::addImageToCache (effectImage, imageHashCode);
+        }
+
+        if (imageFormat == Image::ARGB)
+        {
+            effectImage.clear(effectImage.getBounds());
+        }
+
         {
             Graphics g2 (effectImage);
             g2.addTransform (AffineTransform::scale ((float) scaledBounds.getWidth()  / (float) getWidth(),
