@@ -143,9 +143,9 @@ namespace juce
 
     int64 Direct2DPixelData::getEffectImageHash() const noexcept
     {
-        int64 hash = 0xd2df000000000000;
+        auto hash = 0xd2d000000000000ll;
         hash |= width;
-        hash |= height << 24;
+        hash |= (int64)height << 24;
         return hash;
     }
 
