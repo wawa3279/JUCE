@@ -430,6 +430,17 @@ namespace juce
             {
                 return isOnlyTranslated || (complexTransform.mat01 == 0.0f && complexTransform.mat10 == 0.0f);
             }
+
+#if JUCE_DEBUG
+            String toString()
+            {
+                String s;
+                s << "Offset " << offset.toString() << newLine;
+                s << "Transform " << complexTransform.mat00 << " " << complexTransform.mat01 << " " << complexTransform.mat02 << newLine;
+                s << "          " << complexTransform.mat10 << " " << complexTransform.mat11 << " " << complexTransform.mat12 << newLine;
+                return s;
+            }
+#endif
         } currentTransform;
 
         DirectX::DXGI::Adapter::Ptr& adapter;
@@ -1179,14 +1190,21 @@ namespace juce
     {
         SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillRect, llgcFrameNumber, r, etw::direct2dKeyword);
 
+        if (!direct2d::isUsefulRectangle(r))
+        {
+            return;
+        }
+
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             if (currentState->currentTransform.isOnlyTranslated)
             {
                 if (auto brush = currentState->getBrush())
                 {
-                    auto translatedR = r + currentState->currentTransform.offset.toFloat();
-                    deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
+                    if (auto translatedR = r + currentState->currentTransform.offset.toFloat(); currentState->clipList.intersects(translatedR.toNearestIntEdges()))
+                    {
+                        deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
+                    }
                 }
                 return;
             }
@@ -1195,16 +1213,21 @@ namespace juce
             {
                 if (auto brush = currentState->getBrush())
                 {
-                    auto transformedR = currentState->currentTransform.transformed(r);
-                    deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
+                    if (auto transformedR = currentState->currentTransform.transformed(r); currentState->clipList.intersects(transformedR.toNearestIntEdges()))
+                    {
+                        deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
+                    }
                 }
                 return;
             }
 
             if (auto brush = currentState->getBrush(SavedState::BrushTransformFlags::applyFillTypeTransform))
             {
-                ScopedTransform scopedTransform{ *getPimpl(), currentState };
-                deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
+                if (auto transformedR = currentState->currentTransform.transformed(r); currentState->clipList.intersects(transformedR.toNearestIntEdges()))
+                {
+                    ScopedTransform scopedTransform{ *getPimpl(), currentState };
+                    deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
+                }
             }
         }
     }
@@ -1221,7 +1244,13 @@ namespace juce
                 {
                     for (auto const& r : list)
                     {
-                        deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(r)), brush);
+                        if (direct2d::isUsefulRectangle(r))
+                        {
+                            if (auto translatedR = currentState->currentTransform.translated(r); currentState->clipList.intersects(translatedR.toNearestIntEdges()))
+                            {
+                                deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
+                            }
+                        }
                     }
                 }
                 return;
@@ -1233,7 +1262,13 @@ namespace juce
                 {
                     for (auto const& r : list)
                     {
-                        deviceContext->FillRectangle(direct2d::rectangleToRectF(currentState->currentTransform.transformed(r)), brush);
+                        if (direct2d::isUsefulRectangle(r))
+                        {
+                            if (auto transformedR = currentState->currentTransform.transformed(r); currentState->clipList.intersects(transformedR.toNearestIntEdges()))
+                            {
+                                deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
+                            }
+                        }
                     }
                 }
                 return;
@@ -1244,7 +1279,13 @@ namespace juce
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 for (auto const& r : list)
                 {
-                    deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
+                    if (direct2d::isUsefulRectangle(r))
+                    {
+                        if (auto transformedR = currentState->currentTransform.transformed(r); currentState->clipList.intersects(transformedR.toNearestIntEdges()))
+                        {
+                            deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
+                        }
+                    }
                 }
             }
         }
@@ -1253,6 +1294,11 @@ namespace juce
     bool Direct2DGraphicsContext::drawRect(const Rectangle<float>& r, float lineThickness)
     {
         SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawRect, llgcFrameNumber, r, etw::direct2dKeyword);
+
+        if (!direct2d::isUsefulRectangle(r))
+        {
+            return true;
+        }
 
         //
         // ID2D1DeviceContext::DrawRectangle centers the stroke around the edges of the specified rectangle, but
@@ -1273,7 +1319,10 @@ namespace juce
             {
                 if (auto brush = currentState->getBrush())
                 {
-                    deviceContext->DrawRectangle(direct2d::rectangleToRectF(currentState->currentTransform.translated(reducedR)), brush, lineThickness);
+                    if (auto translatedR = currentState->currentTransform.translated(r); currentState->clipList.intersects(translatedR.toNearestIntEdges()))
+                    {
+                        deviceContext->DrawRectangle(direct2d::rectangleToRectF(translatedR), brush, lineThickness);
+                    }
                 }
                 return true;
             }
@@ -1519,6 +1568,11 @@ namespace juce
     {
         SCOPED_TRACE_EVENT(etw::drawTextLayout, llgcFrameNumber, etw::direct2dKeyword);
 
+        if (!direct2d::isUsefulRectangle(area))
+        {
+            return true;
+        }
+
         auto deviceContext = getPimpl()->getDeviceContext();
         auto directWriteFactory = getPimpl()->getDirectWriteFactory();
         auto fontCollection = getPimpl()->getSystemFonts();
@@ -1557,6 +1611,11 @@ namespace juce
     {
         SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawRoundedRectangle, llgcFrameNumber, area, etw::direct2dKeyword);
 
+        if (!direct2d::isUsefulRectangle(area))
+        {
+            return true;
+        }
+
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             if (currentState->currentTransform.isOnlyTranslated)
@@ -1584,6 +1643,11 @@ namespace juce
     {
         SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillRoundedRectangle, llgcFrameNumber, area, etw::direct2dKeyword);
 
+        if (!direct2d::isUsefulRectangle(area))
+        {
+            return true;
+        }
+
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             if (currentState->currentTransform.isOnlyTranslated)
@@ -1610,6 +1674,11 @@ namespace juce
     bool Direct2DGraphicsContext::drawEllipse(Rectangle<float> area, float lineThickness)
     {
         SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawEllipse, llgcFrameNumber, area, etw::direct2dKeyword);
+
+        if (!direct2d::isUsefulRectangle(area))
+        {
+            return true;
+        }
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1642,6 +1711,11 @@ namespace juce
     bool Direct2DGraphicsContext::fillEllipse(Rectangle<float> area)
     {
         SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillEllipse, llgcFrameNumber, area, etw::direct2dKeyword);
+
+        if (!direct2d::isUsefulRectangle(area))
+        {
+            return true;
+        }
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
