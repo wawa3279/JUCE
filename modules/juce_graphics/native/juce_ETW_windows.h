@@ -267,6 +267,7 @@ struct ScopedTraceEvent \
         for (auto const& r : list)\
         {\
             dest[0] = r.getX(); dest[1] = r.getY(); dest[2] = r.getWidth(); dest[3] = r.getHeight();\
+            dest += 4;\
         }\
     }\
     ~ScopedTraceEvent()\
@@ -301,6 +302,7 @@ struct ScopedTraceEvent \
         for (auto const& r : list)\
         {\
             dest[0] = r.getX(); dest[1] = r.getY(); dest[2] = r.getWidth(); dest[3] = r.getHeight();\
+            dest += 4;\
         }\
     }\
     ~ScopedTraceEvent()\
@@ -332,6 +334,7 @@ ste.frameNumber = etwFrameNumber;
     for (auto const& r : list)\
     {\
         dest[0] = r.getX(); dest[1] = r.getY(); dest[2] = r.getWidth(); dest[3] = r.getHeight();\
+        dest += 4;\
     }\
 \
     TraceLoggingWriteWrapper(JUCE_ETW_TRACELOGGING_PROVIDER_HANDLE,\
