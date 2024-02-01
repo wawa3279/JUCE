@@ -1744,7 +1744,7 @@ namespace juce
         return true;
     }
 
-    void Direct2DGraphicsContext::drawGlyphRun(Array<PositionedGlyph> const& glyphs,
+    void Direct2DGraphicsContext::drawPositionedGlyphRun(Array<PositionedGlyph> const& glyphs,
         int                           startIndex,
         int                           numGlyphs,
         const AffineTransform& transform,
@@ -1762,7 +1762,7 @@ namespace juce
             //
             // Fill the array of glyph indices and offsets
             //
-            // All the fonts should be the same for the glyph run
+            // Each glyph should have the same font
             //
             getPimpl()->glyphRun.ensureStorageAllocated(numGlyphs);
 
@@ -1793,6 +1793,42 @@ namespace juce
 
             drawGlyphCommon(numGlyphsToDraw, font, transform, underlineArea);
         }
+    }
+
+    void Direct2DGraphicsContext::drawTextLayoutGlyphRun(Array<TextLayout::Glyph> const& glyphs, const Font& font, const AffineTransform& transform)
+    {
+        SCOPED_TRACE_EVENT(etw::drawGlyphRun, llgcFrameNumber, etw::direct2dKeyword);
+
+        if (currentState->fillType.isInvisible() || glyphs.size() <= 0)
+        {
+            return;
+        }
+
+        //
+        // Fill the array of glyph indices and offsets
+        //
+        getPimpl()->glyphRun.ensureStorageAllocated(glyphs.size());
+
+        auto        fontHorizontalScale = font.getHorizontalScale();
+        auto        inverseHScale = fontHorizontalScale > 0.0f ? 1.0f / fontHorizontalScale : 1.0f;
+
+        auto indices = getPimpl()->glyphRun.glyphIndices.getData();
+        auto offsets = getPimpl()->glyphRun.glyphOffsets.getData();
+
+        int numGlyphsToDraw = 0;
+        for (auto const& glyph : glyphs)
+        {
+            indices[numGlyphsToDraw] = (UINT16)glyph.glyphCode;
+            offsets[numGlyphsToDraw] =
+            {
+                glyph.anchor.x * inverseHScale,
+                -glyph.anchor.y
+            }; // note the essential minus sign before the baselineY value; negative offset goes down, positive goes up (opposite from JUCE)
+            jassert(getPimpl()->glyphRun.glyphAdvances[numGlyphsToDraw] == 0.0f);
+            ++numGlyphsToDraw;
+        }
+
+        drawGlyphCommon(numGlyphsToDraw, font, transform, {});
     }
 
     void Direct2DGraphicsContext::drawGlyphCommon(int numGlyphs,

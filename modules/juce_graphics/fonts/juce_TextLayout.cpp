@@ -215,9 +215,16 @@ void TextLayout::draw (Graphics& g, Rectangle<float> area) const
             context.setFont (run->font);
             context.setFill (run->colour);
 
-            for (auto& glyph : run->glyphs)
-                context.drawGlyph (glyph.glyphCode, AffineTransform::translation (lineOrigin.x + glyph.anchor.x,
-                                                                                  lineOrigin.y + glyph.anchor.y));
+            if (context.supportsGlyphRun())
+            {
+                context.drawTextLayoutGlyphRun (run->glyphs, run->font, AffineTransform::translation(lineOrigin.x, lineOrigin.y));
+            }
+            else
+            {
+                for (auto& glyph : run->glyphs)
+                    context.drawGlyph(glyph.glyphCode, AffineTransform::translation(lineOrigin.x + glyph.anchor.x,
+                        lineOrigin.y + glyph.anchor.y));
+            }
 
             if (run->font.isUnderlined())
             {

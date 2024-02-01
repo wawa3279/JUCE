@@ -220,11 +220,13 @@ public:
     {
         return true;
     }
-    void drawGlyphRun (Array<PositionedGlyph> const& glyphs,
+    void drawPositionedGlyphRun (Array<PositionedGlyph> const& glyphs,
                        int                           startIndex,
                        int                           numGlyphs,
                        const AffineTransform&        transform,
                        Rectangle<float>              underlineArea) override;
+    void drawTextLayoutGlyphRun(Array<TextLayout::Glyph> const&, Font const&, const AffineTransform&) override;
+
 
     //==============================================================================
     bool startFrame();

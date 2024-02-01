@@ -95,7 +95,8 @@ public:
     virtual void drawGlyph (int glyphNumber, const AffineTransform&) = 0;
 
     virtual bool supportsGlyphRun() { return false; }
-    virtual void drawGlyphRun(Array<PositionedGlyph> const&, int /*startIndex*/, int /*numGlyphs*/, const AffineTransform&, Rectangle<float>) {}
+    virtual void drawPositionedGlyphRun (Array<PositionedGlyph> const&, int /*startIndex*/, int /*numGlyphs*/, const AffineTransform&, Rectangle<float>) {}
+    virtual void drawTextLayoutGlyphRun(Array<TextLayout::Glyph> const&, const Font&, const AffineTransform&) {}
 
     virtual bool drawTextLayout (const AttributedString&, const Rectangle<float>&)  { return false; }
 

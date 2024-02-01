@@ -741,7 +741,7 @@ void GlyphArrangement::draw(const Graphics& g, AffineTransform transform) const
                 if (numGlyphs > 0)
                 {
                     auto underlineArea = getUnderlineArea(lastFont, glyphs[0], glyphs[index + start - 1]);
-                    context.drawGlyphRun(glyphs, start, numGlyphs, transform, underlineArea);
+                    context.drawPositionedGlyphRun(glyphs, start, numGlyphs, transform, underlineArea);
                     start = index;
                 }
             }
@@ -753,7 +753,7 @@ void GlyphArrangement::draw(const Graphics& g, AffineTransform transform) const
         if (numGlyphs > 0)
         {
             auto underlineArea = getUnderlineArea(lastFont, glyphs[0], glyphs[index + start - 1]);
-            context.drawGlyphRun(glyphs, start, numGlyphs, transform, underlineArea);
+            context.drawPositionedGlyphRun(glyphs, start, numGlyphs, transform, underlineArea);
         }
 
         context.setFont(originalFont);
