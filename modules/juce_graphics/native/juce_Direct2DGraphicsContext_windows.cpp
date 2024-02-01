@@ -228,6 +228,7 @@ namespace juce
                     deviceResources.deviceContext.context->PopAxisAlignedClip();
                 }
 
+#if JUCE_DIRECT2D_FLUSH_DEVICE_CONTEXT
                 {
                     SCOPED_TRACE_EVENT(etw::flush, owner.llgcFrameNumber, etw::direct2dKeyword);
 
@@ -236,6 +237,7 @@ namespace juce
 #endif
                     deviceResources.deviceContext.context->Flush();
                 }
+#endif
 
                 pushedLayers.pop_back();
             }
