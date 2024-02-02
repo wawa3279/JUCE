@@ -360,7 +360,7 @@ namespace juce
                 float dpiScaleFactor,
                 [[maybe_unused]] int frameNumber)
             {
-                if (path.getModificationCount() == 0 || !path.isCacheEnabled() || !path.shouldBeCached())
+                if (path.getModificationCount() == 0 || !path.shouldBeCached())
                 {
                     return nullptr;
                 }
@@ -449,7 +449,7 @@ namespace juce
                 float dpiScaleFactor,
                 [[maybe_unused]] int frameNumber)
             {
-                if (path.getModificationCount() == 0 || !path.isCacheEnabled() || !path.shouldBeCached())
+                if (path.getModificationCount() == 0 || !path.shouldBeCached())
                 {
                     return nullptr;
                 }
