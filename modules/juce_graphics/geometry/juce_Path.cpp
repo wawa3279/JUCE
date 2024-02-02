@@ -148,7 +148,7 @@ void Path::clear() noexcept
 {
     data.clearQuick();
     bounds.reset();
-    ++cacheInfo.modificationCount;
+    cacheInfo.incrementModificationCount();
 }
 
 void Path::swapWithPath (Path& other) noexcept
@@ -166,13 +166,13 @@ void Path::swapWithPath (Path& other) noexcept
 void Path::setUsingNonZeroWinding (const bool isNonZero) noexcept
 {
     useNonZeroWinding = isNonZero;
-    ++cacheInfo.modificationCount;
+    cacheInfo.incrementModificationCount();
 }
 
 void Path::scaleToFit (float x, float y, float w, float h, bool preserveProportions) noexcept
 {
     applyTransform (getTransformToScaleToFit (x, y, w, h, preserveProportions));
-    ++cacheInfo.modificationCount;
+    cacheInfo.incrementModificationCount();
 }
 
 //==============================================================================
@@ -223,7 +223,7 @@ void Path::startNewSubPath (const float x, const float y)
         bounds.extend (x, y);
 
     data.add (moveMarker, x, y);
-    ++cacheInfo.modificationCount;
+    cacheInfo.incrementModificationCount();
 }
 
 void Path::startNewSubPath (Point<float> start)
@@ -240,7 +240,7 @@ void Path::lineTo (const float x, const float y)
 
     data.add (lineMarker, x, y);
     bounds.extend (x, y);
-    ++cacheInfo.modificationCount;
+    cacheInfo.incrementModificationCount();
 }
 
 void Path::lineTo (Point<float> end)
@@ -259,7 +259,7 @@ void Path::quadraticTo (const float x1, const float y1,
 
     data.add (quadMarker, x1, y1, x2, y2);
     bounds.extend (x1, y1, x2, y2);
-    ++cacheInfo.modificationCount;
+    cacheInfo.incrementModificationCount();
 }
 
 void Path::quadraticTo (Point<float> controlPoint, Point<float> endPoint)
@@ -281,7 +281,7 @@ void Path::cubicTo (const float x1, const float y1,
 
     data.add (cubicMarker, x1, y1, x2, y2, x3, y3);
     bounds.extend (x1, y1, x2, y2, x3, y3);
-    ++cacheInfo.modificationCount;
+    cacheInfo.incrementModificationCount();
 }
 
 void Path::cubicTo (Point<float> controlPoint1,
@@ -298,7 +298,7 @@ void Path::closeSubPath()
     if (! (data.isEmpty() || isMarker (data.getLast(), closeSubPathMarker)))
     {
         data.add (closeSubPathMarker);
-        ++cacheInfo.modificationCount;
+        cacheInfo.incrementModificationCount();
     }
 }
 
@@ -355,7 +355,7 @@ void Path::addRectangle (float x, float y, float w, float h)
               lineMarker, x2, y2,
               closeSubPathMarker);
 
-    ++cacheInfo.modificationCount;
+    cacheInfo.incrementModificationCount();
 }
 
 void Path::addRoundedRectangle (float x, float y, float w, float h, float csx, float csy)
@@ -883,7 +883,7 @@ void Path::applyTransform (const AffineTransform& transform) noexcept
         }
     }
 
-    ++cacheInfo.modificationCount;
+    cacheInfo.incrementModificationCount();
 }
 
 
@@ -1239,7 +1239,7 @@ Path Path::createPathWithRoundedCorners (const float cornerRadius) const
 //==============================================================================
 void Path::loadPathFromStream (InputStream& source)
 {
-    ++cacheInfo.modificationCount;
+    cacheInfo.incrementModificationCount();
 
     while (! source.isExhausted())
     {

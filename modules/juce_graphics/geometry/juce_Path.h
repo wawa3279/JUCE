@@ -797,7 +797,7 @@ public:
     */
 
     uint64 getUniqueID() const noexcept { return uniqueID; }
-    auto getModificationCount() const noexcept { return cacheInfo.modificationCount; }
+    auto getModificationCount() const noexcept { return cacheInfo.getModificationCount(); }
 
     void setCacheEnabled(bool enabled) { cacheInfo.cacheEnabled = enabled; }
     bool isCacheEnabled() const noexcept { return cacheInfo.cacheEnabled; }
@@ -808,6 +808,7 @@ public:
         //
         if (cacheInfo.cacheableCountdown > 0)
         {
+            DBG("countdown " << cacheInfo.cacheableCountdown);
             --cacheInfo.cacheableCountdown;
             return false;
         }
@@ -848,6 +849,19 @@ private:
     {
         bool cacheEnabled = true;
         mutable int cacheableCountdown = 2;
+
+        int getModificationCount() const noexcept
+        {
+            return modificationCount;
+        }
+
+        void incrementModificationCount()
+        {
+            ++modificationCount;
+            cacheableCountdown = 2;
+        }
+
+    private:
         int modificationCount = 0;
     } cacheInfo;
 
