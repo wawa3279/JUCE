@@ -239,6 +239,7 @@ void CallOutBox::refreshPath()
     repaint();
     background = {};
     outline.clear();
+    outline.setCacheEnabled(false);
 
     const float gap = 4.5f;
 
