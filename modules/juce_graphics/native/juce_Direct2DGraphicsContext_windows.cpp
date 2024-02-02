@@ -1205,6 +1205,10 @@ namespace juce
                 {
                     if (auto translatedR = r + currentState->currentTransform.offset.toFloat(); currentState->clipList.intersects(translatedR.toNearestIntEdges()))
                     {
+#if JUCE_DIRECT2D_METRICS
+                        direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillTranslatedRectTime };
+#endif
+
                         deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
                     }
                 }
@@ -1217,6 +1221,10 @@ namespace juce
                 {
                     if (auto transformedR = currentState->currentTransform.transformed(r); currentState->clipList.intersects(transformedR.toNearestIntEdges()))
                     {
+#if JUCE_DIRECT2D_METRICS
+                        direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillAxisAlignedRectTime };
+#endif
+
                         deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
                     }
                 }
@@ -1227,6 +1235,10 @@ namespace juce
             {
                 if (auto transformedR = currentState->currentTransform.transformed(r); currentState->clipList.intersects(transformedR.toNearestIntEdges()))
                 {
+#if JUCE_DIRECT2D_METRICS
+                    direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillTransformedRectTime };
+#endif
+
                     ScopedTransform scopedTransform{ *getPimpl(), currentState };
                     deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
                 }
@@ -1236,10 +1248,15 @@ namespace juce
 
     void Direct2DGraphicsContext::fillRectList(const RectangleList<float>& list)
     {
+#if JUCE_DIRECT2D_METRICS
+        direct2d::ScopedElapsedTime set{ paintStats, direct2d::PaintStats::fillRectListTime };
+#endif
+
         SCOPED_TRACE_EVENT_FLOAT_RECT_LIST(etw::fillRectList, llgcFrameNumber, list, etw::direct2dKeyword);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
+
             if (currentState->currentTransform.isOnlyTranslated)
             {
                 if (auto brush = currentState->getBrush())
@@ -1250,6 +1267,9 @@ namespace juce
                         {
                             if (auto translatedR = currentState->currentTransform.translated(r); currentState->clipList.intersects(translatedR.toNearestIntEdges()))
                             {
+#if JUCE_DIRECT2D_METRICS
+                                direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillTranslatedRectTime };
+#endif
                                 deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
                             }
                         }
@@ -1268,6 +1288,9 @@ namespace juce
                         {
                             if (auto transformedR = currentState->currentTransform.transformed(r); currentState->clipList.intersects(transformedR.toNearestIntEdges()))
                             {
+#if JUCE_DIRECT2D_METRICS
+                                direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillAxisAlignedRectTime };
+#endif
                                 deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
                             }
                         }
@@ -1281,6 +1304,10 @@ namespace juce
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 for (auto const& r : list)
                 {
+#if JUCE_DIRECT2D_METRICS
+                    direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillTransformedRectTime };
+#endif
+
                     if (direct2d::isUsefulRectangle(r))
                     {
                         if (auto transformedR = currentState->currentTransform.transformed(r); currentState->clipList.intersects(transformedR.toNearestIntEdges()))
