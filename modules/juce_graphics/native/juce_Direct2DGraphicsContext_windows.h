@@ -26,36 +26,46 @@ namespace direct2d
 
 struct PaintStats : public ReferenceCountedObject
 {
+#define DIRECT2D_PAINT_STAT_LIST \
+        DIRECT2D_PAINT_STAT(messageThreadPaintDuration) \
+        DIRECT2D_PAINT_STAT(frameInterval) \
+        DIRECT2D_PAINT_STAT(endDrawDuration) \
+        DIRECT2D_PAINT_STAT(presentDuration) \
+        DIRECT2D_PAINT_STAT(present1Duration) \
+        DIRECT2D_PAINT_STAT(swapChainEventInterval) \
+        DIRECT2D_PAINT_STAT(swapChainMessageTransitTime) \
+        DIRECT2D_PAINT_STAT(swapChainMessageInterval) \
+        DIRECT2D_PAINT_STAT(vblankToBeginDraw) \
+        DIRECT2D_PAINT_STAT(createGeometryTime) \
+        DIRECT2D_PAINT_STAT(createFilledGRTime) \
+        DIRECT2D_PAINT_STAT(createStrokedGRTime) \
+        DIRECT2D_PAINT_STAT(createGradientTime) \
+        DIRECT2D_PAINT_STAT(pushGeometryLayerTime) \
+        DIRECT2D_PAINT_STAT(fillTranslatedRectTime) \
+        DIRECT2D_PAINT_STAT(fillAxisAlignedRectTime) \
+        DIRECT2D_PAINT_STAT(fillTransformedRectTime) \
+        DIRECT2D_PAINT_STAT(fillRectListTime) \
+        DIRECT2D_PAINT_STAT(flushTime) \
+        DIRECT2D_LAST_PAINT_STAT(drawGlyphRunTime)
+
+#define DIRECT2D_PAINT_STAT(name) name,
+#define DIRECT2D_LAST_PAINT_STAT(name) name
     enum
     {
-        messageThreadPaintDuration,
-        frameInterval,
-        endDrawDuration,
-        presentDuration,
-        present1Duration,
-        swapChainEventInterval,
-        swapChainMessageTransitTime,
-        swapChainMessageInterval,
-        vblankToBeginDraw,
-        createGeometryTime,
-        createFilledGRTime,
-        createStrokedGRTime,
-        createGradientTime,
-        pushGeometryLayerTime,
-        fillRectTime,
-        fillRectListTime,
-        flushTime,
-        dropShadowTime,
-        glowTime,
-
+        DIRECT2D_PAINT_STAT_LIST,
         numStats
     };
+#undef DIRECT2D_PAINT_STAT
+#undef DIRECT2D_LAST_PAINT_STAT
 
-    StringArray const accumulatorNames { "messageThreadPaintDuration", "frameInterval",          "EndDraw duration", "presentDuration",
-                                         "present1Duration",           "swapChainEventInterval", "swapChainMessageTransitTime",
-                                         "swapChainMessageInterval",   "VBlank to BeginDraw",
-                                         "Create geometry", "Create filled GR", "Create stroked GR", "Create gradient", "Push Geometry layer",
-    "Fill rect", "Fill rect list", "Flush"};
+#define DIRECT2D_PAINT_STAT(name) # name,
+#define DIRECT2D_LAST_PAINT_STAT(name) # name
+    StringArray const accumulatorNames
+    {
+        DIRECT2D_PAINT_STAT_LIST
+    };
+#undef DIRECT2D_PAINT_STAT
+#undef DIRECT2D_LAST_PAINT_STAT
 
     int64 const  creationTime        = Time::getMillisecondCounter();
     double const millisecondsPerTick = 1000.0 / (double) Time::getHighResolutionTicksPerSecond();
