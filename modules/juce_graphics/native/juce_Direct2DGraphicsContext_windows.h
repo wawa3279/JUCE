@@ -40,6 +40,7 @@ struct PaintStats : public ReferenceCountedObject
         DIRECT2D_PAINT_STAT(createFilledGRTime) \
         DIRECT2D_PAINT_STAT(createStrokedGRTime) \
         DIRECT2D_PAINT_STAT(createGradientTime) \
+        DIRECT2D_PAINT_STAT(pushAxisAlignedLayerTime) \
         DIRECT2D_PAINT_STAT(pushGeometryLayerTime) \
         DIRECT2D_PAINT_STAT(fillTranslatedRectTime) \
         DIRECT2D_PAINT_STAT(fillAxisAlignedRectTime) \
@@ -269,10 +270,12 @@ public:
 protected:
     struct SavedState;
     SavedState* currentState = nullptr;
+    RectangleList<int> pendingDeviceSpaceClipList;
 
     struct Pimpl;
     virtual Pimpl* getPimpl() const noexcept = 0;
 
+    void applyPendingClipList();
     virtual void clearTargetBuffer() = 0;
     void drawGlyphCommon (int numGlyphs, Font const& font, const AffineTransform& transform, Rectangle<float> underlineArea);
 
