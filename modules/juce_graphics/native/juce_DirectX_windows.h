@@ -54,25 +54,6 @@ struct DirectX
 
     //==============================================================================
     //
-    // Direct2D
-    //
-
-    class Direct2D
-    {
-    public:
-        Direct2D();
-        ~Direct2D();
-
-        ID2D1Factory2* getFactory() const { return d2dSharedFactory; }
-        ID2D1DCRenderTarget* getDirectWriteRenderTarget() const { return directWriteRenderTarget; }
-
-    private:
-        ComSmartPtr<ID2D1Factory2> d2dSharedFactory;
-        ComSmartPtr<ID2D1DCRenderTarget> directWriteRenderTarget;
-    } direct2D;
-
-    //==============================================================================
-    //
     // DXGI
     //
     struct DXGI
@@ -307,6 +288,25 @@ struct DirectX
         IDXGIFactory2* getFactory() const { return factory; }
 
     } dxgi;
+
+    //==============================================================================
+    //
+    // Direct2D
+    //
+
+    class Direct2D
+    {
+    public:
+        Direct2D();
+        ~Direct2D();
+
+        ID2D1Factory2* getFactory() const { return d2dSharedFactory; }
+        ID2D1DCRenderTarget* getDirectWriteRenderTarget() const { return directWriteRenderTarget; }
+
+    private:
+        ComSmartPtr<ID2D1Factory2> d2dSharedFactory;
+        ComSmartPtr<ID2D1DCRenderTarget> directWriteRenderTarget;
+    } direct2D;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DirectX)
 };
