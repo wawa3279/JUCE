@@ -73,7 +73,8 @@
 
 namespace juce
 {
-    String printRectList(const RectangleList<int>& list)
+#if JUCE_DEBUG
+    static String printRectList(const RectangleList<int>& list)
     {
         String s;
         for (auto& r : list)
@@ -82,6 +83,7 @@ namespace juce
         }
         return s;
     }
+#endif
 
     struct Direct2DGraphicsContext::SavedState
     {
@@ -829,6 +831,9 @@ namespace juce
 
     void Direct2DGraphicsContext::setOrigin(Point<int> o)
     {
+        //
+        // The pending clip list is based on the position stored in currentState, so apply the pending clip list before setting the origin
+        //
         applyPendingClipList();
 
         currentState->currentTransform.setOrigin(o);
@@ -836,6 +841,9 @@ namespace juce
 
     void Direct2DGraphicsContext::addTransform(const AffineTransform& transform)
     {
+        //
+        // The pending clip list is based on the transform stored in currentState, so apply the pending clip list before adding the transform
+        //
         applyPendingClipList();
 
         currentState->currentTransform.addTransform(transform);
@@ -847,19 +855,36 @@ namespace juce
 
         SCOPED_TRACE_EVENT_INT_RECT(etw::clipToRectangle, llgcFrameNumber, r, etw::direct2dKeyword)
 
-            //DBG"clipToRectangle " << r.toString());
-
+        //
+        // The renderer needs to keep track of the aggregate clip rectangles in order to correctly report the
+        // clip region to the caller. The renderer also needs to push Direct2D clip layers to the device context
+        // to perform the actual clipping. The reported clip region will not necesssarily match the Direct2D clip region
+        // if the clip region is transformed, or the clip region is an image or a path.
+        //
+        // Pushing Direct2D clip layers is expensive and there's no need to clip until something is actually drawn.
+        // So - pendingDeviceSpaceClipList is a list of the areas that need to actually be clipped. Each fill or
+        // draw method then applies any pending clip areas before drawing.
+        //
+        // Also - calling ID2D1DeviceContext::SetTransform is expensive, so check the current transform to see
+        // if the renderer can pre-transform the clip rectangle instead.
+        //
         if (transform.isOnlyTranslated)
         {
+            //
+            // The current transform is only a translation, so save a few cycles by just adding the
+            // offset instead of transforming the rectangle; the software renderer does something similar.
+            //
             auto transformedR = r + transform.offset;
             currentState->deviceSpaceClipList.clipTo(transformedR);
             pendingDeviceSpaceClipList.add(transformedR);
-
-            //DBG"      deviceSpaceClipList " << printRectList(currentState->deviceSpaceClipList));
-            //DBG"     pendingDeviceSpaceClipList " << printRectList(pendingDeviceSpaceClipList));
         }
         else if (transform.isAxisAligned())
         {
+            //
+            // The current transform will translate and scale the rectangle, but the clipped area will
+            // still be axis aligned. Pre-transform the rectangle and clip to the transformed rectangle
+            // instead of calling ID2D1DeviceContext::SetTransform
+            //
             auto transformedR = transform.transformed(r);
             currentState->deviceSpaceClipList.clipTo(transformedR);
             pendingDeviceSpaceClipList.add(transformedR);
@@ -871,6 +896,11 @@ namespace juce
             //
             currentState->deviceSpaceClipList = getPimpl()->getFrameSize();
 
+            //
+            // The current transform is too complex to pre-transform the rectangle, so just add the
+            // rectangle to the clip list. The renderer will need to call ID2D1DeviceContext::SetTransform
+            // before applying the clip layer.
+            //
             pendingDeviceSpaceClipList.add(r);
         }
 
@@ -884,6 +914,10 @@ namespace juce
         auto const& transform = currentState->currentTransform;
 
         //
+        // This works a lot like clipToRect
+        //
+
+        //
         // Just one rectangle?
         //
         if (newClipList.getNumRectangles() == 1)
@@ -895,9 +929,6 @@ namespace juce
         {
             currentState->deviceSpaceClipList.clipTo(newClipList);
             pendingDeviceSpaceClipList.add(newClipList);
-
-            //DBG"      deviceSpaceClipList " << printRectList(currentState->deviceSpaceClipList));
-            //DBG"     pendingDeviceSpaceClipList " << printRectList(pendingDeviceSpaceClipList));
         }
         else if (currentState->currentTransform.isOnlyTranslated)
         {
@@ -906,9 +937,6 @@ namespace juce
             currentState->deviceSpaceClipList.clipTo(offsetList);
 
             pendingDeviceSpaceClipList.add(newClipList);
-
-            //DBG"      deviceSpaceClipList " << printRectList(currentState->deviceSpaceClipList));
-            //DBG"     pendingDeviceSpaceClipList " << printRectList(pendingDeviceSpaceClipList));
         }
         else if (transform.isAxisAligned())
         {
@@ -927,46 +955,6 @@ namespace juce
             pendingDeviceSpaceClipList.add(newClipList);
         }
 
-#if 0
-
-
-        //
-        // Update the clip list
-        //
-        if (transform.isIdentity())
-        {
-            currentState->clipList.clipTo(newClipList);
-        }
-        else if (transform.isOnlyTranslated)
-        {
-            RectangleList<int> offsetList(newClipList);
-            offsetList.offsetAll(transform.offset);
-            currentState->clipList.clipTo(offsetList);
-        }
-        else if (!transform.isRotated)
-        {
-            RectangleList<int> scaledList;
-
-            for (auto& i : newClipList)
-                scaledList.add(transform.transformed(i));
-
-            currentState->clipList.clipTo(scaledList);
-        }
-        else
-        {
-            currentState->clipList = getPimpl()->getFrameSize();
-        }
-
-        if (auto deviceContext = getPimpl()->getDeviceContext())
-        {
-            currentState->pushGeometryClipLayer(direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(),
-                newClipList,
-                transform.getTransform(),
-                D2D1_FILL_MODE_WINDING,
-                D2D1_FIGURE_BEGIN_FILLED));
-        }
-#endif
-
         return !isClipEmpty();
     }
 
@@ -974,8 +962,22 @@ namespace juce
     {
         auto const& transform = currentState->currentTransform;
 
-        SCOPED_TRACE_EVENT_INT_RECT(etw::excludeClipRectangle, llgcFrameNumber, r, etw::direct2dKeyword)
+        SCOPED_TRACE_EVENT_INT_RECT(etw::excludeClipRectangle, llgcFrameNumber, userSpaceExcludedRectangle, etw::direct2dKeyword)
 
+        //
+        // Here the renderer needs to prevent painting over userSpaceExcludedRectangle. To do so, the renderer sets the clip region to
+        // the entire rest of the frame except for userSpaceExcludedRectangle. Picture four rectangles, one on each side of userSpaceExcludedRectangle.
+        //
+        //           LLLLLLLLLTTTTTRRRRRRRRR
+        //           LLLLLLLLLTTTTTRRRRRRRRR
+        //           LLLLLLLLL     RRRRRRRRR
+        //           LLLLLLLLL  X  RRRRRRRRR
+        //           LLLLLLLLL     RRRRRRRRR
+        //           LLLLLLLLLBBBBBRRRRRRRRR
+        //           LLLLLLLLLBBBBBRRRRRRRRR
+        //
+        // Conceptually, the L, T, R, and B rectangles each go out to infinity. The renderer clips to the union of the L, T, R, and B rectangles.
+        //
         auto adjustClipLists = [&](Rectangle<int> transformedR)
             {
                 currentState->deviceSpaceClipList.subtract(transformedR);
@@ -985,6 +987,9 @@ namespace juce
                     return;
                 }
 
+                //
+                // Maybe these should overlap?
+                //
                 juce::RectangleList<int> includedRegions;
                 includedRegions.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, transformedR.getX(), maxFrameSize * 2)); // left side
                 includedRegions.add(Rectangle<int>::leftTopRightBottom(transformedR.getRight(), -maxFrameSize, maxFrameSize * 2, maxFrameSize * 2)); // right side
@@ -993,93 +998,32 @@ namespace juce
                 pendingDeviceSpaceClipList.clipTo(includedRegions);
             };
 
+        //
+        // Remove the excluded rectangle from the clip list
+        //
+        // As always, try to avoid setting ID2D1DeviceContext::SetTransform
+        //
         if (transform.isOnlyTranslated)
         {
+            //
+            // Just a translation; pre-translate the exclusion area
+            //
             adjustClipLists(transform.translated(userSpaceExcludedRectangle));
         }
         else if (transform.isAxisAligned())
         {
+            //
+            // Just a scale + translation; pre-transform the exclusion area
+            //
             adjustClipLists(transform.transformed(userSpaceExcludedRectangle));
         }
         else
         {
+            //
+            // Complex transform; don't pre-transform and plan to set the device context transform later
+            //
             adjustClipLists(userSpaceExcludedRectangle);
         }
-
-//
-         //DBG"excludeClipRectangle userSpaceExcludedRectangle:" << userSpaceExcludedRectangle.toString() << "    frame:" << getPimpl()->getFrameSize().toString());
-         //DBG"     clipList " << printRectList(currentState->deviceSpaceClipList));
-         //DBG"     pendingClipList " << printRectList(pendingDeviceSpaceClipList));
-
-#if 0
-        //
-        // To exclude the rectangle r, build a geometry out of two rectangles, with r as the first rectangle and a very large rectangle as the second.
-        //
-        // Specify D2D1_FILL_MODE_ALTERNATE so the inside of r is *outside* the geometry and everything else on the screen is inside the geometry.
-        //
-        auto& transform = currentState->currentTransform;
-
-        if (transform.isOnlyTranslated)
-        {
-            auto translatedR = transform.translated(r);
-            if (!currentState->clipList.intersectsRectangle(translatedR))
-            {
-                return;
-            }
-
-            currentState->clipList.subtract(translatedR);
-
-#if JUCE_DIRECT2D_METRICS
-            auto t1 = Time::getHighResolutionTicks();
-#endif
-
-            auto geometry = direct2d::exclusionRectToPathGeometry(getPimpl()->getDirect2DFactory(),
-                translatedR,
-                {});
-
-#if JUCE_DIRECT2D_METRICS
-            auto t2 = Time::getHighResolutionTicks();
-#endif
-
-            currentState->pushGeometryClipLayer(geometry);
-
-#if JUCE_DIRECT2D_METRICS
-            auto t3 = Time::getHighResolutionTicks();
-
-            paintStats->addValueTicks(direct2d::PaintStats::createGeometryTime, t2 - t1);
-            paintStats->addValueTicks(direct2d::PaintStats::pushGeometryLayerTime, t3 - t2);
-#endif
-
-            return;
-        }
-
-        if (! transform.isRotated)
-        {
-            auto transformedR  = transform.transformed(r);
-            if (!currentState->clipList.intersectsRectangle(transformedR))
-            {
-                return;
-            }
-
-            currentState->clipList.subtract(transformedR);
-
-            currentState->pushGeometryClipLayer(
-                direct2d::exclusionRectToPathGeometry(getPimpl()->getDirect2DFactory(),
-                    transformedR,
-                    {}));
-            return;
-        }
-
-        //
-        // Match the behavior of the software renderer
-        //
-        currentState->clipList = getPimpl()->getFrameSize();
-
-        currentState->pushGeometryClipLayer(
-            direct2d::exclusionRectToPathGeometry(getPimpl()->getDirect2DFactory(),
-                r,
-                currentState->currentTransform.getTransform()));
-#endif
     }
 
     void Direct2DGraphicsContext::clipToPath(const Path& path, const AffineTransform& transform)
@@ -1197,10 +1141,6 @@ namespace juce
     {
         SCOPED_TRACE_EVENT(etw::saveState, llgcFrameNumber, etw::direct2dKeyword);
 
-        //DBG("^^^^^^^ saveState");
-
-        //applyPendingClipList();
-
         currentState = getPimpl()->pushSavedState();
     }
 
@@ -1209,8 +1149,6 @@ namespace juce
         SCOPED_TRACE_EVENT(etw::restoreState, llgcFrameNumber, etw::direct2dKeyword);
 
         currentState = getPimpl()->popSavedState();
-
-        //DBG("vvvvvvvv restoreState " << printRectList(currentState->deviceSpaceClipList));
 
         currentState->updateColourBrush();
         jassert(currentState);
