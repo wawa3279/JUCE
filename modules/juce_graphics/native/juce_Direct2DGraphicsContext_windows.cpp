@@ -978,12 +978,10 @@ namespace juce
                 //
                 // Maybe these should overlap?
                 //
-                juce::RectangleList<int> includedRegions;
-                includedRegions.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, transformedR.getX(), maxFrameSize * 2)); // left side
-                includedRegions.add(Rectangle<int>::leftTopRightBottom(transformedR.getRight(), -maxFrameSize, maxFrameSize * 2, maxFrameSize * 2)); // right side
-                includedRegions.add(Rectangle<int>::leftTopRightBottom(transformedR.getX(), -maxFrameSize, transformedR.getRight(), transformedR.getY())); // top
-                includedRegions.add(Rectangle<int>::leftTopRightBottom(transformedR.getX(), transformedR.getBottom(), transformedR.getRight(), maxFrameSize * 2)); // bottom
-                pendingDeviceSpaceClipList.clipTo(includedRegions);
+                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, transformedR.getX(), maxFrameSize * 2)); // left side
+                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(transformedR.getRight(), -maxFrameSize, maxFrameSize * 2, maxFrameSize * 2)); // right side
+                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(transformedR.getX(), -maxFrameSize, transformedR.getRight(), transformedR.getY())); // top
+                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(transformedR.getX(), transformedR.getBottom(), transformedR.getRight(), maxFrameSize * 2)); // bottom
             };
 
         //
