@@ -73,18 +73,6 @@
 
 namespace juce
 {
-#if JUCE_DEBUG
-    static String printRectList(const RectangleList<int>& list)
-    {
-        String s;
-        for (auto& r : list)
-        {
-            s << r.toString() << " - ";
-        }
-        return s;
-    }
-#endif
-
     struct Direct2DGraphicsContext::SavedState
     {
     private:
