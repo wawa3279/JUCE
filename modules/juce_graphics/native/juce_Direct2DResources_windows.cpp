@@ -28,8 +28,9 @@
 #include <d3d11_1.h>
 #include <dwrite.h>
 #include <dcomp.h>
-#include "juce_win32_Direct2DHelpers.cpp"
-#include "juce_win32_Direct2DCommandQueue.cpp"
+#include "juce_ETW_windows.h"
+#include "juce_DirectX_windows.h"
+#include "juce_Direct2DHelpers_windows.cpp"
 
 #endif
 
