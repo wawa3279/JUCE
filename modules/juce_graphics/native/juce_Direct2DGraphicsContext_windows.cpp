@@ -215,7 +215,6 @@ namespace juce
 
         void popTopLayer()
         {
-            //DBG"poptoplayer");
             if (! pushedLayers.empty())
             {
                 if (pushedLayers.back() == popLayerFlag)
@@ -1043,6 +1042,23 @@ namespace juce
         applyPendingClipList();
 
         //
+        // Put a rectangle clip layer under the image clip layer
+        //
+        // The D2D bitmap brush will extend past the boundaries of sourceImage, so clip
+        // to the sourceImage bounds
+        //
+        auto brushTransform = currentState->currentTransform.getTransformWith(transform);
+        {
+            D2D1_RECT_F sourceImageRectF = direct2d::rectangleToRectF(sourceImage.getBounds());
+            ComSmartPtr<ID2D1RectangleGeometry> geometry;
+            getPimpl()->getDirect2DFactory()->CreateRectangleGeometry(sourceImageRectF, geometry.resetAndGetPointerAddress());
+            if (geometry)
+            {
+                currentState->pushTransformedRectangleGeometryClipLayer(geometry, brushTransform);
+            }
+        }
+
+        //
         // Set the clip list to the full size of the frame to match
         // the software renderer
         //
@@ -1081,7 +1097,7 @@ namespace juce
                 auto                          matrix = direct2d::transformToMatrix(brushTransform);
                 D2D1_BRUSH_PROPERTIES         brushProps = { 1.0f, matrix };
 
-                auto bitmapBrushProps = D2D1::BitmapBrushProperties(D2D1_EXTEND_MODE_CLAMP, D2D1_EXTEND_MODE_CLAMP);
+                auto bitmapBrushProps = D2D1::BitmapBrushProperties(D2D1_EXTEND_MODE_WRAP, D2D1_EXTEND_MODE_WRAP);
                 auto hr = deviceContext->CreateBitmapBrush(d2d1Bitmap, bitmapBrushProps, brushProps, brush.resetAndGetPointerAddress());
 
                 if (SUCCEEDED(hr))
