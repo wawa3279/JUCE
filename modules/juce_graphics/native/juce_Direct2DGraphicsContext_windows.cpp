@@ -156,6 +156,7 @@ namespace juce
             fillType(previousState_->fillType),
             interpolationMode(previousState_->interpolationMode)
         {
+            jassert(previousState_->pendingDeviceSpaceClipList.getNumRectangles() == 0);
             pushedLayers.reserve(32);
         }
 
@@ -446,6 +447,7 @@ namespace juce
         DirectX::DXGI::Adapter::Ptr& adapter;
         direct2d::DeviceResources& deviceResources;
         RectangleList<int> deviceSpaceClipList;
+        RectangleList<int> pendingDeviceSpaceClipList;
 
         Font font;
 
@@ -834,6 +836,8 @@ namespace juce
     bool Direct2DGraphicsContext::clipToRectangle(const Rectangle<int>& r)
     {
         auto const& transform = currentState->currentTransform;
+        auto& deviceSpaceClipList = currentState->deviceSpaceClipList;
+        auto& pendingDeviceSpaceClipList = currentState->pendingDeviceSpaceClipList;
 
         SCOPED_TRACE_EVENT_INT_RECT(etw::clipToRectangle, llgcFrameNumber, r, etw::direct2dKeyword)
 
@@ -857,7 +861,7 @@ namespace juce
             // offset instead of transforming the rectangle; the software renderer does something similar.
             //
             auto transformedR = r + transform.offset;
-            currentState->deviceSpaceClipList.clipTo(transformedR);
+            deviceSpaceClipList.clipTo(transformedR);
             pendingDeviceSpaceClipList.add(transformedR);
         }
         else if (transform.isAxisAligned())
@@ -868,7 +872,7 @@ namespace juce
             // instead of calling ID2D1DeviceContext::SetTransform
             //
             auto transformedR = transform.transformed(r);
-            currentState->deviceSpaceClipList.clipTo(transformedR);
+            deviceSpaceClipList.clipTo(transformedR);
             pendingDeviceSpaceClipList.add(transformedR);
         }
         else
@@ -876,7 +880,7 @@ namespace juce
             //
             // Match the software renderer by setting the clip list to the full size of the frame
             //
-            currentState->deviceSpaceClipList = getPimpl()->getFrameSize();
+            deviceSpaceClipList = getPimpl()->getFrameSize();
 
             //
             // The current transform is too complex to pre-transform the rectangle, so just add the
@@ -894,6 +898,8 @@ namespace juce
         SCOPED_TRACE_EVENT_INT_RECT_LIST(etw::clipToRectangleList, llgcFrameNumber, newClipList, etw::direct2dKeyword)
 
         auto const& transform = currentState->currentTransform;
+        auto& deviceSpaceClipList = currentState->deviceSpaceClipList;
+        auto& pendingDeviceSpaceClipList = currentState->pendingDeviceSpaceClipList;
 
         //
         // This works a lot like clipToRect
@@ -909,14 +915,14 @@ namespace juce
 
         if (transform.isIdentity())
         {
-            currentState->deviceSpaceClipList.clipTo(newClipList);
+            deviceSpaceClipList.clipTo(newClipList);
             pendingDeviceSpaceClipList.add(newClipList);
         }
         else if (currentState->currentTransform.isOnlyTranslated)
         {
             RectangleList<int> offsetList(newClipList);
             offsetList.offsetAll(transform.offset);
-            currentState->deviceSpaceClipList.clipTo(offsetList);
+            deviceSpaceClipList.clipTo(offsetList);
 
             pendingDeviceSpaceClipList.add(newClipList);
         }
@@ -927,12 +933,12 @@ namespace juce
             for (auto& i : newClipList)
                 scaledList.add(transform.transformed(i));
 
-            currentState->deviceSpaceClipList.clipTo(scaledList);
+            deviceSpaceClipList.clipTo(scaledList);
             pendingDeviceSpaceClipList.add(scaledList);
         }
         else
         {
-            currentState->deviceSpaceClipList = getPimpl()->getFrameSize();
+            deviceSpaceClipList = getPimpl()->getFrameSize();
 
             pendingDeviceSpaceClipList.add(newClipList);
         }
@@ -943,6 +949,8 @@ namespace juce
     void Direct2DGraphicsContext::excludeClipRectangle(const Rectangle<int>& userSpaceExcludedRectangle)
     {
         auto const& transform = currentState->currentTransform;
+        auto& deviceSpaceClipList = currentState->deviceSpaceClipList;
+        auto& pendingDeviceSpaceClipList = currentState->pendingDeviceSpaceClipList;
 
         SCOPED_TRACE_EVENT_INT_RECT(etw::excludeClipRectangle, llgcFrameNumber, userSpaceExcludedRectangle, etw::direct2dKeyword)
 
@@ -962,7 +970,7 @@ namespace juce
         //
         auto adjustClipLists = [&](Rectangle<int> transformedR)
             {
-                currentState->deviceSpaceClipList.subtract(transformedR);
+                deviceSpaceClipList.subtract(transformedR);
 
                 if (transformedR.contains(getPimpl()->getFrameSize()))
                 {
@@ -1212,13 +1220,6 @@ namespace juce
             currentState->interpolationMode = D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC;
             break;
         }
-    }
-
-    void Direct2DGraphicsContext::fillAll()
-    {
-        applyPendingClipList();
-
-        LowLevelGraphicsContext::fillAll();
     }
 
     void Direct2DGraphicsContext::fillRect(const Rectangle<int>& r, bool replaceExistingContents)
@@ -1934,6 +1935,8 @@ namespace juce
 
     void Direct2DGraphicsContext::applyPendingClipList()
     {
+        auto& pendingDeviceSpaceClipList = currentState->pendingDeviceSpaceClipList;
+
         if (pendingDeviceSpaceClipList.getNumRectangles() <= 0)
         {
             return;

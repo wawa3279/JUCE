@@ -194,7 +194,6 @@ public:
     void setInterpolationQuality (Graphics::ResamplingQuality) override;
 
     //==============================================================================
-    void fillAll() override;
     void fillRect (const Rectangle<int>&, bool replaceExistingContents) override;
     void fillRect (const Rectangle<float>&) override;
     void fillRectList (const RectangleList<float>&) override;
@@ -271,7 +270,6 @@ public:
 protected:
     struct SavedState;
     SavedState* currentState = nullptr;
-    RectangleList<int> pendingDeviceSpaceClipList;
 
     struct Pimpl;
     virtual Pimpl* getPimpl() const noexcept = 0;
