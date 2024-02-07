@@ -505,9 +505,6 @@ namespace juce
         {
             setTargetAlpha(1.0f);
 
-            D2D1_RECT_F rect{ 0.0f, 0.0f, 1.0f, 1.0f };
-            directX->direct2D.getFactory()->CreateRectangleGeometry(rect, rectangleGeometryUnitSize.resetAndGetPointerAddress());
-
             directX->dxgi.adapters.listeners.add(this);
 
 #if JUCE_DIRECT2D_METRICS
@@ -745,12 +742,10 @@ namespace juce
             }
         }
 
-        ComSmartPtr<ID2D1RectangleGeometry> rectangleGeometryUnitSize;
         direct2d::DirectWriteGlyphRun       glyphRun;
         bool                                opaque = true;
         float                               targetAlpha = 1.0f;
         D2D1_COLOR_F                        backgroundColor{};
-        RectangleList<int> exclusionRectangles{ { -maxFrameSize, -maxFrameSize, maxFrameSize * 2, maxFrameSize * 2 } };
 
     private:
         HWND                                hwnd = nullptr;
@@ -1093,7 +1088,6 @@ namespace juce
                 // As usual, apply the current transform first *then* the transform parameter
                 //
                 ComSmartPtr<ID2D1BitmapBrush> brush;
-                auto                          brushTransform = currentState->currentTransform.getTransformWith(transform);
                 auto                          matrix = direct2d::transformToMatrix(brushTransform);
                 D2D1_BRUSH_PROPERTIES         brushProps = { 1.0f, matrix };
 
@@ -1142,6 +1136,8 @@ namespace juce
     void Direct2DGraphicsContext::saveState()
     {
         SCOPED_TRACE_EVENT(etw::saveState, llgcFrameNumber, etw::direct2dKeyword);
+
+        applyPendingClipList();
 
         currentState = getPimpl()->pushSavedState();
     }
@@ -1216,6 +1212,13 @@ namespace juce
             currentState->interpolationMode = D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC;
             break;
         }
+    }
+
+    void Direct2DGraphicsContext::fillAll()
+    {
+        applyPendingClipList();
+
+        LowLevelGraphicsContext::fillAll();
     }
 
     void Direct2DGraphicsContext::fillRect(const Rectangle<int>& r, bool replaceExistingContents)
@@ -1942,8 +1945,7 @@ namespace juce
             return;
         }
 
-        AffineTransform geometryTransform;
-
+        AffineTransform clipTransform;
         if (currentState->currentTransform.isOnlyTranslated || currentState->currentTransform.isAxisAligned())
         {
             if (pendingDeviceSpaceClipList.getNumRectangles() == 1)
@@ -1955,12 +1957,12 @@ namespace juce
         }
         else
         {
-            geometryTransform = currentState->currentTransform.getTransform();
+            clipTransform = currentState->currentTransform.getTransform();
         }
 
         if (auto clipGeometry = direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(),
             pendingDeviceSpaceClipList,
-            geometryTransform,
+            clipTransform,
             D2D1_FILL_MODE_WINDING,
             D2D1_FIGURE_BEGIN_FILLED))
         {
