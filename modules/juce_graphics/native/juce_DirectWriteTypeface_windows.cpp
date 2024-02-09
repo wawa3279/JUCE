@@ -96,6 +96,8 @@ public:
         // Fonts like: Times New Roman, Times New Roman Bold, Times New Roman Italic are all in the same font family
         ComSmartPtr<IDWriteFontFamily> dwFontFamily;
         hr = fontCollection->GetFontFamily (fontIndex, dwFontFamily.resetAndGetPointerAddress());
+        if (!dwFontFamily || FAILED(hr))
+            return;
 
         // Get a specific font in the font family using typeface style
         {

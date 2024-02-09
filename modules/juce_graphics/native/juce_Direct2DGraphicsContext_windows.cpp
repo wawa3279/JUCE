@@ -709,9 +709,9 @@ namespace juce
             return directWrite->getFactory();
         }
 
-        auto getSystemFonts()
+        auto getFontCollection()
         {
-            return directWrite->getSystemFonts();
+            return directWrite->getFontCollection();
         }
 
         auto& getFilledGeometryCache()
@@ -1669,7 +1669,7 @@ namespace juce
 
         auto deviceContext = getPimpl()->getDeviceContext();
         auto directWriteFactory = getPimpl()->getDirectWriteFactory();
-        auto fontCollection = getPimpl()->getSystemFonts();
+        auto fontCollection = getPimpl()->getFontCollection();
 
         auto brush = currentState->getBrush(SavedState::BrushTransformFlags::applyFillTypeTransform);
 

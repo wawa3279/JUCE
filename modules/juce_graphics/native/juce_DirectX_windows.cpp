@@ -23,6 +23,82 @@ namespace juce
 //
 // DirectWrite
 //
+struct DirectWrite::FontCollectionCollection : public ComBaseClassHelper<IDWriteFontCollection>
+{
+    FontCollectionCollection(IDWriteFactory* factory)
+    {
+        factory->GetSystemFontCollection(systemFonts.resetAndGetPointerAddress());
+        if (systemFonts)
+        {
+            collections.emplace_back(systemFonts);
+        }
+    }
+
+    ~FontCollectionCollection() override = default;
+
+    STDMETHOD_(UINT32, GetFontFamilyCount()) override
+    {
+        UINT32 total = 0;
+        for (auto collection : collections)
+        {
+            if (collection)
+                total += collection->GetFontFamilyCount();
+        }
+
+        return total;
+    }
+
+    STDMETHOD(GetFontFamily)(UINT32 index, IDWriteFontFamily** fontFamily) override
+    {
+        for (auto collection : collections)
+        {
+            if (index < collection->GetFontFamilyCount())
+                return collection->GetFontFamily(index, fontFamily);
+
+            index -= collection->GetFontFamilyCount();
+        }
+
+        *fontFamily = nullptr;
+        return E_FAIL;
+    }
+
+    STDMETHOD(FindFamilyName)(const WCHAR* familyName, UINT32* index, BOOL* exists) override
+    {
+        UINT32 baseIndex = 0;
+        for (auto collection : collections)
+        {
+            if (collection)
+            {
+                if (auto hr = collection->FindFamilyName(familyName, index, exists); *exists || FAILED(hr))
+                {
+                    *index += baseIndex;
+                    return hr;
+                }
+
+                baseIndex += collection->GetFontFamilyCount();
+            }
+        }
+
+        *index = UINT_MAX;
+        *exists = FALSE;
+        return S_OK;
+    }
+
+    STDMETHOD(GetFontFromFontFace)(IDWriteFontFace* fontFace, IDWriteFont** font) noexcept override
+    {
+        for (auto collection : collections)
+        {
+            if (auto hr = collection->GetFontFromFontFace(fontFace, font); SUCCEEDED(hr))
+                return hr;
+        }
+
+        return DWRITE_E_NOFONT;
+    }
+
+    ComSmartPtr<IDWriteFontCollection> systemFonts;
+    OwnedArray<DirectWriteCustomFontCollectionLoader> customFontCollectionLoaders;
+    std::vector<ComSmartPtr<IDWriteFontCollection>> collections;
+};
 
 DirectWrite::DirectWrite()
 {
@@ -36,7 +112,7 @@ DirectWrite::DirectWrite()
 
     if (directWriteFactory != nullptr)
     {
-        directWriteFactory->GetSystemFontCollection(systemFonts.resetAndGetPointerAddress());
+        fontCollectionCollection = std::make_unique<FontCollectionCollection>(directWriteFactory);
     }
 }
 
@@ -47,17 +123,17 @@ DirectWrite::~DirectWrite()
         //
         // Unregister all the custom font stuff and then clear the array before releasing the factories
         //
-        for (auto customFontCollectionLoader : customFontCollectionLoaders)
+        for (auto customFontCollectionLoader : fontCollectionCollection->customFontCollectionLoaders)
         {
             directWriteFactory->UnregisterFontCollectionLoader(customFontCollectionLoader);
             directWriteFactory->UnregisterFontFileLoader(customFontCollectionLoader->getFontFileLoader());
         }
 
-        customFontCollectionLoaders.clear();
+        fontCollectionCollection->customFontCollectionLoaders.clear();
     }
 
     directWriteFactory = nullptr;
-    systemFonts = nullptr;
+    fontCollectionCollection->systemFonts = nullptr;
 }
 
 IDWriteFontFamily* DirectWrite::getFontFamilyForRawData(const void* data, size_t dataSize)
@@ -69,7 +145,7 @@ IDWriteFontFamily* DirectWrite::getFontFamilyForRawData(const void* data, size_t
     if (directWriteFactory != nullptr)
     {
         DirectWriteCustomFontCollectionLoader* customFontCollectionLoader = nullptr;
-        for (auto loader : customFontCollectionLoaders)
+        for (auto loader : fontCollectionCollection->customFontCollectionLoaders)
         {
             if (loader->hasRawData(data, dataSize))
             {
@@ -80,7 +156,7 @@ IDWriteFontFamily* DirectWrite::getFontFamilyForRawData(const void* data, size_t
 
         if (customFontCollectionLoader == nullptr)
         {
-            customFontCollectionLoader = customFontCollectionLoaders.add(new DirectWriteCustomFontCollectionLoader{ data, dataSize });
+            customFontCollectionLoader = fontCollectionCollection->customFontCollectionLoaders.add(new DirectWriteCustomFontCollectionLoader{ data, dataSize });
 
             directWriteFactory->RegisterFontFileLoader(customFontCollectionLoader->getFontFileLoader());
             directWriteFactory->RegisterFontCollectionLoader(customFontCollectionLoader);
@@ -89,6 +165,11 @@ IDWriteFontFamily* DirectWrite::getFontFamilyForRawData(const void* data, size_t
                 &customFontCollectionLoader->key,
                 sizeof(customFontCollectionLoader->key),
                 customFontCollectionLoader->customFontCollection.resetAndGetPointerAddress());
+
+            if (customFontCollectionLoader->customFontCollection)
+            {
+                fontCollectionCollection->collections.emplace_back(customFontCollectionLoader->customFontCollection);
+            }
         }
 
         if (customFontCollectionLoader != nullptr && customFontCollectionLoader->customFontCollection != nullptr)
@@ -104,7 +185,6 @@ IDWriteFontFamily* DirectWrite::getFontFamilyForRawData(const void* data, size_t
 
     return nullptr;
 }
-
 
 //==============================================================================
 //

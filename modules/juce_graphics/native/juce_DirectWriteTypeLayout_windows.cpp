@@ -515,7 +515,7 @@ bool TextLayout::createNativeLayout ([[maybe_unused]] const AttributedString& te
     SharedResourcePointer<DirectX> directX;
     auto d2dFactory = directX->direct2D.getFactory();
     auto directWriteFactory = directWrite->getFactory();
-    auto systemFonts = directWrite->getSystemFonts();
+    auto systemFonts = directWrite->getFontCollection();
     auto directWriteRenderTarget = directX->direct2D.getDirectWriteRenderTarget();
     if (d2dFactory != nullptr
         && directWriteFactory

@@ -37,14 +37,14 @@ public:
     ~DirectWrite();
 
     IDWriteFactory* getFactory() const { return directWriteFactory; }
-    IDWriteFontCollection* getSystemFonts() const { return systemFonts; }
+    IDWriteFontCollection* getFontCollection() const { return (IDWriteFontCollection*) fontCollectionCollection.get(); }
     IDWriteFontFamily* getFontFamilyForRawData(const void* data, size_t dataSize);
-    OwnedArray<DirectWriteCustomFontCollectionLoader>& getCustomFontCollectionLoaders() { return customFontCollectionLoaders; }
 
 private:
     ComSmartPtr<IDWriteFactory> directWriteFactory;
-    ComSmartPtr<IDWriteFontCollection> systemFonts;
-    OwnedArray<DirectWriteCustomFontCollectionLoader> customFontCollectionLoaders;
+
+    struct FontCollectionCollection;
+    std::unique_ptr<FontCollectionCollection> fontCollectionCollection;
 };
 
 struct DirectX

@@ -308,6 +308,9 @@ namespace juce
             {
                 deviceResources.deviceContext.createHwndRenderTarget(hwnd);
 
+                //
+                // Clear the GDI redirection bitmap using a Direct2D 1.0 render target
+                //
                 auto& hwndRenderTarget = deviceResources.deviceContext.hwndRenderTarget;
                 if (hwndRenderTarget)
                 {
@@ -567,9 +570,9 @@ namespace juce
             return directWrite->getFactory();
         }
 
-        auto getSystemFonts()
+        auto getFontCollection()
         {
-            return directWrite->getSystemFonts();
+            return directWrite->getFontCollection();
         }
 
         Image createSnapshot(direct2d::DPIScalableArea<int> scalableArea)
