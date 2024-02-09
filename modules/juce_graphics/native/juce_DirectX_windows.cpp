@@ -23,6 +23,12 @@ namespace juce
 //
 // DirectWrite
 //
+// FontCollectionCollection is a collection of IDWriteFontCollection objects
+//
+// There's quite a bit of code that relies on the DirectWrite system font collection;
+// rather than rewrite all that code, FontCollectionCollection aggregates the system fonts
+// along with any custom fonts to present a unified single font collection to the user.
+//
 struct DirectWrite::FontCollectionCollection : public ComBaseClassHelper<IDWriteFontCollection>
 {
     FontCollectionCollection(IDWriteFactory* factory)

@@ -1128,7 +1128,7 @@ namespace juce
             return currentState->deviceSpaceClipList.intersectsRectangle(currentState->currentTransform.translated(r));
         }
 
-        return currentState->deviceSpaceClipList.intersectsRectangle(r);
+        return currentState->deviceSpaceClipList.intersectsRectangle(currentState->currentTransform.transformed(r));
     }
 
     Rectangle<int> Direct2DGraphicsContext::getClipBounds() const
