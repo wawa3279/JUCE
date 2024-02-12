@@ -118,7 +118,7 @@ struct DirectX
 
             void release()
             {
-                __try
+                try
                 {
                     direct2DDevice = nullptr;
                     dxgiDevice = nullptr;
@@ -126,8 +126,9 @@ struct DirectX
                     dxgiOutputs.clear();
                     dxgiAdapter = nullptr;
                 }
-                __except (EXCEPTION_EXECUTE_HANDLER)
+                catch (...)
                 {
+                    jassertfalse;
                 }
             }
 
