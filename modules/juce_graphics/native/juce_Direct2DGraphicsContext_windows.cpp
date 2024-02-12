@@ -189,6 +189,10 @@ namespace juce
 
         void pushTransformedRectangleGeometryClipLayer(ComSmartPtr<ID2D1RectangleGeometry> geometry, AffineTransform const& transform)
         {
+#if JUCE_DIRECT2D_METRICS
+            direct2d::ScopedElapsedTime set{ owner.paintStats, direct2d::PaintStats::pushGeometryLayerTime };
+#endif
+
             jassert(geometry != nullptr);
             auto layerParameters = D2D1::LayerParameters(D2D1::InfiniteRect(), geometry);
             layerParameters.maskTransform = direct2d::transformToMatrix(transform);
@@ -197,6 +201,10 @@ namespace juce
 
         void pushAxisAlignedClipLayer(Rectangle<float> r)
         {
+#if JUCE_DIRECT2D_METRICS
+            direct2d::ScopedElapsedTime set{ owner.paintStats, direct2d::PaintStats::pushAxisAlignedLayerTime };
+#endif
+
             deviceResources.deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
             pushedLayers.emplace_back(popAxisAlignedLayerFlag);
         }
