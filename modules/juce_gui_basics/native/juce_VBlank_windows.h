@@ -173,6 +173,7 @@ public:
         if (threadWithListener != threads.end())
             removeListener (threadWithListener, listener);
 
+        SharedResourcePointer<DirectX> directX;
         for (const auto& adapter : directX->dxgi.adapters.getAdapterArray())
         {
             UINT i = 0;
@@ -200,6 +201,7 @@ public:
 
     void reconfigureDisplays()
     {
+        SharedResourcePointer<DirectX> directX;
         directX->dxgi.adapters.updateAdapters();
 
         for (auto& thread : threads)
@@ -244,7 +246,6 @@ private:
     }
 
     //==============================================================================
-    SharedResourcePointer<DirectX> directX;
     Threads threads;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VBlankDispatcher)
