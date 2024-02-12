@@ -333,7 +333,7 @@ namespace juce
         return {};
     }
 
-    std::optional<juce::Image> Direct2DPixelData::applyNativeEffect(ID2D1Effect* effect)
+    std::optional<Image> Direct2DPixelData::applyNativeEffect(ID2D1Effect* effect)
     {
         auto hash = getEffectImageHash();
         auto outputImage = ImageCache::getFromHashCode(hash);

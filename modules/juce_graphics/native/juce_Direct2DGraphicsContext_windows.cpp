@@ -852,7 +852,7 @@ namespace juce
         //
         // The renderer needs to keep track of the aggregate clip rectangles in order to correctly report the
         // clip region to the caller. The renderer also needs to push Direct2D clip layers to the device context
-        // to perform the actual clipping. The reported clip region will not necesssarily match the Direct2D clip region
+        // to perform the actual clipping. The reported clip region will not necessarily match the Direct2D clip region
         // if the clip region is transformed, or the clip region is an image or a path.
         //
         // Pushing Direct2D clip layers is expensive and there's no need to clip until something is actually drawn.
@@ -885,10 +885,8 @@ namespace juce
         }
         else
         {
-            //
-            // Match the software renderer by setting the clip list to the full size of the frame
-            //
-            deviceSpaceClipList = getPimpl()->getFrameSize();
+            auto transformedR = transform.transformed(r);
+            deviceSpaceClipList.clipTo(transformedR);
 
             //
             // The current transform is too complex to pre-transform the rectangle, so just add the
@@ -946,7 +944,8 @@ namespace juce
         }
         else
         {
-            deviceSpaceClipList = getPimpl()->getFrameSize();
+            auto transformedBounds = transform.transformed(newClipList.getBounds());
+            deviceSpaceClipList.clipTo(transformedBounds);
 
             pendingDeviceSpaceClipList.add(newClipList);
         }
@@ -976,22 +975,15 @@ namespace juce
         //
         // Conceptually, the L, T, R, and B rectangles each go out to infinity. The renderer clips to the union of the L, T, R, and B rectangles.
         //
-        auto adjustClipLists = [&](Rectangle<int> transformedR)
+        auto addInclusionRectangles = [&](Rectangle<int> exclusionR)
             {
-                deviceSpaceClipList.subtract(transformedR);
-
-                if (transformedR.contains(getPimpl()->getFrameSize()))
-                {
-                    return;
-                }
-
                 //
                 // Maybe these should overlap?
                 //
-                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, transformedR.getX(), maxFrameSize * 2)); // left side
-                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(transformedR.getRight(), -maxFrameSize, maxFrameSize * 2, maxFrameSize * 2)); // right side
-                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(transformedR.getX(), -maxFrameSize, transformedR.getRight(), transformedR.getY())); // top
-                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(transformedR.getX(), transformedR.getBottom(), transformedR.getRight(), maxFrameSize * 2)); // bottom
+                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, exclusionR.getX(), maxFrameSize * 2)); // left side
+                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getRight(), -maxFrameSize, maxFrameSize * 2, maxFrameSize * 2)); // right side
+                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getX(), -maxFrameSize, exclusionR.getRight(), exclusionR.getY())); // top
+                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getX(), exclusionR.getBottom(), exclusionR.getRight(), maxFrameSize * 2)); // bottom
             };
 
         //
@@ -999,26 +991,39 @@ namespace juce
         //
         // As always, try to avoid setting ID2D1DeviceContext::SetTransform
         //
+        auto frameSize = getPimpl()->getFrameSize();
         if (transform.isOnlyTranslated)
         {
             //
             // Just a translation; pre-translate the exclusion area
             //
-            adjustClipLists(transform.translated(userSpaceExcludedRectangle));
+            auto translatedR = transform.translated(userSpaceExcludedRectangle);
+            if (!translatedR.contains(frameSize))
+            {
+                deviceSpaceClipList.subtract(translatedR);
+                addInclusionRectangles(userSpaceExcludedRectangle);
+            }
         }
         else if (transform.isAxisAligned())
         {
             //
             // Just a scale + translation; pre-transform the exclusion area
             //
-            adjustClipLists(transform.transformed(userSpaceExcludedRectangle));
+            auto transformedR = transform.transformed(userSpaceExcludedRectangle);
+            if (!transformedR.contains(frameSize))
+            {
+                deviceSpaceClipList.subtract(transformedR);
+                addInclusionRectangles(transformedR);
+            }
         }
         else
         {
             //
-            // Complex transform; don't pre-transform and plan to set the device context transform later
+            // Complex transform; plan to set the device context transform later
             //
-            adjustClipLists(userSpaceExcludedRectangle);
+            auto transformedR = transform.transformed(userSpaceExcludedRectangle);
+            deviceSpaceClipList.subtract(transformedR);
+            addInclusionRectangles(userSpaceExcludedRectangle);
         }
     }
 
@@ -1032,12 +1037,14 @@ namespace juce
         // Set the clip list to the full size of the frame to match
         // the software renderer
         //
-        currentState->deviceSpaceClipList = getPimpl()->getFrameSize();
+        auto pathTransform = currentState->currentTransform.getTransformWith(transform);
+        auto transformedBounds = path.getBounds().transformedBy(pathTransform);
+        currentState->deviceSpaceClipList.clipTo(transformedBounds.toNearestIntEdges());
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             currentState->pushGeometryClipLayer(
-                direct2d::pathToPathGeometry(getPimpl()->getDirect2DFactory(), path, currentState->currentTransform.getTransformWith(transform), D2D1_FIGURE_BEGIN_FILLED));
+                direct2d::pathToPathGeometry(getPimpl()->getDirect2DFactory(), path, pathTransform, D2D1_FIGURE_BEGIN_FILLED));
         }
     }
 
