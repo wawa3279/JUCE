@@ -118,11 +118,17 @@ struct DirectX
 
             void release()
             {
-                direct2DDevice = nullptr;
-                dxgiDevice = nullptr;
-                direct3DDevice = nullptr;
-                dxgiOutputs.clear();
-                dxgiAdapter = nullptr;
+                __try
+                {
+                    direct2DDevice = nullptr;
+                    dxgiDevice = nullptr;
+                    direct3DDevice = nullptr;
+                    dxgiOutputs.clear();
+                    dxgiAdapter = nullptr;
+                }
+                __except (EXCEPTION_EXECUTE_HANDLER)
+                {
+                }
             }
 
             bool uniqueIDMatches(ReferenceCountedObjectPtr<Adapter> other)
