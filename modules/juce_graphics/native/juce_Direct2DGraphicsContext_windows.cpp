@@ -989,10 +989,10 @@ namespace juce
                 //
                 // Maybe these should overlap?
                 //
-                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, exclusionR.getX(), maxFrameSize * 2)); // left side
-                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getRight(), -maxFrameSize, maxFrameSize * 2, maxFrameSize * 2)); // right side
+                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, exclusionR.getX(), maxFrameSize * 3)); // left side
+                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getRight(), -maxFrameSize, maxFrameSize * 3, maxFrameSize * 3)); // right side
                 pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getX(), -maxFrameSize, exclusionR.getRight(), exclusionR.getY())); // top
-                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getX(), exclusionR.getBottom(), exclusionR.getRight(), maxFrameSize * 2)); // bottom
+                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getX(), exclusionR.getBottom(), exclusionR.getRight(), maxFrameSize * 3)); // bottom
             };
 
         //
@@ -1010,7 +1010,7 @@ namespace juce
             if (!translatedR.contains(frameSize))
             {
                 deviceSpaceClipList.subtract(translatedR);
-                addInclusionRectangles(userSpaceExcludedRectangle);
+                addInclusionRectangles(translatedR);
             }
         }
         else if (transform.isAxisAligned())
@@ -1022,16 +1022,17 @@ namespace juce
             if (!transformedR.contains(frameSize))
             {
                 deviceSpaceClipList.subtract(transformedR);
-                addInclusionRectangles(transformedR);
+                addInclusionRectangles(transformedR.reduced(1));
             }
         }
         else
         {
+            deviceSpaceClipList = getPimpl()->getFrameSize();
+            deviceSpaceClipList.subtract(userSpaceExcludedRectangle);
+
             //
             // Complex transform; plan to set the device context transform later
             //
-            auto transformedR = transform.transformed(userSpaceExcludedRectangle);
-            deviceSpaceClipList.subtract(transformedR);
             addInclusionRectangles(userSpaceExcludedRectangle);
         }
     }
