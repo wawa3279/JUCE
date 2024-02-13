@@ -175,7 +175,6 @@ namespace juce
             // Pass nullptr for the PushLayer layer parameter to allow Direct2D to manage the layers (Windows 8 or later)
             //
             deviceResources.deviceContext.context->PushLayer(layerParameters, nullptr);
-
             pushedLayers.emplace_back(popLayerFlag);
         }
 
@@ -199,10 +198,20 @@ namespace juce
             pushLayer(layerParameters);
         }
 
-        void pushAxisAlignedClipLayer(Rectangle<float> r)
+        void pushAliasedAxisAlignedClipLayer(Rectangle<int> r)
         {
 #if JUCE_DIRECT2D_METRICS
-            direct2d::ScopedElapsedTime set{ owner.paintStats, direct2d::PaintStats::pushAxisAlignedLayerTime };
+            direct2d::ScopedElapsedTime set{ owner.paintStats, direct2d::PaintStats::pushAliasedAxisAlignedLayerTime };
+#endif
+
+            deviceResources.deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_ALIASED);
+            pushedLayers.emplace_back(popAxisAlignedLayerFlag);
+        }
+
+        void pushAntialiasedAxisAlignedClipLayer(Rectangle<float> r)
+        {
+#if JUCE_DIRECT2D_METRICS
+            direct2d::ScopedElapsedTime set{ owner.paintStats, direct2d::PaintStats::pushAntialiasedAxisAlignedLayerTime };
 #endif
 
             deviceResources.deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
@@ -788,7 +797,7 @@ namespace juce
                 auto const& paintAreas = getPimpl()->getPaintAreas();
                 if (paintAreas.getNumRectangles() == 1)
                 {
-                    currentState->pushAxisAlignedClipLayer(paintAreas.getRectangle(0).toFloat());
+                    currentState->pushAliasedAxisAlignedClipLayer(paintAreas.getRectangle(0));
                 }
                 else
                 {
@@ -1950,41 +1959,37 @@ namespace juce
 
     void Direct2DGraphicsContext::applyPendingClipList()
     {
+        auto& transform = currentState->currentTransform;
         auto& pendingDeviceSpaceClipList = currentState->pendingDeviceSpaceClipList;
 
-        if (pendingDeviceSpaceClipList.getNumRectangles() <= 0)
+        if (pendingDeviceSpaceClipList.getNumRectangles() > 0)
         {
-            return;
-        }
-
-        if (pendingDeviceSpaceClipList.containsRectangle(getPimpl()->getFrameSize()))
-        {
-            pendingDeviceSpaceClipList.clear();
-            return;
-        }
-
-        AffineTransform clipTransform;
-        if (currentState->currentTransform.isOnlyTranslated || currentState->currentTransform.isAxisAligned())
-        {
-            if (pendingDeviceSpaceClipList.getNumRectangles() == 1)
+            if (! pendingDeviceSpaceClipList.containsRectangle(getPimpl()->getFrameSize()))
             {
-                currentState->pushAxisAlignedClipLayer(pendingDeviceSpaceClipList.getRectangle(0).toFloat());
-                pendingDeviceSpaceClipList.clear();
-                return;
-            }
-        }
-        else
-        {
-            clipTransform = currentState->currentTransform.getTransform();
-        }
+                AffineTransform clipTransform;
+                if (transform.isOnlyTranslated || transform.isAxisAligned())
+                {
+                    if (pendingDeviceSpaceClipList.getNumRectangles() == 1)
+                    {
+                        currentState->pushAliasedAxisAlignedClipLayer(pendingDeviceSpaceClipList.getRectangle(0));
+                        pendingDeviceSpaceClipList.clear();
+                        return;
+                    }
+                }
+                else
+                {
+                    clipTransform = transform.getTransform();
+                }
 
-        if (auto clipGeometry = direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(),
-            pendingDeviceSpaceClipList,
-            clipTransform,
-            D2D1_FILL_MODE_WINDING,
-            D2D1_FIGURE_BEGIN_FILLED))
-        {
-            currentState->pushGeometryClipLayer(clipGeometry);
+                if (auto clipGeometry = direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(),
+                    pendingDeviceSpaceClipList,
+                    clipTransform,
+                    D2D1_FILL_MODE_WINDING,
+                    D2D1_FIGURE_BEGIN_FILLED))
+                {
+                    currentState->pushGeometryClipLayer(clipGeometry);
+                }
+            }
         }
 
         pendingDeviceSpaceClipList.clear();

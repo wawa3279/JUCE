@@ -40,7 +40,8 @@ struct PaintStats : public ReferenceCountedObject
         DIRECT2D_PAINT_STAT(createFilledGRTime) \
         DIRECT2D_PAINT_STAT(createStrokedGRTime) \
         DIRECT2D_PAINT_STAT(createGradientTime) \
-        DIRECT2D_PAINT_STAT(pushAxisAlignedLayerTime) \
+        DIRECT2D_PAINT_STAT(pushAliasedAxisAlignedLayerTime) \
+        DIRECT2D_PAINT_STAT(pushAntialiasedAxisAlignedLayerTime) \
         DIRECT2D_PAINT_STAT(pushGeometryLayerTime) \
         DIRECT2D_PAINT_STAT(fillTranslatedRectTime) \
         DIRECT2D_PAINT_STAT(fillAxisAlignedRectTime) \
