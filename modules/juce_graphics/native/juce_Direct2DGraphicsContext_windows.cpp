@@ -832,11 +832,6 @@ namespace juce
 
     void Direct2DGraphicsContext::setOrigin(Point<int> o)
     {
-        //
-        // The pending clip list is based on the position stored in currentState, so apply the pending clip list before setting the origin
-        //
-        applyPendingClipList();
-
         currentState->currentTransform.setOrigin(o);
     }
 
