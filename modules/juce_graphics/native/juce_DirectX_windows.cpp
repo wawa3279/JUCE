@@ -226,7 +226,7 @@ DirectX::Direct2D::Direct2D()
 
 DirectX::Direct2D::~Direct2D()
 {
-    d2dSharedFactory = nullptr;  // (need to make sure these are released before deleting the DynamicLibrary objects)
+    d2dSharedFactory = nullptr;
     directWriteRenderTarget = nullptr;
 }
 

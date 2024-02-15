@@ -118,18 +118,11 @@ struct DirectX
 
             void release()
             {
-                try
-                {
-                    direct2DDevice = nullptr;
-                    dxgiDevice = nullptr;
-                    direct3DDevice = nullptr;
-                    dxgiOutputs.clear();
-                    dxgiAdapter = nullptr;
-                }
-                catch (...)
-                {
-                    jassertfalse;
-                }
+                direct2DDevice = nullptr;
+                dxgiDevice = nullptr;
+                dxgiOutputs.clear();
+                dxgiAdapter = nullptr;
+                direct3DDevice = nullptr; // release the Direct3D device after the adapter to avoid an exception with AMD
             }
 
             bool uniqueIDMatches(ReferenceCountedObjectPtr<Adapter> other)
