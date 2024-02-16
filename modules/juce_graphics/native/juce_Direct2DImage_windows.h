@@ -168,7 +168,7 @@ public:
 
     float getDPIScalingFactor() const noexcept;
 
-    std::optional<Image> applyNativeDropShadowEffect(float radius, Colour color, float brightness, int frameNumber) override;
+    std::optional<Image> applyGaussianBlurEffect(float radius, int frameNumber) override;
 
     std::unique_ptr<ImageType> createType() const override;
 

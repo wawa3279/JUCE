@@ -72,16 +72,19 @@ void DropShadow::drawForImage (Graphics& g, const Image& srcImage) const
 
     if (srcImage.isValid())
     {
-        if (auto shadowedImage = srcImage.getPixelData()->applyNativeDropShadowEffect((float)radius, colour, 1.0f, g.getInternalContext().llgcFrameNumber); shadowedImage.has_value())
+        Image shadowImage;
+
+        if (auto nativeEffectImage = srcImage.getPixelData()->applyGaussianBlurEffect((float)radius, g.getInternalContext().llgcFrameNumber); nativeEffectImage.has_value())
         {
-            g.drawImageAt(*shadowedImage, offset.x, offset.y, false);
-            return;
+            shadowImage = *nativeEffectImage;
         }
+        else
+        {
+            shadowImage = srcImage.convertedToFormat(Image::SingleChannel);
+            shadowImage.duplicateIfShared();
 
-        Image shadowImage (srcImage.convertedToFormat (Image::SingleChannel));
-        shadowImage.duplicateIfShared();
-
-        blurSingleChannelImage (shadowImage, radius);
+            blurSingleChannelImage(shadowImage, radius);
+        }
 
         g.setColour (colour);
         g.drawImageAt (shadowImage, offset.x, offset.y, true);
@@ -98,22 +101,23 @@ void DropShadow::drawForPath (Graphics& g, const Path& path) const
 
     if (area.getWidth() > 2 && area.getHeight() > 2)
     {
-        Image renderedPath (Image::SingleChannel, area.getWidth(), area.getHeight(), true);
+        Image renderedPath(Image::SingleChannel, area.getWidth(), area.getHeight(), true);
 
         {
-            Graphics g2 (renderedPath);
-            g2.setColour (Colours::white);
-            g2.fillPath (path, AffineTransform::translation ((float) (offset.x - area.getX()),
-                                                             (float) (offset.y - area.getY())));
+            Graphics g2(renderedPath);
+            g2.setColour(Colours::white);
+            g2.fillPath(path, AffineTransform::translation((float)(offset.x - area.getX()),
+                (float)(offset.y - area.getY())));
         }
 
-        if (auto shadowedImage = renderedPath.getPixelData()->applyNativeDropShadowEffect((float)radius, colour, 1.0f, g.getInternalContext().llgcFrameNumber); shadowedImage.has_value())
+        if (auto shadowedImage = renderedPath.getPixelData()->applyGaussianBlurEffect((float)radius,g.getInternalContext().llgcFrameNumber); shadowedImage.has_value())
         {
-            g.drawImageAt(*shadowedImage, offset.x, offset.y, false);
-            return;
+            renderedPath = *shadowedImage;
         }
-
-        blurSingleChannelImage (renderedPath, radius);
+        else
+        {
+            blurSingleChannelImage(renderedPath, radius);
+        }
 
         g.setColour (colour);
         g.drawImageAt (renderedPath, area.getX(), area.getY(), true);

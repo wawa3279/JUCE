@@ -305,7 +305,7 @@ namespace juce
         return bitmapArea.getDPIScalingFactor();
     }
 
-    std::optional<Image> Direct2DPixelData::applyNativeDropShadowEffect(float radius, Colour colour, float brightness, [[maybe_unused]] int frameNumber)
+    std::optional<Image> Direct2DPixelData::applyGaussianBlurEffect(float radius, [[maybe_unused]] int frameNumber)
     {
         SCOPED_TRACE_EVENT(etw::nativeDropShadow, frameNumber, etw::graphicsKeyword);
 
@@ -313,19 +313,11 @@ namespace juce
 
         if (deviceResources.deviceContext.context)
         {
-            deviceResources.deviceContext.context->CreateEffect(CLSID_D2D1Shadow, effect.resetAndGetPointerAddress());
+            deviceResources.deviceContext.context->CreateEffect(CLSID_D2D1GaussianBlur, effect.resetAndGetPointerAddress());
             if (effect)
             {
                 effect->SetInput(0, getAdapterD2D1Bitmap(imageAdapter));
-                effect->SetValue(D2D1_SHADOW_PROP_BLUR_STANDARD_DEVIATION, radius / 4.5f);
-
-                auto d2dColor = direct2d::colourToD2D(colour);
-                d2dColor.a *= brightness;
-                d2dColor.r *= brightness;
-                d2dColor.g *= brightness;
-                d2dColor.b *= brightness;
-                effect->SetValue(D2D1_SHADOW_PROP_COLOR, d2dColor);
-
+                effect->SetValue(D2D1_GAUSSIANBLUR_PROP_STANDARD_DEVIATION, radius / 6.0f);
                 return applyNativeEffect(effect);
             }
         }

@@ -33,11 +33,9 @@ void GlowEffect::applyEffect (Image& image, Graphics& g, float scaleFactor, floa
 {
     Image temp;
 
-    if (auto blurredImage = image.getPixelData()->applyNativeDropShadowEffect(radius * 4.0f, colour, 4.0f, g.getInternalContext().llgcFrameNumber); blurredImage.has_value())
+    if (auto blurredImage = image.getPixelData()->applyGaussianBlurEffect(radius * 4.0f, g.getInternalContext().llgcFrameNumber); blurredImage.has_value())
     {
         temp = *blurredImage;
-
-        g.drawImageAt(*blurredImage, offset.x, offset.y, false);
     }
     else
     {
@@ -49,10 +47,10 @@ void GlowEffect::applyEffect (Image& image, Graphics& g, float scaleFactor, floa
         blurKernel.rescaleAllValues(radius);
 
         blurKernel.applyToImage (temp, image, image.getBounds());
-
-        g.setColour(colour.withMultipliedAlpha(alpha));
-        g.drawImageAt(temp, offset.x, offset.y, true);
     }
+
+    g.setColour(colour.withMultipliedAlpha(alpha));
+    g.drawImageAt(temp, offset.x, offset.y, true);
 
     g.setOpacity (alpha);
     g.drawImageAt (image, offset.x, offset.y, false);
