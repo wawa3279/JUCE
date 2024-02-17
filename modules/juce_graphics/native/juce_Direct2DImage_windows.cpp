@@ -317,7 +317,7 @@ namespace juce
             if (effect)
             {
                 effect->SetInput(0, getAdapterD2D1Bitmap(imageAdapter));
-                effect->SetValue(D2D1_GAUSSIANBLUR_PROP_STANDARD_DEVIATION, radius / 6.0f);
+                effect->SetValue(D2D1_GAUSSIANBLUR_PROP_STANDARD_DEVIATION, radius / 8.0f);
                 return applyNativeEffect(effect);
             }
         }
