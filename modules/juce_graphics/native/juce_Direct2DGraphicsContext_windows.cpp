@@ -203,18 +203,7 @@ namespace juce
 #if JUCE_DIRECT2D_METRICS
             direct2d::ScopedElapsedTime set{ owner.paintStats, direct2d::PaintStats::pushAliasedAxisAlignedLayerTime };
 #endif
-
             deviceResources.deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_ALIASED);
-            pushedLayers.emplace_back(popAxisAlignedLayerFlag);
-        }
-
-        void pushAntialiasedAxisAlignedClipLayer(Rectangle<float> r)
-        {
-#if JUCE_DIRECT2D_METRICS
-            direct2d::ScopedElapsedTime set{ owner.paintStats, direct2d::PaintStats::pushAntialiasedAxisAlignedLayerTime };
-#endif
-
-            deviceResources.deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
             pushedLayers.emplace_back(popAxisAlignedLayerFlag);
         }
 

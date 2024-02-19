@@ -489,66 +489,64 @@ bool Component::isOpaque() const noexcept
 }
 
 //==============================================================================
-struct StandardCachedComponentImage final : public CachedComponentImage
+
+StandardCachedComponentImage::StandardCachedComponentImage(Component& c) noexcept : owner(c) {}
+
+void StandardCachedComponentImage::paint(Graphics& g)
 {
-    StandardCachedComponentImage (Component& c) noexcept : owner (c)  {}
+    scale = g.getInternalContext().getPhysicalPixelScaleFactor();
+    auto compBounds = owner.getLocalBounds();
+    auto imageBounds = compBounds * scale;
 
-    void paint (Graphics& g) override
+    if (image.isNull() || image.getBounds() != imageBounds)
     {
-        scale = g.getInternalContext().getPhysicalPixelScaleFactor();
-        auto compBounds = owner.getLocalBounds();
-        auto imageBounds = compBounds * scale;
+        image = Image(owner.isOpaque() ? Image::RGB
+            : Image::ARGB,
+            jmax(1, imageBounds.getWidth()),
+            jmax(1, imageBounds.getHeight()),
+            !owner.isOpaque());
 
-        if (image.isNull() || image.getBounds() != imageBounds)
-        {
-            image = Image (owner.isOpaque() ? Image::RGB
-                                            : Image::ARGB,
-                           jmax (1, imageBounds.getWidth()),
-                           jmax (1, imageBounds.getHeight()),
-                           ! owner.isOpaque());
-
-            validArea.clear();
-        }
-
-        if (! validArea.containsRectangle (compBounds))
-        {
-            Graphics imG (image);
-            auto& lg = imG.getInternalContext();
-
-            lg.addTransform (AffineTransform::scale (scale));
-
-            for (auto& i : validArea)
-                lg.excludeClipRectangle (i);
-
-            if (! owner.isOpaque())
-            {
-                lg.setFill (Colours::transparentBlack);
-                lg.fillRect (compBounds, true);
-                lg.setFill (Colours::black);
-            }
-
-            owner.paintEntireComponent (imG, true);
-        }
-
-        validArea = compBounds;
-
-        g.setColour (Colours::black.withAlpha (owner.getAlpha()));
-        g.drawImageTransformed (image, AffineTransform::scale ((float) compBounds.getWidth()  / (float) imageBounds.getWidth(),
-                                                               (float) compBounds.getHeight() / (float) imageBounds.getHeight()), false);
+        validArea.clear();
     }
 
-    bool invalidateAll() override                            { validArea.clear(); return true; }
-    bool invalidate (const Rectangle<int>& area) override    { validArea.subtract (area); return true; }
-    void releaseResources() override                         { image = Image(); }
+    if (!validArea.containsRectangle(compBounds))
+    {
+        Graphics imG(image);
+        auto& lg = imG.getInternalContext();
 
-private:
-    Image image;
-    RectangleList<int> validArea;
-    Component& owner;
-    float scale = 1.0f;
+        lg.addTransform(AffineTransform::scale(scale));
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StandardCachedComponentImage)
-};
+        for (auto& i : validArea)
+            lg.excludeClipRectangle(i);
+
+        if (!owner.isOpaque())
+        {
+            lg.setFill(Colours::transparentBlack);
+            lg.fillRect(compBounds, true);
+            lg.setFill(Colours::black);
+        }
+
+        owner.paintEntireComponent(imG, true);
+    }
+
+    validArea = compBounds;
+
+    g.setColour(Colours::black.withAlpha(owner.getAlpha()));
+    g.drawImageTransformed(image, AffineTransform::scale((float)compBounds.getWidth() / (float)imageBounds.getWidth(),
+        (float)compBounds.getHeight() / (float)imageBounds.getHeight()), false);
+}
+
+bool StandardCachedComponentImage::invalidateAll() { validArea.clear(); return true; }
+bool StandardCachedComponentImage::invalidate(const Rectangle<int>& area) { validArea.subtract(area); return true; }
+void StandardCachedComponentImage::releaseResources() { image = Image(); }
+
+#if !JUCE_WINDOWS
+static std::unique_ptr<CachedComponentImage> createNativeCachedComponentImage(Component& component)
+{
+    return std::make_unique<StandardCachedComponentImage>(component);
+}
+#endif
+
 
 void Component::setCachedComponentImage (CachedComponentImage* newCachedImage)
 {
@@ -570,7 +568,7 @@ void Component::setBufferedToImage (bool shouldBeBuffered)
     if (shouldBeBuffered)
     {
         if (cachedImage == nullptr)
-            cachedImage.reset (new StandardCachedComponentImage (*this));
+            cachedImage = createNativeCachedComponentImage (*this);
     }
     else
     {

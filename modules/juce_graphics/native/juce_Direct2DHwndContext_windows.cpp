@@ -29,8 +29,8 @@
 #include <juce_graphics/juce_graphics.h>
 #include <windows.h>
 #include "juce_ETW_windows.h"
-#include "jue_Direct2DGraphicsContext_windows.h"
-#include "jue_Direct2DGraphicsContext_windows.cpp"
+#include "juce_Direct2DGraphicsContext_windows.h"
+#include "juce_Direct2DGraphicsContext_windows.cpp"
 
 #endif
 
@@ -42,10 +42,7 @@ namespace juce
     struct Direct2DHwndContext::HwndPimpl : public Direct2DGraphicsContext::Pimpl
     {
     private:
-        float                     snappedDpiScalingFactor = 1.0f;
-        static constexpr int      dpiScalingIntConversionShift = 7;
-        static constexpr int      dpiScalingIntConversionFactor = 1 << dpiScalingIntConversionShift;
-        int                       repaintAreaPixelSnap = dpiScalingIntConversionFactor;
+        direct2d::PhysicalPixelSnapper      snapper;
         direct2d::SwapChain       swap;
         direct2d::CompositionTree compositionTree;
         direct2d::UpdateRegion    updateRegion;
@@ -75,7 +72,7 @@ namespace juce
 
             if (!deviceResources.canPaint(adapter))
             {
-                if (auto hr = deviceResources.create(adapter, snappedDpiScalingFactor); FAILED(hr))
+                if (auto hr = deviceResources.create(adapter, snapper.getDPIScaleFactor()); FAILED(hr))
                 {
                     return hr;
                 }
@@ -249,7 +246,7 @@ namespace juce
 
             if (auto deviceContext = deviceResources.deviceContext.context)
             {
-                auto hr = swap.resize(size, (float)snappedDpiScalingFactor, deviceContext);
+                auto hr = swap.resize(size, snapper.getDPIScaleFactor(), deviceContext);
                 jassert(SUCCEEDED(hr));
                 if (FAILED(hr))
                 {
@@ -260,36 +257,7 @@ namespace juce
 
         void addDeferredRepaint(Rectangle<int> deferredRepaint)
         {
-            //
-            // deferredRepaint specifies an area that needs to be painted in units of points (device-independent pixels).
-            //
-            // deferredRepaint will be used as a clipping region for the device context. The device context will scale the
-            // clipping region by the DPI scale factor. This scaled clipping region may or may not align on a physical
-            // pixel boundary.
-            //
-            // deferredRepaint will also be used to set a dirty rectangle for the swap chain. Dirty rectangles are also
-            // DPI scaled, but must align on a physical pixel boundary. The scaled clipping region may be smaller than the
-            // dirty rectangle, leaving a small unpainted gap between the clipping region and the dirty rectangle.
-            //
-            // For example - say deferredRepaint is x:1, y:3, w:97, h:99 and that DPI scaling is 125%.
-            // When scaled, the physical area in the swap chain buffer will be:
-            //
-            // { 9, 11, 97, 99 } * 1.25 == { 11.25, 13.75, 121.25, 123.75 }
-            //
-            // The component will only fill this subpixel region in the swap chain, but the swap chain dirty rectangle
-            // will be { 11, 13, 122, 124 }, meaning that the dirty rectangle will not be fully painted.
-            //
-            // The unscaled deferred repaint area needs to be extended so that the unscaled deferred repaint area. In the example above,
-            // the { 9, 11, 97, 99 } unscaled region would be expanded to { 8, 8, 100, 100 }, which scales up nicely
-            // to { 10, 10, 125, 125 }
-            //
-            // Please refer to setScaleFactor() to see how the snap factor is calculated.
-            //
-            auto snapMask = ~(repaintAreaPixelSnap - 1);
-            auto snappedRectangle = Rectangle<int>::leftTopRightBottom(deferredRepaint.getX() & snapMask,
-                deferredRepaint.getY() & snapMask,
-                (deferredRepaint.getRight() + repaintAreaPixelSnap - 1) & snapMask,
-                (deferredRepaint.getBottom() + repaintAreaPixelSnap - 1) & snapMask);
+            auto snappedRectangle = snapper.snapRectangle(deferredRepaint);
             deferredRepaints.add(snappedRectangle);
 
             TRACE_EVENT_INT_RECT(etw::repaint, snappedRectangle, etw::paintKeyword);
@@ -297,8 +265,18 @@ namespace juce
 
         void addInvalidWindowRegionToDeferredRepaints()
         {
-            updateRegion.getRECTAndValidate(hwnd);
-            updateRegion.addToRectangleList(deferredRepaints);
+            updateRegion.findRECTAndValidate(hwnd);
+
+            //
+            // Call addDeferredRepaint for each RECT in the update region to make
+            // sure they are snapped properly for DPI scaling
+            //
+            auto rectArray = updateRegion.getRECTArray();
+            for (uint32 i = 0; i < updateRegion.getNumRECT(); ++i)
+            {
+                addDeferredRepaint(direct2d::RECTToRectangle<int>(rectArray[i]));
+            }
+
             updateRegion.clear();
         }
 
@@ -400,7 +378,7 @@ namespace juce
                     //
                     // Intersect this paint area with the swap chain buffer
                     //
-                    auto intersection = (area * snappedDpiScalingFactor).getSmallestIntegerContainer().getIntersection(swapChainSize);
+                    auto intersection = (area * snapper.getDPIScaleFactor()).getSmallestIntegerContainer().getIntersection(swapChainSize);
                     if (intersection.isEmpty())
                     {
                         //
@@ -448,51 +426,7 @@ namespace juce
         {
             Pimpl::setScaleFactor(scale_);
 
-            //
-            // See addDeferredRepaint() for more information on why repaint areas need to be extended to avoid ghosting
-            //
-            // The goal here is to find the minimum snap amount to expand the deferred repaint areas based on the DPI scale factor.
-            // Instead of a percentage, think of the DPI scale factor as a fractional integer ratio:
-            //
-            // 100% == 100/100
-            // 125% == 125/100
-            // 250% == 250/100
-            //
-            // Simplify the ratio; the denominator of the simplified ratio is the minimum snap amount.
-            //
-            // 100% == 100/100 == 1/1 == snap to nearest multiple of 1
-            // 125% == 125/100 == 5/4 == snap to nearest multiple of 4
-            // 250% == 250/100 == 5/2 == snap to nearest multiple of 2
-            //
-            // Windows allows the user to manually specify the DPI scale factor to the nearest 1%, so round the DPI scaling factor
-            // to the nearest 1/128th and simplify the ratio.
-            //
-            // For example: DPI scaling 150%
-            //      snappedDpiScalingFactor = 1.5
-            //      greatestCommonDenominator = gdc( 1.5 * 128, 128) = 64
-            //      repaintAreaPixelSnap = 128 / 64 = 2
-            //      deferredRepaint will be expanded to snap to the next multiple of 2
-            //
-            // DPI scaling of 225%
-            //      snappedDpiScalingFactor = 2.25
-            //      greatestCommonDenominator = gdc( 2.25 * 128, 128) = 32
-            //      repaintAreaPixelSnap = 128 / 32 = 4
-            //      deferredRepaint will be expanded to snap to the next multiple of 4
-            //
-            // DPI scaling of 301%
-            //      snappedDpiScalingFactor = 3.0078125
-            //      greatestCommonDenominator = gdc( 3.0078125 * 128, 128) = 1
-            //      repaintAreaPixelSnap = 128 / 1 = 128
-            //      deferredRepaint will be expanded to snap to the next multiple of 128
-            //
-            // For the typical scaling factors, the deferred repaint area will be only slightly expanded to the nearest multiple of 4. The more offbeat
-            // scaling factors will be less efficient and require more painting.
-            //
-            snappedDpiScalingFactor = (float) roundToInt(scale_ * dpiScalingIntConversionFactor) / float{ dpiScalingIntConversionFactor };
-
-            auto greatestCommonDenominator = std::gcd(roundToInt(float{ dpiScalingIntConversionFactor } * snappedDpiScalingFactor),
-                dpiScalingIntConversionFactor);
-            repaintAreaPixelSnap = dpiScalingIntConversionFactor / greatestCommonDenominator;
+            snapper.setDPIScaleFactor(scale_);
 
             //
             // Resize the swap chain buffer
@@ -591,7 +525,7 @@ namespace juce
             //
             D2D1_BITMAP_PROPERTIES1 bitmapProperties = {};
             bitmapProperties.bitmapOptions = D2D1_BITMAP_OPTIONS_TARGET;
-            bitmapProperties.dpiX = USER_DEFAULT_SCREEN_DPI * snappedDpiScalingFactor;
+            bitmapProperties.dpiX = USER_DEFAULT_SCREEN_DPI * snapper.getDPIScaleFactor();
             bitmapProperties.dpiY = bitmapProperties.dpiX;
             bitmapProperties.pixelFormat = swap.buffer->GetPixelFormat();
 

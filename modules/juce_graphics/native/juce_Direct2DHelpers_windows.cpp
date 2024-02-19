@@ -411,7 +411,7 @@ public:
         clear();
     }
 
-    void getRECTAndValidate (HWND windowHandle)
+    void findRECTAndValidate (HWND windowHandle)
     {
         numRect = 0;
 
@@ -470,16 +470,6 @@ public:
     {
         auto header = (RGNDATAHEADER const* const) block.getData();
         return (RECT*) (header + 1);
-    }
-
-    void addToRectangleList (RectangleList<int>& rectangleList)
-    {
-        rectangleList.ensureStorageAllocated (rectangleList.getNumRectangles() + (int) getNumRECT());
-        for (uint32 i = 0; i < getNumRECT(); ++i)
-        {
-            auto r = RECTToRectangle<int> (getRECTArray()[i]);
-            rectangleList.add (r);
-        }
     }
 
     static void forwardInvalidRegionToParent (HWND childHwnd)

@@ -499,3 +499,75 @@ Image createSnapshotOfNativeWindow(void* nativeWindowHandle)
 
     return createGDISnapshotOfNativeWindow(nativeWindowHandle);
 }
+
+struct Direct2DCachedComponentImage final : public CachedComponentImage
+{
+    Direct2DCachedComponentImage(Component& c) noexcept : owner(c) {}
+    ~Direct2DCachedComponentImage() override = default;
+
+    void paint(Graphics& g) override
+    {
+        auto scale = g.getInternalContext().getPhysicalPixelScaleFactor();
+        auto compBounds = owner.getLocalBounds();
+
+        if (image.isNull() ||
+            image.getWidth() != compBounds.getWidth() ||
+            image.getHeight() != compBounds.getHeight() ||
+            !approximatelyEqual(imageScale, scale))
+        {
+            snapper.setDPIScaleFactor(scale);
+
+            image = Image{ owner.isOpaque() ? Image::ARGB : Image::ARGB,
+                jmax(1, compBounds.getWidth()),
+                jmax(1, compBounds.getHeight()),
+                !owner.isOpaque(),
+                NativeImageType{ scale } };
+            imageScale = scale;
+
+            paintAreas = image.getBounds();
+        }
+
+        if (!paintAreas.isEmpty())
+        {
+            Graphics imG(image);
+            auto& lg = imG.getInternalContext();
+
+            lg.clipToRectangleList(paintAreas);
+
+            lg.setFill(Colours::transparentBlack);
+            lg.fillRect(image.getBounds(), true);
+
+            owner.paintEntireComponent(imG, true);
+        }
+
+        paintAreas.clear();
+
+        g.drawImageAt(image, 0, 0);
+    }
+
+    bool invalidateAll() override { paintAreas = image.getBounds(); return true; }
+    bool invalidate(const Rectangle<int>& area) override
+    {
+        auto snappedArea = snapper.snapRectangle(area);
+        snappedArea = snappedArea.getIntersection(image.getBounds());
+
+        paintAreas.add(snappedArea);
+        return true;
+    }
+    void releaseResources() override { image = Image(); }
+
+private:
+    Image image;
+    float imageScale = 1.0f;
+    RectangleList<int> paintAreas;
+    direct2d::PhysicalPixelSnapper snapper;
+    Component& owner;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Direct2DCachedComponentImage)
+};
+
+
+static std::unique_ptr<CachedComponentImage> createNativeCachedComponentImage(Component& component)
+{
+    return std::make_unique<Direct2DCachedComponentImage>(component);
+}

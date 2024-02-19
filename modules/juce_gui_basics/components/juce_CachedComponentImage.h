@@ -62,4 +62,23 @@ public:
     virtual void releaseResources() = 0;
 };
 
+struct StandardCachedComponentImage final : public CachedComponentImage
+{
+    StandardCachedComponentImage(Component& c) noexcept;
+    ~StandardCachedComponentImage() override = default;
+
+    void paint(Graphics& g) override;
+    bool invalidateAll() override;
+    bool invalidate(const Rectangle<int>& area) override;
+    void releaseResources() override;
+
+private:
+    Image image;
+    RectangleList<int> validArea;
+    Component& owner;
+    float scale = 1.0f;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(StandardCachedComponentImage)
+};
+
 } // namespace juce
