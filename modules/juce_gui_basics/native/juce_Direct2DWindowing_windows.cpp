@@ -534,14 +534,19 @@ struct Direct2DCachedComponentImage final : public CachedComponentImage
 
             lg.clipToRectangleList(paintAreas);
 
-            lg.setFill(Colours::transparentBlack);
-            lg.fillRect(image.getBounds(), true);
+            if (!owner.isOpaque())
+            {
+                lg.setFill(Colours::transparentBlack);
+                lg.fillRect(compBounds, true);
+                lg.setFill(Colours::black);
+            }
 
             owner.paintEntireComponent(imG, true);
         }
 
         paintAreas.clear();
 
+        g.setColour(Colours::black.withAlpha(owner.getAlpha()));
         g.drawImageAt(image, 0, 0);
     }
 
