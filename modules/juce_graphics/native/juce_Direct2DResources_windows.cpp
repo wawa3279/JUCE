@@ -808,7 +808,7 @@ namespace juce
                             if (hr = deviceContext3->CreateSpriteBatch(spriteBatch.resetAndGetPointerAddress()); SUCCEEDED(hr))
                             {
                                 auto color = direct2d::colourToD2D(colour);
-                                spriteBatch->AddSprites(numRectangles, destinations, sources, &color, nullptr, sizeof(D2D1_RECT_F), sizeof(D2D1_RECT_U), 0, 0);
+                                spriteBatch->AddSprites((uint32)numRectangles, destinations, sources, &color, nullptr, sizeof(D2D1_RECT_F), sizeof(D2D1_RECT_U), 0, 0);
 
                                 auto antialiasMode = deviceContext3->GetAntialiasMode();
                                 deviceContext3->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
