@@ -24,7 +24,7 @@
     #include <windows.h>
     #include <juce_core/juce_core.h>
     #include <juce_graphics/juce_graphics.h>
-    #include <d2d1_2.h>
+    #include <d2d1_3.h>
     #include <d3d11_1.h>
     #include <dwrite.h>
     #include <dcomp.h>

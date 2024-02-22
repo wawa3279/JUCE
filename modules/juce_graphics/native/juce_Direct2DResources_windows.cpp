@@ -24,7 +24,7 @@
 #include <windows.h>
 #include <juce_core/juce_core.h>
 #include <juce_graphics/juce_graphics.h>
-#include <d2d1_2.h>
+#include <d2d1_3.h>
 #include <d3d11_1.h>
 #include <dwrite.h>
 #include <dcomp.h>
@@ -734,6 +734,101 @@ namespace juce
 
         //==============================================================================
         //
+        // Sprite batch
+        //
+
+        class RectangleListSpriteBatch
+        {
+        public:
+            RectangleListSpriteBatch() = default;
+            ~RectangleListSpriteBatch()
+            {
+                release();
+            }
+
+            void release()
+            {
+                whiteRectangle = nullptr;
+            }
+
+            void fillRectangles(ID2D1DeviceContext1* deviceContext, 
+                const RectangleList<float>& unclippedFillRectangles, 
+                const RectangleList<int>& clipList,
+                Colour const colour,
+                std::function<Rectangle<float>(Rectangle<float> const& r)> transformRectangle)
+            {
+                int numRectangles = 0;
+                destinations.realloc(unclippedFillRectangles.getNumRectangles());
+                sources.realloc(unclippedFillRectangles.getNumRectangles());
+
+                auto destination = destinations.getData();
+                auto source = sources.getData();
+
+                for (auto r : unclippedFillRectangles)
+                {
+                    r = transformRectangle(r);
+
+                    if (clipList.intersectsRectangle(r.toNearestIntEdges()))
+                    {
+                        *destination = direct2d::rectangleToRectF(r);
+                        *source = { 0, 0, juce::jmin(rectangleSize, (uint32)roundToInt(r.getWidth())), juce::jmin(rectangleSize, (uint32)roundToInt(r.getHeight())) };
+                        ++numRectangles;
+                        ++destination;
+                        ++source;
+                    }
+                }
+
+                if (numRectangles <= 0)
+                {
+                    return;
+                }
+
+                if (!whiteRectangle)
+                {
+                    if (auto hr = deviceContext->CreateCompatibleRenderTarget(D2D1_SIZE_F{ (float)rectangleSize, (float)rectangleSize },
+                        D2D1_SIZE_U{ rectangleSize, rectangleSize },
+                        D2D1_PIXEL_FORMAT{ DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED },
+                        whiteRectangle.resetAndGetPointerAddress()); SUCCEEDED(hr))
+                    {
+                        whiteRectangle->BeginDraw();
+                        whiteRectangle->Clear(D2D1::ColorF(D2D1::ColorF::White, 1.0f));
+                        whiteRectangle->EndDraw();
+                    }
+                }
+
+                if (whiteRectangle)
+                {
+                    ComSmartPtr<ID2D1Bitmap> bitmap;
+                    if (auto hr = whiteRectangle->GetBitmap(bitmap.resetAndGetPointerAddress()); SUCCEEDED(hr))
+                    {
+                        ComSmartPtr<ID2D1DeviceContext3> deviceContext3;
+                        if (hr = deviceContext->QueryInterface<ID2D1DeviceContext3>(deviceContext3.resetAndGetPointerAddress()); SUCCEEDED(hr))
+                        {
+                            ComSmartPtr<ID2D1SpriteBatch> spriteBatch;
+                            if (hr = deviceContext3->CreateSpriteBatch(spriteBatch.resetAndGetPointerAddress()); SUCCEEDED(hr))
+                            {
+                                auto color = direct2d::colourToD2D(colour);
+                                spriteBatch->AddSprites(numRectangles, destinations, sources, &color, nullptr, sizeof(D2D1_RECT_F), sizeof(D2D1_RECT_U), 0, 0);
+
+                                auto antialiasMode = deviceContext3->GetAntialiasMode();
+                                deviceContext3->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
+                                deviceContext3->DrawSpriteBatch(spriteBatch, bitmap);
+                                deviceContext3->SetAntialiasMode(antialiasMode);
+                            }
+                        }
+                    }
+                }
+            }
+
+        private:
+            static constexpr uint32 rectangleSize = 32;
+            ComSmartPtr<ID2D1BitmapRenderTarget> whiteRectangle;
+            HeapBlock<D2D1_RECT_F> destinations;
+            HeapBlock<D2D1_RECT_U> sources;
+        };
+        
+        //==============================================================================
+        //
         // Device resources
         //
 
@@ -781,11 +876,21 @@ namespace juce
                     jassertquiet(SUCCEEDED(hr));
                 }
 
+                if (rectangleListSpriteBatch == nullptr)
+                {
+                    ComSmartPtr<ID2D1DeviceContext3> deviceContext3;
+                    if (hr = deviceContext.context->QueryInterface<ID2D1DeviceContext3>(deviceContext3.resetAndGetPointerAddress()); SUCCEEDED(hr))
+                    {
+                        rectangleListSpriteBatch = std::make_unique<RectangleListSpriteBatch>();
+                    }
+                }
+
                 return hr;
             }
 
             void release()
             {
+                rectangleListSpriteBatch.release();
                 linearGradientCache.release();
                 radialGradientCache.release();
                 filledGeometryCache.release();
@@ -805,6 +910,7 @@ namespace juce
             StrokeGeometryCache               strokedGeometryCache;
             ColourGradientCache<ID2D1LinearGradientBrush> linearGradientCache;
             ColourGradientCache<ID2D1RadialGradientBrush> radialGradientCache;
+            std::unique_ptr<RectangleListSpriteBatch> rectangleListSpriteBatch;
         };
 
         //==============================================================================
@@ -985,7 +1091,7 @@ namespace juce
             }
 
             DXGI_SWAP_EFFECT const                     swapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-            UINT const                                 bufferCount = 2;
+            UINT const                                 bufferCount = 4;
             uint32 const                               swapChainFlags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
             uint32 const                               presentSyncInterval = 1;
             uint32 const                               presentFlags = 0;

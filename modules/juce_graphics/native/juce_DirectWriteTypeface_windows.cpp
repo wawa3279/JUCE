@@ -21,7 +21,7 @@
     #define JUCE_CORE_INCLUDE_COM_SMART_PTR 1
     #define JUCE_WINDOWS                    1
 
-    #include <d2d1_2.h>
+    #include <d2d1_3.h>
     #include <d3d11_1.h>
     #include <dcomp.h>
     #include <dwrite.h>

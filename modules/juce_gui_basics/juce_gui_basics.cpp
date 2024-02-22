@@ -62,7 +62,7 @@
  #include <commctrl.h>
  #include <sapi.h>
  #include <dxgi1_2.h>
- #include <d2d1_2.h>
+ #include <d2d1_3.h>
  #include <d3d11_1.h>
 
 #if JUCE_ETW_TRACELOGGING

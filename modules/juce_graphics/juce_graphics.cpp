@@ -44,8 +44,18 @@
   /* If you hit a compile error trying to include these files, you may need to update
      your version of the Windows SDK to the latest one. The DirectWrite and Direct2D
      headers are in the version 8 SDKs.
+
+     Need Direct2D 1.3 for sprite batching
   */
-  #include <d2d1_2.h>
+    
+  #pragma push_macro("NTDDI_VERSION")
+  #if NTDDI_VERSION < NTDDI_WIN10_TH2
+  #undef NTDDI_VERSION
+  #define NTDDI_VERSION NTDDI_WIN10_TH2
+  #endif
+  #include <d2d1_3.h>
+  #pragma pop_macro("NTDDI_VERSION")
+
   #include <d3d11_1.h>
   #include <dwrite.h>
   #include <dcomp.h>
