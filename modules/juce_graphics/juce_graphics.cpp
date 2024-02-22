@@ -47,7 +47,7 @@
 
      Need Direct2D 1.3 for sprite batching
   */
-    
+
   #pragma push_macro("NTDDI_VERSION")
   #if NTDDI_VERSION < NTDDI_WIN10_TH2
   #undef NTDDI_VERSION

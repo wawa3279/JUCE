@@ -751,8 +751,8 @@ namespace juce
                 whiteRectangle = nullptr;
             }
 
-            void fillRectangles(ID2D1DeviceContext1* deviceContext, 
-                const RectangleList<float>& unclippedFillRectangles, 
+            void fillRectangles(ID2D1DeviceContext1* deviceContext,
+                const RectangleList<float>& unclippedFillRectangles,
                 const RectangleList<int>& clipList,
                 Colour const colour,
                 std::function<Rectangle<float>(Rectangle<float> const& r)> transformRectangle)
@@ -826,7 +826,7 @@ namespace juce
             HeapBlock<D2D1_RECT_F> destinations;
             HeapBlock<D2D1_RECT_U> sources;
         };
-        
+
         //==============================================================================
         //
         // Device resources
