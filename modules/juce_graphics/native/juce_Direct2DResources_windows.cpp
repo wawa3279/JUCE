@@ -753,11 +753,10 @@ namespace juce
 
             void fillRectangles(ID2D1DeviceContext1* deviceContext,
                 const RectangleList<float>& unclippedFillRectangles,
-                const RectangleList<int>& clipList,
                 Colour const colour,
-                std::function<Rectangle<float>(Rectangle<float> const& r)> transformRectangle)
+                std::function<Rectangle<float>(Rectangle<float> const r)> transformRectangle)
             {
-                int numRectangles = 0;
+                uint32 numRectangles = 0;
                 destinations.realloc(unclippedFillRectangles.getNumRectangles());
                 sources.realloc(unclippedFillRectangles.getNumRectangles());
 
@@ -767,8 +766,7 @@ namespace juce
                 for (auto r : unclippedFillRectangles)
                 {
                     r = transformRectangle(r);
-
-                    if (clipList.intersectsRectangle(r.toNearestIntEdges()))
+                    if (!r.isEmpty())
                     {
                         *destination = direct2d::rectangleToRectF(r);
                         *source = { 0, 0, juce::jmin(rectangleSize, (uint32)roundToInt(r.getWidth())), juce::jmin(rectangleSize, (uint32)roundToInt(r.getHeight())) };
@@ -804,17 +802,46 @@ namespace juce
                         ComSmartPtr<ID2D1DeviceContext3> deviceContext3;
                         if (hr = deviceContext->QueryInterface<ID2D1DeviceContext3>(deviceContext3.resetAndGetPointerAddress()); SUCCEEDED(hr))
                         {
-                            ComSmartPtr<ID2D1SpriteBatch> spriteBatch;
-                            if (hr = deviceContext3->CreateSpriteBatch(spriteBatch.resetAndGetPointerAddress()); SUCCEEDED(hr))
+#if 0
+                            if (spriteBatch && spriteBatch->GetSpriteCount() > (uint32)numRectangles)
                             {
-                                auto color = direct2d::colourToD2D(colour);
-                                spriteBatch->AddSprites((uint32)numRectangles, destinations, sources, &color, nullptr, sizeof(D2D1_RECT_F), sizeof(D2D1_RECT_U), 0, 0);
-
-                                auto antialiasMode = deviceContext3->GetAntialiasMode();
-                                deviceContext3->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
-                                deviceContext3->DrawSpriteBatch(spriteBatch, bitmap);
-                                deviceContext3->SetAntialiasMode(antialiasMode);
+                                spriteBatch = nullptr;
                             }
+#endif
+
+                            if (!spriteBatch)
+                            {
+                                if (hr = deviceContext3->CreateSpriteBatch(spriteBatch.resetAndGetPointerAddress()); FAILED(hr))
+                                {
+                                    return;
+                                }
+                            }
+
+                            uint32 setCount = jmin(numRectangles, spriteBatch->GetSpriteCount());
+                            uint32 addCount = numRectangles > setCount ? numRectangles - setCount : 0;
+
+                            auto color = direct2d::colourToD2D(colour);
+                            if (setCount != 0)
+                            {
+                                spriteBatch->SetSprites(0, setCount, destinations, sources, &color, nullptr, sizeof(D2D1_RECT_F), sizeof(D2D1_RECT_U), 0, 0);
+                            }
+
+                            if (addCount != 0)
+                            {
+                                spriteBatch->AddSprites(addCount, destinations + setCount, sources + setCount, &color, nullptr, sizeof(D2D1_RECT_F), sizeof(D2D1_RECT_U), 0, 0);
+                            }
+
+                            if (spriteBatch->GetSpriteCount() > (setCount + addCount))
+                            {
+                                auto clearCount = spriteBatch->GetSpriteCount() - setCount - addCount;
+                                D2D1_RECT_F emptyDestination{};
+                                spriteBatch->SetSprites(setCount + addCount, clearCount, &emptyDestination, nullptr, nullptr, nullptr, 0, 0, 0, 0);
+                            }
+
+                            auto antialiasMode = deviceContext3->GetAntialiasMode();
+                            deviceContext3->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
+                            deviceContext3->DrawSpriteBatch(spriteBatch, bitmap);
+                            deviceContext3->SetAntialiasMode(antialiasMode);
                         }
                     }
                 }
@@ -825,6 +852,7 @@ namespace juce
             ComSmartPtr<ID2D1BitmapRenderTarget> whiteRectangle;
             HeapBlock<D2D1_RECT_F> destinations;
             HeapBlock<D2D1_RECT_U> sources;
+            ComSmartPtr<ID2D1SpriteBatch> spriteBatch;
         };
 
         //==============================================================================
