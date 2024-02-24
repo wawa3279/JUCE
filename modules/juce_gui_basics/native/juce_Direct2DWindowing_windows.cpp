@@ -510,6 +510,14 @@ struct Direct2DCachedComponentImage final : public CachedComponentImage
         auto scale = g.getInternalContext().getPhysicalPixelScaleFactor();
         auto compBounds = owner.getLocalBounds();
 
+        //
+        // Is the owner a heavyweight window?
+        //
+        if (auto peer = owner.getPeer())
+        {
+            scale = (float)getScaleFactorForWindow((HWND)peer->getNativeHandle());
+        }
+
         if (image.isNull() ||
             image.getWidth() != compBounds.getWidth() ||
             image.getHeight() != compBounds.getHeight() ||
