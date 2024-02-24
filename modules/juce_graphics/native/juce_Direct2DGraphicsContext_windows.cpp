@@ -1333,6 +1333,10 @@ namespace juce
             {
                 if (auto rectangleListSpriteBatch = getPimpl()->getRectangleListSpriteBatch())
                 {
+#if JUCE_DIRECT2D_METRICS
+                    direct2d::ScopedElapsedTime spriteTime{ paintStats, direct2d::PaintStats::spriteBatchTime };
+#endif
+
                     if (transform.isOnlyTranslated)
                     {
                         auto translateRectangle = [&](Rectangle<float> const& r) -> Rectangle<float>
@@ -1376,8 +1380,6 @@ namespace juce
                         checkRectangleWithoutTransforming);
                     return;
                 }
-
-
             }
 
             //
