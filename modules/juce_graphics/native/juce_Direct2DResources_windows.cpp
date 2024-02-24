@@ -802,12 +802,10 @@ namespace juce
                         ComSmartPtr<ID2D1DeviceContext3> deviceContext3;
                         if (hr = deviceContext->QueryInterface<ID2D1DeviceContext3>(deviceContext3.resetAndGetPointerAddress()); SUCCEEDED(hr))
                         {
-#if 0
-                            if (spriteBatch && spriteBatch->GetSpriteCount() > (uint32)numRectangles)
+                            if (spriteBatch && spriteBatch->GetSpriteCount() > (uint32)(numRectangles + (numRectangles >> 2)))
                             {
                                 spriteBatch = nullptr;
                             }
-#endif
 
                             if (!spriteBatch)
                             {
