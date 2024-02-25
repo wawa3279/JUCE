@@ -300,6 +300,7 @@ private:
             if (!direct2DContext)
             {
                 direct2DContext = std::make_unique<Direct2DHwndContext>(hwnd, (float)scaleFactor, component.isOpaque());
+                DBG("Direct2DContext created for HWND " << scaleFactor);
 
                 //
                 // Layered windows use the contents of the window back buffer to automatically determine mouse hit testing
@@ -511,11 +512,15 @@ struct Direct2DCachedComponentImage final : public CachedComponentImage
         auto compBounds = owner.getLocalBounds();
 
         //
-        // Is the owner a heavyweight window?
+        // Override the scale factor if this component is inside a heavyweight child window
         //
         if (auto peer = owner.getPeer())
         {
-            scale = (float)getScaleFactorForWindow((HWND)peer->getNativeHandle());
+            auto windowHandle = (HWND)peer->getNativeHandle();
+            if (auto parentWindowHandle = GetParent(windowHandle))
+            {
+                scale = (float)getScaleFactorForWindow(parentWindowHandle);
+            }
         }
 
         if (image.isNull() ||
