@@ -62,17 +62,18 @@ public:
     virtual void releaseResources() = 0;
 };
 
-struct StandardCachedComponentImage final : public CachedComponentImage
+struct StandardCachedComponentImage : public CachedComponentImage
 {
     StandardCachedComponentImage(Component& c) noexcept;
     ~StandardCachedComponentImage() override = default;
 
     void paint(Graphics& g) override;
+    void paintImage(Rectangle<int> compBounds, AffineTransform transform);
     bool invalidateAll() override;
     bool invalidate(const Rectangle<int>& area) override;
     void releaseResources() override;
 
-private:
+protected:
     Image image;
     RectangleList<int> validArea;
     Component& owner;

@@ -500,21 +500,39 @@ void StandardCachedComponentImage::paint(Graphics& g)
 
     if (image.isNull() || image.getBounds() != imageBounds)
     {
+#if JUCE_WINDOWS
+        auto imageType = SoftwareImageType{};
+#else
+        auto imageType = NativeImageType{};
+#endif
+
         image = Image(owner.isOpaque() ? Image::RGB
             : Image::ARGB,
             jmax(1, imageBounds.getWidth()),
             jmax(1, imageBounds.getHeight()),
-            !owner.isOpaque());
+            !owner.isOpaque(),
+            imageType);
 
         validArea.clear();
     }
 
+    paintImage(compBounds, AffineTransform::scale(scale));
+
+    validArea = compBounds;
+
+    g.setColour(Colours::black.withAlpha(owner.getAlpha()));
+    g.drawImageTransformed(image, AffineTransform::scale((float)compBounds.getWidth() / (float)imageBounds.getWidth(),
+        (float)compBounds.getHeight() / (float)imageBounds.getHeight()), false);
+}
+
+void StandardCachedComponentImage::paintImage(Rectangle<int> compBounds, AffineTransform transform)
+{
     if (!validArea.containsRectangle(compBounds))
     {
         Graphics imG(image);
         auto& lg = imG.getInternalContext();
 
-        lg.addTransform(AffineTransform::scale(scale));
+        lg.addTransform(transform);
 
         for (auto& i : validArea)
             lg.excludeClipRectangle(i);
@@ -528,12 +546,6 @@ void StandardCachedComponentImage::paint(Graphics& g)
 
         owner.paintEntireComponent(imG, true);
     }
-
-    validArea = compBounds;
-
-    g.setColour(Colours::black.withAlpha(owner.getAlpha()));
-    g.drawImageTransformed(image, AffineTransform::scale((float)compBounds.getWidth() / (float)imageBounds.getWidth(),
-        (float)compBounds.getHeight() / (float)imageBounds.getHeight()), false);
 }
 
 bool StandardCachedComponentImage::invalidateAll() { validArea.clear(); return true; }
@@ -541,10 +553,12 @@ bool StandardCachedComponentImage::invalidate(const Rectangle<int>& area) { vali
 void StandardCachedComponentImage::releaseResources() { image = Image(); }
 
 #if !JUCE_WINDOWS
+
 static std::unique_ptr<CachedComponentImage> createNativeCachedComponentImage(Component& component)
 {
     return std::make_unique<StandardCachedComponentImage>(component);
 }
+
 #endif
 
 
