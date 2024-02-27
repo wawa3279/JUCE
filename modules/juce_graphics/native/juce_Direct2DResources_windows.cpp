@@ -761,22 +761,21 @@ namespace juce
             {
                 int numRectangles = 0;
 
+                destinations.reserve((size_t)unclippedFillRectangles.getNumRectangles() * 2);
+                destinations.clear();
+
                 {
-	                destinations.reserve((size_t)unclippedFillRectangles.getNumRectangles() * 2);
-
-	                destinations.clear();
-
                     auto clipBounds = deviceSpaceClipList.getBounds().toFloat();
-	                for (auto r : unclippedFillRectangles)
-	                {
-	                    r = transformRectangle(r);
+                    for (auto r : unclippedFillRectangles)
+                    {
+                        r = transformRectangle(r);
 
-	                    if (r = r.getIntersection(clipBounds); !r.isEmpty())
-	                    {
-	                        destinations.emplace_back(direct2d::rectangleToRectF(r));
-	                        ++numRectangles;
-	                    }
-	                }
+                        if (r = r.getIntersection(clipBounds); !r.isEmpty())
+                        {
+                            destinations.emplace_back(direct2d::rectangleToRectF(r));
+                            ++numRectangles;
+                        }
+                    }
                 }
 
                 if (numRectangles <= 0)
