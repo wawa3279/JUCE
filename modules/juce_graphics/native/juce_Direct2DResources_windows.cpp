@@ -799,7 +799,7 @@ namespace juce
                     whiteRectangle->Clear(D2D1_COLOR_F{ 1.0f, 1.0f, 1.0f, 1.0f });
                     whiteRectangle->EndDraw();
                 }
-        
+
                 ComSmartPtr<ID2D1Bitmap> bitmap;
                 if (auto hr = whiteRectangle->GetBitmap(bitmap.resetAndGetPointerAddress()); SUCCEEDED(hr))
                 {
