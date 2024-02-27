@@ -300,7 +300,6 @@ private:
             if (!direct2DContext)
             {
                 direct2DContext = std::make_unique<Direct2DHwndContext>(hwnd, (float)scaleFactor, component.isOpaque());
-                DBG("Direct2DContext created for HWND " << scaleFactor);
 
                 //
                 // Layered windows use the contents of the window back buffer to automatically determine mouse hit testing

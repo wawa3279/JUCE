@@ -1316,13 +1316,15 @@ namespace juce
     {
         auto const& transform = currentState->currentTransform;
         auto const& clipList = currentState->deviceSpaceClipList;
-#if JUCE_DIRECT2D_METRICS
-        direct2d::ScopedElapsedTime set{ paintStats, direct2d::PaintStats::fillRectListTime };
-#endif
-
-        SCOPED_TRACE_EVENT_FLOAT_RECT_LIST(etw::fillRectList, llgcFrameNumber, list, etw::direct2dKeyword);
 
         applyPendingClipList();
+
+#if JUCE_DIRECT2D_METRICS
+        direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillRectListTime };
+#endif
+
+        SCOPED_TRACE_EVENT_FLOAT_RECT_LIST(etw::fillRectList, llgcFrameNumber, list, etw::direct2dKeyword | etw::spriteKeyword);
+
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1347,6 +1349,7 @@ namespace juce
 
                         rectangleListSpriteBatch->fillRectangles(deviceContext,
                             list,
+                            clipList,
                             currentState->fillType.colour,
                             translateRectangle);
                         return;
@@ -1362,6 +1365,7 @@ namespace juce
 
                         rectangleListSpriteBatch->fillRectangles(deviceContext,
                             list,
+                            clipList,
                             currentState->fillType.colour,
                             transformRectangle);
                         return;
@@ -1376,6 +1380,7 @@ namespace juce
                     ScopedTransform scopedTransform{ *getPimpl(), currentState };
                     rectangleListSpriteBatch->fillRectangles(deviceContext,
                         list,
+                        clipList,
                         currentState->fillType.colour,
                         checkRectangleWithoutTransforming);
                     return;
@@ -1389,9 +1394,6 @@ namespace juce
             {
                 if (auto brush = currentState->getBrush())
                 {
-#if JUCE_DIRECT2D_METRICS
-                    direct2d::ScopedElapsedTime spriteTime{ paintStats, direct2d::PaintStats::spriteBatchTime };
-#endif
                     for (auto const& r : list)
                     {
                         if (direct2d::isUsefulRectangle(r))
@@ -1399,7 +1401,7 @@ namespace juce
                             if (auto translatedR = transform.translated(r); clipList.intersectsRectangle(translatedR.toNearestIntEdges()))
                             {
 #if JUCE_DIRECT2D_METRICS
-                                direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillTranslatedRectTime };
+                                direct2d::ScopedElapsedTime set{ paintStats, direct2d::PaintStats::fillTranslatedRectTime };
 #endif
                                 deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
                             }
@@ -1413,9 +1415,6 @@ namespace juce
             {
                 if (auto brush = currentState->getBrush())
                 {
-#if JUCE_DIRECT2D_METRICS
-                    direct2d::ScopedElapsedTime spriteTime{ paintStats, direct2d::PaintStats::spriteBatchTime };
-#endif
                     for (auto const& r : list)
                     {
                         if (direct2d::isUsefulRectangle(r))
@@ -1423,7 +1422,7 @@ namespace juce
                             if (auto transformedR = transform.transformed(r); clipList.intersectsRectangle(transformedR.toNearestIntEdges()))
                             {
 #if JUCE_DIRECT2D_METRICS
-                                direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillAxisAlignedRectTime };
+                                direct2d::ScopedElapsedTime set{ paintStats, direct2d::PaintStats::fillAxisAlignedRectTime };
 #endif
                                 deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
                             }
@@ -1436,15 +1435,11 @@ namespace juce
             if (auto brush = currentState->getBrush(SavedState::BrushTransformFlags::applyFillTypeTransform))
             {
                 {
-#if JUCE_DIRECT2D_METRICS
-                    direct2d::ScopedElapsedTime spriteTime{ paintStats, direct2d::PaintStats::spriteBatchTime };
-#endif
-
                     ScopedTransform scopedTransform{ *getPimpl(), currentState };
                     for (auto const& r : list)
                     {
 #if JUCE_DIRECT2D_METRICS
-                        direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillTransformedRectTime };
+                        direct2d::ScopedElapsedTime set{ paintStats, direct2d::PaintStats::fillTransformedRectTime };
 #endif
 
                         if (direct2d::isUsefulRectangle(r))
@@ -1462,14 +1457,14 @@ namespace juce
 
     bool Direct2DGraphicsContext::drawRect(const Rectangle<float>& r, float lineThickness)
     {
-        SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawRect, llgcFrameNumber, r, etw::direct2dKeyword);
-
         if (!direct2d::isUsefulRectangle(r))
         {
             return true;
         }
 
         applyPendingClipList();
+
+        SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawRect, llgcFrameNumber, r, etw::direct2dKeyword);
 
         //
         // ID2D1DeviceContext::DrawRectangle centers the stroke around the edges of the specified rectangle, but

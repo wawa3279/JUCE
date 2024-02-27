@@ -48,6 +48,14 @@ struct PaintStats : public ReferenceCountedObject
         DIRECT2D_PAINT_STAT(fillTransformedRectTime) \
         DIRECT2D_PAINT_STAT(fillRectListTime) \
         DIRECT2D_PAINT_STAT(spriteBatchTime) \
+        DIRECT2D_PAINT_STAT(spriteClipTime) \
+        DIRECT2D_PAINT_STAT(createSpriteColourAtlas) \
+        DIRECT2D_PAINT_STAT(createSpriteBatchTime) \
+        DIRECT2D_PAINT_STAT(spriteLoopTime) \
+        DIRECT2D_PAINT_STAT(spriteLoopCount) \
+        DIRECT2D_PAINT_STAT(setSpritesTime) \
+        DIRECT2D_PAINT_STAT(addSpritesTime) \
+        DIRECT2D_PAINT_STAT(drawSpritesTime) \
         DIRECT2D_PAINT_STAT(flushTime) \
         DIRECT2D_LAST_PAINT_STAT(drawGlyphRunTime)
 

@@ -749,31 +749,34 @@ namespace juce
             void release()
             {
                 whiteRectangle = nullptr;
+                spriteBatches.clear();
+                destinations.clear();
             }
 
             void fillRectangles(ID2D1DeviceContext1* deviceContext,
                 const RectangleList<float>& unclippedFillRectangles,
+                const RectangleList<int>& deviceSpaceClipList,
                 Colour const colour,
                 std::function<Rectangle<float>(Rectangle<float> const r)> transformRectangle)
             {
-                uint32 numRectangles = 0;
-                destinations.realloc(unclippedFillRectangles.getNumRectangles());
-                sources.realloc(unclippedFillRectangles.getNumRectangles());
+                int numRectangles = 0;
 
-                auto destination = destinations.getData();
-                auto source = sources.getData();
-
-                for (auto r : unclippedFillRectangles)
                 {
-                    r = transformRectangle(r);
-                    if (!r.isEmpty())
-                    {
-                        *destination = direct2d::rectangleToRectF(r);
-                        *source = { 0, 0, juce::jmin(rectangleSize, (uint32)roundToInt(r.getWidth())), juce::jmin(rectangleSize, (uint32)roundToInt(r.getHeight())) };
-                        ++numRectangles;
-                        ++destination;
-                        ++source;
-                    }
+	                destinations.reserve((size_t)unclippedFillRectangles.getNumRectangles() * 2);
+
+	                destinations.clear();
+
+                    auto clipBounds = deviceSpaceClipList.getBounds().toFloat();
+	                for (auto r : unclippedFillRectangles)
+	                {
+	                    r = transformRectangle(r);
+
+	                    if (r = r.getIntersection(clipBounds); !r.isEmpty())
+	                    {
+	                        destinations.emplace_back(direct2d::rectangleToRectF(r));
+	                        ++numRectangles;
+	                    }
+	                }
                 }
 
                 if (numRectangles <= 0)
@@ -783,74 +786,78 @@ namespace juce
 
                 if (!whiteRectangle)
                 {
-                    if (auto hr = deviceContext->CreateCompatibleRenderTarget(D2D1_SIZE_F{ (float)rectangleSize, (float)rectangleSize },
+                    auto hr = deviceContext->CreateCompatibleRenderTarget(D2D1_SIZE_F{ (float)rectangleSize, (float)rectangleSize },
                         D2D1_SIZE_U{ rectangleSize, rectangleSize },
                         D2D1_PIXEL_FORMAT{ DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED },
-                        whiteRectangle.resetAndGetPointerAddress()); SUCCEEDED(hr))
+                        whiteRectangle.resetAndGetPointerAddress());
+                    if (FAILED(hr))
                     {
-                        whiteRectangle->BeginDraw();
-                        whiteRectangle->Clear(D2D1::ColorF(D2D1::ColorF::White, 1.0f));
-                        whiteRectangle->EndDraw();
+                        return;
+                    }
+
+                    whiteRectangle->BeginDraw();
+                    whiteRectangle->Clear(D2D1_COLOR_F{ 1.0f, 1.0f, 1.0f, 1.0f });
+                    whiteRectangle->EndDraw();
+                }
+        
+                ComSmartPtr<ID2D1Bitmap> bitmap;
+                if (auto hr = whiteRectangle->GetBitmap(bitmap.resetAndGetPointerAddress()); SUCCEEDED(hr))
+                {
+                    ComSmartPtr<ID2D1DeviceContext3> deviceContext3;
+                    if (hr = deviceContext->QueryInterface<ID2D1DeviceContext3>(deviceContext3.resetAndGetPointerAddress()); SUCCEEDED(hr))
+                    {
+                        auto d2dColour = direct2d::colourToD2D(colour);
+
+                        auto spriteBatch = spriteBatches.get(numRectangles);
+                        if (!spriteBatch)
+                        {
+                            if (hr = deviceContext3->CreateSpriteBatch(spriteBatch.resetAndGetPointerAddress()); FAILED(hr))
+                            {
+                                return;
+                            }
+
+                            spriteBatches.set(numRectangles, spriteBatch);
+                        }
+
+                        uint32 setCount = jmin((uint32)numRectangles, spriteBatch->GetSpriteCount());
+                        uint32 addCount = destinations.size() > setCount ? (uint32)numRectangles - setCount : 0;
+
+                        if (setCount != 0)
+                        {
+                            spriteBatch->SetSprites(0, setCount, destinations.data(), nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
+                        }
+
+                        if (addCount != 0)
+                        {
+                            spriteBatch->AddSprites(addCount, destinations.data() + setCount, nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
+                        }
+
+                        if (spriteBatch->GetSpriteCount() > addCount + setCount)
+                        {
+                            auto extraSpriteCount = spriteBatch->GetSpriteCount() - addCount - setCount;
+
+                            D2D1_RECT_F emptyDestination;
+                            spriteBatch->SetSprites(addCount + setCount, extraSpriteCount, &emptyDestination, nullptr, nullptr, nullptr, 0, 0, 0, 0);
+                        }
+
+                        deviceContext3->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
+                        deviceContext3->DrawSpriteBatch(spriteBatch, bitmap);
+                        deviceContext3->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
                     }
                 }
 
-                if (whiteRectangle)
+                while (spriteBatches.size() > maxCacheSize)
                 {
-                    ComSmartPtr<ID2D1Bitmap> bitmap;
-                    if (auto hr = whiteRectangle->GetBitmap(bitmap.resetAndGetPointerAddress()); SUCCEEDED(hr))
-                    {
-                        ComSmartPtr<ID2D1DeviceContext3> deviceContext3;
-                        if (hr = deviceContext->QueryInterface<ID2D1DeviceContext3>(deviceContext3.resetAndGetPointerAddress()); SUCCEEDED(hr))
-                        {
-                            if (spriteBatch && spriteBatch->GetSpriteCount() > (uint32)(numRectangles + (numRectangles >> 2)))
-                            {
-                                spriteBatch = nullptr;
-                            }
-
-                            if (!spriteBatch)
-                            {
-                                if (hr = deviceContext3->CreateSpriteBatch(spriteBatch.resetAndGetPointerAddress()); FAILED(hr))
-                                {
-                                    return;
-                                }
-                            }
-
-                            uint32 setCount = jmin(numRectangles, spriteBatch->GetSpriteCount());
-                            uint32 addCount = numRectangles > setCount ? numRectangles - setCount : 0;
-
-                            auto color = direct2d::colourToD2D(colour);
-                            if (setCount != 0)
-                            {
-                                spriteBatch->SetSprites(0, setCount, destinations, sources, &color, nullptr, sizeof(D2D1_RECT_F), sizeof(D2D1_RECT_U), 0, 0);
-                            }
-
-                            if (addCount != 0)
-                            {
-                                spriteBatch->AddSprites(addCount, destinations + setCount, sources + setCount, &color, nullptr, sizeof(D2D1_RECT_F), sizeof(D2D1_RECT_U), 0, 0);
-                            }
-
-                            if (spriteBatch->GetSpriteCount() > (setCount + addCount))
-                            {
-                                auto clearCount = spriteBatch->GetSpriteCount() - setCount - addCount;
-                                D2D1_RECT_F emptyDestination{};
-                                spriteBatch->SetSprites(setCount + addCount, clearCount, &emptyDestination, nullptr, nullptr, nullptr, 0, 0, 0, 0);
-                            }
-
-                            auto antialiasMode = deviceContext3->GetAntialiasMode();
-                            deviceContext3->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
-                            deviceContext3->DrawSpriteBatch(spriteBatch, bitmap);
-                            deviceContext3->SetAntialiasMode(antialiasMode);
-                        }
-                    }
+                    spriteBatches.popBack();
                 }
             }
 
         private:
             static constexpr uint32 rectangleSize = 32;
             ComSmartPtr<ID2D1BitmapRenderTarget> whiteRectangle;
-            HeapBlock<D2D1_RECT_F> destinations;
-            HeapBlock<D2D1_RECT_U> sources;
-            ComSmartPtr<ID2D1SpriteBatch> spriteBatch;
+            std::vector<D2D1_RECT_F> destinations;
+            static constexpr size_t maxCacheSize = 8;
+            direct2d::LeastRecentlyUsedCache<int, ComSmartPtr<ID2D1SpriteBatch>> spriteBatches;
         };
 
         //==============================================================================
@@ -1009,7 +1016,7 @@ namespace juce
                             if (swapChainEvent->getHandle() == INVALID_HANDLE_VALUE)
                                 return E_NOINTERFACE;
 
-                            hr = chain2->SetMaximumFrameLatency(2);
+                            hr = chain2->SetMaximumFrameLatency(1);
                             if (SUCCEEDED(hr))
                             {
                                 state = State::chainAllocated;
@@ -1117,7 +1124,7 @@ namespace juce
             }
 
             DXGI_SWAP_EFFECT const                     swapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-            UINT const                                 bufferCount = 4;
+            UINT const                                 bufferCount = 2;
             uint32 const                               swapChainFlags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
             uint32 const                               presentSyncInterval = 1;
             uint32 const                               presentFlags = 0;

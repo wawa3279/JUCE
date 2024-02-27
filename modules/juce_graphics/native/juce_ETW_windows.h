@@ -33,7 +33,8 @@ namespace juce
             direct2dKeyword = 64,
             softwareRendererKeyword = 128,
             resourcesKeyword = 256,
-            componentKeyword = 512
+            componentKeyword = 512,
+            spriteKeyword = 1024
         };
 
         enum : uint16
@@ -121,7 +122,12 @@ namespace juce
 
             repaint,
             paintComponentAndChildren,
-            paintWithinParentContext
+            paintWithinParentContext,
+
+            createSpriteBatch,
+            setSprites,
+            addSprites,
+            drawSprites
         };
     }
 }
