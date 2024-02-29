@@ -922,7 +922,7 @@ namespace juce
 
             void release()
             {
-                rectangleListSpriteBatch.release();
+                rectangleListSpriteBatch = nullptr;
                 linearGradientCache.release();
                 radialGradientCache.release();
                 filledGeometryCache.release();
