@@ -292,7 +292,7 @@ namespace juce
                     d2d1Bitmap = direct2DPixelData->getAdapterD2D1Bitmap(adapter);
                 }
 
-                if (! d2d1Bitmap)
+                if (! d2d1Bitmap || d2d1Bitmap->GetPixelFormat().format != DXGI_FORMAT_B8G8R8A8_UNORM)
                 {
                     d2d1Bitmap = direct2d::Direct2DBitmap::fromImage(fillType.image, deviceResources.deviceContext.context, Image::ARGB).getD2D1Bitmap();
                 }
