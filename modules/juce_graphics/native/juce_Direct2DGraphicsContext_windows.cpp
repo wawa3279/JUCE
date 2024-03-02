@@ -2058,16 +2058,17 @@ namespace juce
 
             deviceContext->DrawGlyphRun({}, &directWriteGlyphRun, brush);
 
+            //
+            // Draw the underline
+            //
+            if (!underlineArea.isEmpty())
+            {
+                fillRect(underlineArea);
+            }
+
             getPimpl()->resetDeviceContextTransform();
         }
 
-        //
-        // Draw the underline
-        //
-        if (!underlineArea.isEmpty())
-        {
-            fillRect(underlineArea);
-        }
     }
 
     Direct2DGraphicsContext::ScopedTransform::ScopedTransform(Pimpl& pimpl_, SavedState* state_) :
