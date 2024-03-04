@@ -70,12 +70,6 @@ static D2D1_COLOR_F colourToD2D (Colour c)
     return { c.getFloatRed(), c.getFloatGreen(), c.getFloatBlue(), c.getFloatAlpha() };
 }
 
-static inline bool isUsefulRectangle(Rectangle<float> r)
-{
-    constexpr float minSize = 1.0f / 128.0f;
-    return r.isFinite() && r.getWidth() >= minSize && r.getHeight() >= minSize;
-}
-
 //==============================================================================
 //
 // Convert a JUCE Path to a D2D Geometry

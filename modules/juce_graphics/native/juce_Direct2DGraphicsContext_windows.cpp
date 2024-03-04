@@ -1258,11 +1258,6 @@ namespace juce
     {
         SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillRect, llgcFrameNumber, r, etw::direct2dKeyword);
 
-        if (!direct2d::isUsefulRectangle(r))
-        {
-            return;
-        }
-
         applyPendingClipList();
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
@@ -1398,15 +1393,12 @@ namespace juce
                 {
                     for (auto const& r : list)
                     {
-                        if (direct2d::isUsefulRectangle(r))
+                        if (auto translatedR = transform.translated(r); clipList.intersectsRectangle(translatedR.toNearestIntEdges()))
                         {
-                            if (auto translatedR = transform.translated(r); clipList.intersectsRectangle(translatedR.toNearestIntEdges()))
-                            {
 #if JUCE_DIRECT2D_METRICS
-                                direct2d::ScopedElapsedTime set{ paintStats, direct2d::PaintStats::fillTranslatedRectTime };
+                            direct2d::ScopedElapsedTime set{ paintStats, direct2d::PaintStats::fillTranslatedRectTime };
 #endif
-                                deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
-                            }
+                            deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
                         }
                     }
                 }
@@ -1419,15 +1411,12 @@ namespace juce
                 {
                     for (auto const& r : list)
                     {
-                        if (direct2d::isUsefulRectangle(r))
+                        if (auto transformedR = transform.transformed(r); clipList.intersectsRectangle(transformedR.toNearestIntEdges()))
                         {
-                            if (auto transformedR = transform.transformed(r); clipList.intersectsRectangle(transformedR.toNearestIntEdges()))
-                            {
 #if JUCE_DIRECT2D_METRICS
-                                direct2d::ScopedElapsedTime set{ paintStats, direct2d::PaintStats::fillAxisAlignedRectTime };
+                            direct2d::ScopedElapsedTime set{ paintStats, direct2d::PaintStats::fillAxisAlignedRectTime };
 #endif
-                                deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
-                            }
+                            deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
                         }
                     }
                 }
@@ -1444,12 +1433,9 @@ namespace juce
                         direct2d::ScopedElapsedTime set{ paintStats, direct2d::PaintStats::fillTransformedRectTime };
 #endif
 
-                        if (direct2d::isUsefulRectangle(r))
+                        if (auto transformedR = transform.transformed(r); clipList.intersectsRectangle(transformedR.toNearestIntEdges()))
                         {
-                            if (auto transformedR = transform.transformed(r); clipList.intersectsRectangle(transformedR.toNearestIntEdges()))
-                            {
-                                deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
-                            }
+                            deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
                         }
                     }
                 }
@@ -1459,11 +1445,6 @@ namespace juce
 
     bool Direct2DGraphicsContext::drawRect(const Rectangle<float>& r, float lineThickness)
     {
-        if (!direct2d::isUsefulRectangle(r))
-        {
-            return true;
-        }
-
         applyPendingClipList();
 
         SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawRect, llgcFrameNumber, r, etw::direct2dKeyword);
@@ -1744,11 +1725,6 @@ namespace juce
     {
         SCOPED_TRACE_EVENT(etw::drawTextLayout, llgcFrameNumber, etw::direct2dKeyword);
 
-        if (!direct2d::isUsefulRectangle(area))
-        {
-            return true;
-        }
-
         applyPendingClipList();
 
         auto deviceContext = getPimpl()->getDeviceContext();
@@ -1789,11 +1765,6 @@ namespace juce
     {
         SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawRoundedRectangle, llgcFrameNumber, area, etw::direct2dKeyword);
 
-        if (!direct2d::isUsefulRectangle(area))
-        {
-            return true;
-        }
-
         applyPendingClipList();
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
@@ -1823,11 +1794,6 @@ namespace juce
     {
         SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillRoundedRectangle, llgcFrameNumber, area, etw::direct2dKeyword);
 
-        if (!direct2d::isUsefulRectangle(area))
-        {
-            return true;
-        }
-
         applyPendingClipList();
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
@@ -1856,11 +1822,6 @@ namespace juce
     bool Direct2DGraphicsContext::drawEllipse(Rectangle<float> area, float lineThickness)
     {
         SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawEllipse, llgcFrameNumber, area, etw::direct2dKeyword);
-
-        if (!direct2d::isUsefulRectangle(area))
-        {
-            return true;
-        }
 
         applyPendingClipList();
 
@@ -1895,11 +1856,6 @@ namespace juce
     bool Direct2DGraphicsContext::fillEllipse(Rectangle<float> area)
     {
         SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillEllipse, llgcFrameNumber, area, etw::direct2dKeyword);
-
-        if (!direct2d::isUsefulRectangle(area))
-        {
-            return true;
-        }
 
         applyPendingClipList();
 
