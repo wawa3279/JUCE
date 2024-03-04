@@ -117,7 +117,7 @@ public:
         HWNDComponentPeer::repaint (area);
     }
 
-    void dispatchDeferredRepaints()
+    void dispatchDeferredRepaints() override
     {
         if (usingDirect2DRendering())
         {

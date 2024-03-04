@@ -1840,7 +1840,7 @@ public:
         deferredRepaints.add ((area.toDouble() * getPlatformScaleFactor()).getSmallestIntegerContainer());
     }
 
-    void dispatchDeferredRepaints()
+    virtual void dispatchDeferredRepaints()
     {
         for (auto deferredRect : deferredRepaints)
         {
