@@ -826,6 +826,8 @@ namespace juce
 
     void Direct2DGraphicsContext::setOrigin(Point<int> o)
     {
+        applyPendingClipList();
+
         currentState->currentTransform.setOrigin(o);
     }
 
@@ -2020,28 +2022,29 @@ namespace juce
         auto& transform = currentState->currentTransform;
         auto& pendingDeviceSpaceClipList = currentState->pendingDeviceSpaceClipList;
 
-        if (pendingDeviceSpaceClipList.getNumRectangles() > 0)
+        if (pendingDeviceSpaceClipList.getNumRectangles() > 0 && !pendingDeviceSpaceClipList.containsRectangle(getPimpl()->getFrameSize()))
         {
-            if (! pendingDeviceSpaceClipList.containsRectangle(getPimpl()->getFrameSize()))
+            if (pendingDeviceSpaceClipList.getNumRectangles() == 1)
             {
-                AffineTransform clipTransform;
+                auto r = pendingDeviceSpaceClipList.getRectangle(0);
                 if (transform.isOnlyTranslated || transform.isAxisAligned())
                 {
-                    if (pendingDeviceSpaceClipList.getNumRectangles() == 1)
-                    {
-                        currentState->pushAliasedAxisAlignedClipLayer(pendingDeviceSpaceClipList.getRectangle(0));
-                        pendingDeviceSpaceClipList.clear();
-                        return;
-                    }
+                    currentState->pushAliasedAxisAlignedClipLayer(r);
                 }
                 else
                 {
-                    clipTransform = transform.getTransform();
+                    ComSmartPtr<ID2D1RectangleGeometry> geometry;
+                    if (auto hr = getPimpl()->getDirect2DFactory()->CreateRectangleGeometry(direct2d::rectangleToRectF(r), geometry.resetAndGetPointerAddress()); SUCCEEDED(hr))
+                    {
+                        currentState->pushTransformedRectangleGeometryClipLayer(geometry, transform.getTransform());
+                    }
                 }
-
+            }
+            else
+            {
                 if (auto clipGeometry = direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(),
                     pendingDeviceSpaceClipList,
-                    clipTransform,
+                    transform.getTransform(),
                     D2D1_FILL_MODE_WINDING,
                     D2D1_FIGURE_BEGIN_FILLED))
                 {
