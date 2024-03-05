@@ -532,22 +532,28 @@ namespace juce
             auto size = scalableArea.getPhysicalAreaD2DSizeU();
 
             ComSmartPtr<ID2D1Bitmap1> snapshot;
+            Image image;
             auto hr = deviceResources.deviceContext.context->CreateBitmap(size, nullptr, 0, bitmapProperties, snapshot.resetAndGetPointerAddress());
             if (SUCCEEDED(hr))
             {
+                swap.chain->Present(0, DXGI_PRESENT_DO_NOT_WAIT);
+
                 //
                 // Copy the swap chain buffer to the bitmap snapshot
                 //
                 D2D_POINT_2U p{ 0, 0 };
                 D2D_RECT_U  sourceRect = scalableArea.getPhysicalAreaD2DRectU();
+
                 if (hr = snapshot->CopyFromBitmap(&p, swap.buffer, &sourceRect); SUCCEEDED(hr))
                 {
                     auto pixelData = Direct2DPixelData::fromDirect2DBitmap(snapshot, scalableArea.withZeroOrigin());
-                    return Image{ pixelData };
+                    image = Image{ pixelData };
                 }
+
+                swap.chain->Present(0, DXGI_PRESENT_DO_NOT_WAIT);
             }
 
-            return Image{};
+            return image;
         }
     };
 
