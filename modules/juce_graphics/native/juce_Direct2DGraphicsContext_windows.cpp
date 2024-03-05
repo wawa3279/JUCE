@@ -353,12 +353,10 @@ namespace juce
                 return nullptr;
             }
 
-            if (fillType.isGradient())
+            if (fillType.isGradient() || fillType.isTiledImage())
             {
                 Point<float> translation;
                 AffineTransform transform;
-                auto p1 = fillType.gradient->point1;
-                auto p2 = fillType.gradient->point2;
 
                 if (flags != 0)
                 {
@@ -377,7 +375,7 @@ namespace juce
 
                     if ((flags & BrushTransformFlags::applyFillTypeTransform) != 0)
                     {
-                       if (fillType.transform.isOnlyTranslation())
+                        if (fillType.transform.isOnlyTranslation())
                         {
                             translation += Point<float>(fillType.transform.getTranslationX(), fillType.transform.getTranslationY());
                         }
@@ -398,34 +396,38 @@ namespace juce
                             transform = transform.followedBy(currentTransform.getTransform().inverted());
                         }
                     }
+                }
 
+                if (fillType.isGradient())
+                {
+                    auto p1 = fillType.gradient->point1;
+                    auto p2 = fillType.gradient->point2;
                     p1 += translation;
                     p2 += translation;
                     p1 = p1.transformedBy(transform);
                     p2 = p2.transformedBy(transform);
                     p1 -= { 0.5f, 0.5f };
                     p2 -= { 0.5f, 0.5f };
-                }
 
-                if (fillType.gradient->isRadial)
-                {
-                    radialGradient->SetCenter({ p1.x, p1.y });
-                    float radius = p2.getDistanceFrom(p1);
-                    radialGradient->SetRadiusX(radius);
-                    radialGradient->SetRadiusY(radius);
+                    if (fillType.gradient->isRadial)
+                    {
+                        radialGradient->SetCenter({ p1.x, p1.y });
+                        float radius = p2.getDistanceFrom(p1);
+                        radialGradient->SetRadiusX(radius);
+                        radialGradient->SetRadiusY(radius);
+                    }
+                    else
+                    {
+                        linearGradient->SetStartPoint({ p1.x, p1.y });
+                        linearGradient->SetEndPoint({ p2.x, p2.y });
+                    }
                 }
                 else
                 {
-                    linearGradient->SetStartPoint({ p1.x, p1.y });
-                    linearGradient->SetEndPoint({ p2.x, p2.y });
+                    bitmapBrush->SetTransform(direct2d::transformToMatrix(transform));
                 }
 
                 currentBrush->SetOpacity(fillType.getOpacity());
-            }
-            else if (fillType.isTiledImage())
-            {
-                bitmapBrush->SetTransform(direct2d::transformToMatrix(currentTransform.getTransformWith(fillType.transform)));
-                bitmapBrush->SetOpacity(fillType.getOpacity());
             }
 
             return currentBrush;
@@ -1688,7 +1690,7 @@ namespace juce
                 return true;
             }
 
-            if (auto brush = currentState->getBrush(SavedState::BrushTransformFlags::noTransforms))
+            if (auto brush = currentState->getBrush(SavedState::BrushTransformFlags::applyFillTypeTransform))
             {
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 deviceContext->DrawLine(D2D1::Point2F(line.getStartX(), line.getStartY()),
@@ -1781,7 +1783,7 @@ namespace juce
                 return true;
             }
 
-            if (auto brush = currentState->getBrush(SavedState::BrushTransformFlags::noTransforms))
+            if (auto brush = currentState->getBrush(SavedState::BrushTransformFlags::applyFillTypeTransform))
             {
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(area), cornerSize, cornerSize };
@@ -1843,7 +1845,7 @@ namespace juce
                 return true;
             }
 
-            if (auto brush = currentState->getBrush(SavedState::BrushTransformFlags::noTransforms))
+            if (auto brush = currentState->getBrush(SavedState::BrushTransformFlags::applyFillTypeTransform))
             {
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 auto         centre = area.getCentre();
@@ -1876,7 +1878,7 @@ namespace juce
                 return true;
             }
 
-            if (auto brush = currentState->getBrush(SavedState::BrushTransformFlags::noTransforms))
+            if (auto brush = currentState->getBrush(SavedState::BrushTransformFlags::applyFillTypeTransform))
             {
                 ScopedTransform scopedTransform{ *getPimpl(), currentState };
                 auto         centre = area.getCentre();
