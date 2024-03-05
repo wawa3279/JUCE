@@ -360,7 +360,6 @@ namespace juce
 
                 if (flags != 0)
                 {
-
                     if ((flags & BrushTransformFlags::applyWorldTransform) != 0)
                     {
                         if (currentTransform.isOnlyTranslated)
@@ -404,8 +403,6 @@ namespace juce
                     auto p2 = fillType.gradient->point2;
                     p1 += translation;
                     p2 += translation;
-                    p1 = p1.transformedBy(transform);
-                    p2 = p2.transformedBy(transform);
                     p1 -= { 0.5f, 0.5f };
                     p2 -= { 0.5f, 0.5f };
 
@@ -422,11 +419,8 @@ namespace juce
                         linearGradient->SetEndPoint({ p2.x, p2.y });
                     }
                 }
-                else
-                {
-                    bitmapBrush->SetTransform(direct2d::transformToMatrix(transform));
-                }
 
+                currentBrush->SetTransform(direct2d::transformToMatrix(transform));
                 currentBrush->SetOpacity(fillType.getOpacity());
             }
 
