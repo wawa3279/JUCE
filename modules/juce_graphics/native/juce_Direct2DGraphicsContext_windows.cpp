@@ -997,7 +997,7 @@ namespace juce
             //
             // Just a translation; pre-translate the exclusion area
             //
-            auto translatedR = transform.translated(userSpaceExcludedRectangle);
+            auto translatedR = transform.translated(userSpaceExcludedRectangle.toFloat()).toNearestIntEdges();
             if (!translatedR.contains(frameSize))
             {
                 deviceSpaceClipList.subtract(translatedR);
@@ -1009,7 +1009,7 @@ namespace juce
             //
             // Just a scale + translation; pre-transform the exclusion area
             //
-            auto transformedR = transform.transformed(userSpaceExcludedRectangle);
+            auto transformedR = transform.transformed(userSpaceExcludedRectangle.toFloat()).toNearestIntEdges();
             if (!transformedR.contains(frameSize))
             {
                 deviceSpaceClipList.subtract(transformedR);
@@ -1019,7 +1019,9 @@ namespace juce
         else
         {
             deviceSpaceClipList = getPimpl()->getFrameSize();
-            deviceSpaceClipList.subtract(userSpaceExcludedRectangle);
+
+            auto transformedR = transform.transformed(userSpaceExcludedRectangle);
+            deviceSpaceClipList.subtract(transformedR);
 
             //
             // Complex transform; plan to set the device context transform later
@@ -1998,9 +2000,10 @@ namespace juce
             }
             else
             {
+                auto clipTransform = transform.isOnlyTranslated || transform.isAxisAligned() ? AffineTransform{} : transform.getTransform();
                 if (auto clipGeometry = direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(),
                     pendingDeviceSpaceClipList,
-                    transform.getTransform(),
+                    clipTransform,
                     D2D1_FILL_MODE_WINDING,
                     D2D1_FIGURE_BEGIN_FILLED))
                 {
