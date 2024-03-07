@@ -56,7 +56,7 @@ public:
 
     ScriptBuilder& echo (const String& text)
     {
-        return insertLine ("echo " + doubleQuoted (text.removeCharacters ("\"")));
+        return insertLine ("echo " + text.replace ("\"", "\\\""));
     }
 
     ScriptBuilder& remove (const String& path)
