@@ -293,7 +293,7 @@ private:
 
             if (jniCheckHasExceptionOccurredAndClear())
             {
-                // An exception has occurred, have you acquired RuntimePermission::readExternalStorage permission?
+                // An exception has occurred, have you acquired RuntimePermissions::readExternalStorage permission?
                 jassertfalse;
                 return {};
             }
