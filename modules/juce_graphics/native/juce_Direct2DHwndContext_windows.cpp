@@ -253,6 +253,8 @@ namespace juce
                     teardown();
                 }
             }
+
+            clearWindowRedirectionBitmap();
         }
 
         void addDeferredRepaint(Rectangle<int> deferredRepaint)
@@ -280,7 +282,7 @@ namespace juce
             updateRegion.clear();
         }
 
-        void clearBackground() override
+        void clearWindowRedirectionBitmap()
         {
             if (! opaque && swap.state == direct2d::SwapChain::State::bufferAllocated)
             {
