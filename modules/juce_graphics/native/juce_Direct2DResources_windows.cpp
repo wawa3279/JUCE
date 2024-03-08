@@ -835,7 +835,7 @@ namespace juce
                         {
                             auto extraSpriteCount = spriteBatch->GetSpriteCount() - addCount - setCount;
 
-                            D2D1_RECT_F emptyDestination;
+                            D2D1_RECT_F emptyDestination{};
                             spriteBatch->SetSprites(addCount + setCount, extraSpriteCount, &emptyDestination, nullptr, nullptr, nullptr, 0, 0, 0, 0);
                         }
 
