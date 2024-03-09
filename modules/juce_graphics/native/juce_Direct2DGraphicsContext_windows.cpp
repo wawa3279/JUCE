@@ -1623,7 +1623,7 @@ namespace juce
 
                if (imageTransform.isOnlyTranslation())
                 {
-                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.toFloat() + Point<float>{ imageTransform.getTranslationX(), imageTransform.getTranslationY() });
+                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.withZeroOrigin().toFloat() + Point<float>{ imageTransform.getTranslationX(), imageTransform.getTranslationY() });
 
                     deviceContext->DrawBitmap(d2d1Bitmap,
                         &destinationRect,
@@ -1637,7 +1637,7 @@ namespace juce
 
                 if (direct2d::isTransformAxisAligned(imageTransform))
                 {
-                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.toFloat().transformedBy(imageTransform));
+                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.withZeroOrigin().toFloat().transformedBy(imageTransform));
 
                     deviceContext->DrawBitmap(d2d1Bitmap,
                         &destinationRect,
