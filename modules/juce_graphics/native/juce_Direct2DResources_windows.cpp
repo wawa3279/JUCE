@@ -528,16 +528,17 @@ namespace juce
             {
                 struct
                 {
-                    float xScaleFactor, yScaleFactor, flatteningTolerance, strokeThickness;
-                    int8 jointStyle, endStyle;
+                    int xScaleFactor, yScaleFactor, flatteningTolerance, strokeThickness;
+                    PathStrokeType::JointStyle jointStyle;
+                    PathStrokeType::EndCapStyle endStyle;
                 } extraHashData;
 
-                extraHashData.xScaleFactor = xScaleFactor;
-                extraHashData.yScaleFactor = yScaleFactor;
-                extraHashData.flatteningTolerance = flatteningTolerance;
-                extraHashData.strokeThickness = strokeType.getStrokeThickness();
-                extraHashData.jointStyle = (int8)strokeType.getJointStyle();
-                extraHashData.endStyle = (int8)strokeType.getEndStyle();
+                extraHashData.xScaleFactor = roundToInt(xScaleFactor * 128.0f);
+                extraHashData.yScaleFactor = roundToInt(yScaleFactor * 128.0f);
+                extraHashData.flatteningTolerance = roundToInt(flatteningTolerance * 128.0f);
+                extraHashData.strokeThickness = roundToInt(strokeType.getStrokeThickness() * 128.0f);
+                extraHashData.jointStyle = strokeType.getJointStyle();
+                extraHashData.endStyle = strokeType.getEndStyle();
 
                 return DefaultHashFunctions::generateHash(reinterpret_cast<uint8 const*>(&extraHashData), sizeof(extraHashData), path.getUniqueID());
             }
