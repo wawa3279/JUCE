@@ -241,6 +241,8 @@ private:
 
             if (bitmap && mappedRect.bits == nullptr)
             {
+                JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(direct2d::MetricsHub::getInstance()->imageContextMetrics, mapBitmapTime)
+
                 D2D1_POINT_2U destPoint{ 0, 0 };
                 sourceRectangle = sourceRectangle.getIntersection(deviceIndependentClipArea_);
                 auto scaledSourceRect = direct2d::DPIScalableArea<int>::fromDeviceIndependentArea(sourceRectangle, dpiScaleFactor);
@@ -269,6 +271,8 @@ private:
 
         void unmap(ID2D1Bitmap1* adapterD2D1Bitmap, Image::BitmapData::ReadWriteMode mode)
         {
+            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(direct2d::MetricsHub::getInstance()->imageContextMetrics, unmapBitmapTime)
+
             //
             // Unmap the mappable bitmap if it was mapped
             //

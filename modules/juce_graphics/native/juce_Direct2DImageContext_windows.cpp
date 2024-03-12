@@ -101,7 +101,9 @@ namespace juce
     Direct2DImageContext::Direct2DImageContext(DirectX::DXGI::Adapter::Ptr adapter_) :
         pimpl(new ImagePimpl{ *this, adapter_ })
     {
+#if JUCE_DIRECT2D_METRICS
         metrics = direct2d::MetricsHub::getInstance()->imageContextMetrics;
+#endif
 
         llgcFrameNumber = nextFrameNumber;
         nextFrameNumber--;

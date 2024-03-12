@@ -152,16 +152,20 @@ private:
             return;
         }
 
+#if JUCE_DIRECT2D_METRICS
         auto paintStartTicks = Time::getHighResolutionTicks();
+#endif
 
         HWNDComponentPeer::handlePaintMessage();
 
+#if JUCE_DIRECT2D_METRICS
         if (lastPaintStartTicks > 0 && direct2DContext)
         {
             direct2DContext->metrics->addValueTicks (direct2d::Metrics::frameInterval, paintStartTicks - lastPaintStartTicks);
             direct2DContext->metrics->addValueTicks (direct2d::Metrics::messageThreadPaintDuration, Time::getHighResolutionTicks() - paintStartTicks);
         }
         lastPaintStartTicks = paintStartTicks;
+#endif
     }
 
     void onVBlank() override
@@ -182,7 +186,9 @@ private:
 
     void handleDirect2DPaint()
     {
+#if JUCE_DIRECT2D_METRICS
         auto paintStartTicks = Time::getHighResolutionTicks();
+#endif
 
         jassert (direct2DContext);
 
@@ -208,6 +214,7 @@ private:
 
             peerFrameNumber++;
 
+#if JUCE_DIRECT2D_METRICS
             if (lastPaintStartTicks > 0)
             {
                 direct2DContext->metrics->addValueTicks (direct2d::Metrics::messageThreadPaintDuration,
@@ -215,7 +222,7 @@ private:
                 direct2DContext->metrics->addValueTicks (direct2d::Metrics::frameInterval, paintStartTicks - lastPaintStartTicks);
             }
             lastPaintStartTicks = paintStartTicks;
-            return;
+#endif
         }
     }
 

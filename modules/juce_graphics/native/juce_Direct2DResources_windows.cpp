@@ -106,6 +106,8 @@ namespace juce
         public:
             static Direct2DBitmap fromImage(Image const& image, ID2D1DeviceContext1* deviceContext, Image::PixelFormat outputFormat)
             {
+                JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(MetricsHub::getInstance()->imageContextMetrics, createBitmapTime);
+
                 jassert(outputFormat == Image::ARGB || outputFormat == Image::SingleChannel);
 
                 TRACE_LOG_D2D_PAINT_CALL(etw::createDirect2DBitmapFromImage, etw::graphicsKeyword);
@@ -166,6 +168,8 @@ namespace juce
 
                 if (! bitmap)
                 {
+                    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(MetricsHub::getInstance()->imageContextMetrics, createBitmapTime);
+
                     D2D1_BITMAP_PROPERTIES1 bitmapProperties = {};
                     bitmapProperties.dpiX = dpiScaleFactor * USER_DEFAULT_SCREEN_DPI;
                     bitmapProperties.dpiY = bitmapProperties.dpiX;
@@ -383,7 +387,7 @@ namespace juce
                     {
                         if (auto geometry = direct2d::pathToPathGeometry(factory, path, D2D1_FIGURE_BEGIN_FILLED, metrics))
                         {
-                            direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::createFilledGRTime };
+                            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, createFilledGRTime);
 
                             auto hr = deviceContext->CreateFilledGeometryRealization(geometry, flatteningTolerance, cachedGeometry->geometryRealisation.resetAndGetPointerAddress());
                             switch (hr)
@@ -462,7 +466,7 @@ namespace juce
                         {
                             if (auto strokeStyle = direct2d::pathStrokeTypeToStrokeStyle(factory, strokeType))
                             {
-                                direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::createStrokedGRTime };
+                                JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, createStrokedGRTime);
 
                                 //
                                 // For stroked paths, the transform will affect the thickness of the path as well
@@ -553,9 +557,9 @@ namespace juce
             void makeGradientStopCollection(ColourGradient const& gradient,
                 ID2D1DeviceContext1* deviceContext,
                 ComSmartPtr<ID2D1GradientStopCollection>& gradientStops,
-                Metrics* metrics) const noexcept
+                [[maybe_unused]] Metrics* metrics) const noexcept
             {
-                ScopedElapsedTime scopedElapsedTime{ metrics, Metrics::createGradientTime };
+                JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, createGradientTime);
 
                 const int numColors = gradient.getNumColours();
 
@@ -716,7 +720,7 @@ namespace juce
                 const RectangleList<float>& unclippedFillRectangles,
                 Colour const colour,
                 std::function<Rectangle<float>(Rectangle<float> const r)> transformRectangle,
-                Metrics* metrics)
+                [[maybe_unused]] Metrics* metrics)
             {
                 int numRectangles = 0;
 
@@ -762,7 +766,7 @@ namespace juce
                         auto spriteBatch = spriteBatches.get(numRectangles);
                         if (!spriteBatch)
                         {
-                            ScopedElapsedTime scopedElapsedTime{ metrics, Metrics::createSpriteBatchTime };
+                            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, createSpriteBatchTime);
 
                             if (hr = deviceContext3->CreateSpriteBatch(spriteBatch.resetAndGetPointerAddress()); FAILED(hr))
                             {
@@ -777,21 +781,24 @@ namespace juce
 
                         if (setCount != 0)
                         {
-                            ScopedElapsedTime scopedElapsedTime{ metrics, Metrics::setSpritesTime };
+                            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, setSpritesTime);
 
                             spriteBatch->SetSprites(0, setCount, destinations.data(), nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
                         }
 
                         if (addCount != 0)
                         {
-                            ScopedElapsedTime add{ metrics, Metrics::addSpritesTime };
+                            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, addSpritesTime);
 
                             spriteBatch->AddSprites(addCount, destinations.data() + setCount, nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
                         }
 
                         if (spriteBatch->GetSpriteCount() > addCount + setCount)
                         {
-                            ScopedElapsedTime scopedElapsedTime{ metrics, Metrics::clearSpritesTime };
+                            //
+                            // TODO clearing unused sprites is probably not necessary
+                            //
+                            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, clearSpritesTime);
 
                             auto extraSpriteCount = spriteBatch->GetSpriteCount() - addCount - setCount;
 
@@ -799,7 +806,7 @@ namespace juce
                             spriteBatch->SetSprites(addCount + setCount, extraSpriteCount, &emptyDestination, nullptr, nullptr, nullptr, 0, 0, 0, 0);
                         }
 
-                        ScopedElapsedTime scopedElapsedTime{ metrics, Metrics::drawSpritesTime };
+                        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, drawSpritesTime);
 
                         deviceContext3->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
                         deviceContext3->DrawSpriteBatch(spriteBatch, bitmap);

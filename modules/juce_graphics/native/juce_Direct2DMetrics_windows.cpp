@@ -16,6 +16,8 @@
   ==============================================================================
 */
 
+#if JUCE_DIRECT2D_METRICS
+
 namespace juce
 {
     namespace direct2d
@@ -64,9 +66,23 @@ namespace juce
                     response->responseType = getValuesRequest;
                     response->windowHandle = metrics->windowHandle;
 
-                    for (size_t i = 0; i < Metrics::numStats; ++i)
+                    for (size_t i = 0; i <= Metrics::drawGlyphRunTime; ++i)
                     {
                         auto& accumulator = metrics->getAccumulator(i);
+                        response->values[i].count = accumulator.getCount();
+                        response->values[i].total = metrics->getSum(i);
+                        response->values[i].average = accumulator.getAverage();
+                        response->values[i].minimum = accumulator.getMinValue();
+                        response->values[i].maximum = accumulator.getMaxValue();
+                        response->values[i].stdDev = accumulator.getStandardDeviation();
+                    }
+
+                    //
+                    // Track bitmap operations common to all device contexts
+                    //
+                    for (size_t i = Metrics::createBitmapTime; i <= Metrics::unmapBitmapTime; ++i)
+                    {
+                        auto& accumulator = owner.imageContextMetrics->getAccumulator(i);
                         response->values[i].count = accumulator.getCount();
                         response->values[i].total = metrics->getSum(i);
                         response->values[i].average = accumulator.getAverage();
@@ -104,3 +120,5 @@ namespace juce
     }
 
 } // namespace juce
+
+#endif

@@ -276,9 +276,9 @@ static ComSmartPtr<ID2D1Geometry> rectListToPathGeometry (ID2D1Factory* factory,
                                                           const AffineTransform& transform,
                                                           D2D1_FILL_MODE fillMode,
                                                           D2D1_FIGURE_BEGIN figureMode,
-                                                          Metrics* metrics)
+                                                          [[maybe_unused]]Metrics* metrics)
 {
-    ScopedElapsedTime scopedElapsedTime{ metrics, Metrics::createGeometryTime };
+    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, createGeometryTime)
     ScopedGeometryWithSink objects { factory, fillMode };
 
     if (objects.sink != nullptr)
@@ -292,9 +292,13 @@ static ComSmartPtr<ID2D1Geometry> rectListToPathGeometry (ID2D1Factory* factory,
     return nullptr;
 }
 
-static ComSmartPtr<ID2D1Geometry> pathToPathGeometry(ID2D1Factory* factory, const Path& path, const AffineTransform& transform, D2D1_FIGURE_BEGIN figureMode, Metrics* metrics)
+static ComSmartPtr<ID2D1Geometry> pathToPathGeometry(ID2D1Factory* factory,
+    const Path& path,
+    const AffineTransform& transform,
+    D2D1_FIGURE_BEGIN figureMode,
+    [[maybe_unused]] Metrics* metrics)
 {
-    ScopedElapsedTime scopedElapsedTime{ metrics, Metrics::createGeometryTime };
+    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, createGeometryTime)
     ScopedGeometryWithSink objects { factory, path.isUsingNonZeroWinding() ? D2D1_FILL_MODE_WINDING : D2D1_FILL_MODE_ALTERNATE };
 
     if (objects.sink != nullptr)
@@ -307,9 +311,9 @@ static ComSmartPtr<ID2D1Geometry> pathToPathGeometry(ID2D1Factory* factory, cons
     return nullptr;
 }
 
-static ComSmartPtr<ID2D1Geometry> pathToPathGeometry(ID2D1Factory* factory, const Path& path, D2D1_FIGURE_BEGIN figureMode, Metrics* metrics)
+static ComSmartPtr<ID2D1Geometry> pathToPathGeometry(ID2D1Factory* factory, const Path& path, D2D1_FIGURE_BEGIN figureMode, [[maybe_unused]] Metrics* metrics)
 {
-    ScopedElapsedTime scopedElapsedTime{ metrics, Metrics::createGeometryTime };
+    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, createGeometryTime)
     ScopedGeometryWithSink objects{ factory, path.isUsingNonZeroWinding() ? D2D1_FILL_MODE_WINDING : D2D1_FILL_MODE_ALTERNATE };
 
     if (objects.sink != nullptr)

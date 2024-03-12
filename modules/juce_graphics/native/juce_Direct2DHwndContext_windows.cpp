@@ -327,9 +327,7 @@ namespace juce
             // The buffer needs to be completely filled before using dirty rectangles. The dirty rectangles need to be contained
             // within the swap chain buffer.
             //
-#if JUCE_DIRECT2D_METRICS
-            direct2d::ScopedElapsedTime scopedElapsedTime{ owner.metrics, direct2d::Metrics::present1Duration };
-#endif
+            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(owner.metrics, present1Duration);
 
             //
             // Allocate enough memory for the array of dirty rectangles
@@ -545,21 +543,24 @@ namespace juce
     //==============================================================================
     Direct2DHwndContext::Direct2DHwndContext(void* windowHandle, float dpiScalingFactor_, bool opaque)
     {
+#if JUCE_DIRECT2D_METRICS
         metrics = new direct2d::Metrics{ direct2d::MetricsHub::getInstance()->lock,
             "HWND " + String::toHexString((pointer_sized_int)windowHandle),
             windowHandle };
+        direct2d::MetricsHub::getInstance()->add(metrics);
+#endif
 
         pimpl = std::make_unique<HwndPimpl>(*this, reinterpret_cast<HWND>(windowHandle), opaque);
 
         getPimpl()->setScaleFactor(dpiScalingFactor_);
         updateSize();
-
-        direct2d::MetricsHub::getInstance()->add(metrics);
     }
 
     Direct2DHwndContext::~Direct2DHwndContext()
     {
+#if JUCE_DIRECT2D_METRICS
         direct2d::MetricsHub::getInstance()->remove(metrics);
+#endif
     }
 
     void* Direct2DHwndContext::getHwnd() const noexcept

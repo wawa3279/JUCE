@@ -18,8 +18,11 @@
 
 #pragma once
 
+#if JUCE_DIRECT2D_METRICS
+
 namespace juce
 {
+
     namespace direct2d
     {
         struct Metrics : public ReferenceCountedObject
@@ -37,8 +40,6 @@ namespace juce
         DIRECT2D_PAINT_STAT(createFilledGRTime) \
         DIRECT2D_PAINT_STAT(createStrokedGRTime) \
         DIRECT2D_PAINT_STAT(drawGRTime) \
-        DIRECT2D_PAINT_STAT(createBitmapTime) \
-        DIRECT2D_PAINT_STAT(mapBitmapTime) \
         DIRECT2D_PAINT_STAT(createGradientTime) \
         DIRECT2D_PAINT_STAT(pushAliasedAxisAlignedLayerTime) \
         DIRECT2D_PAINT_STAT(pushGeometryLayerTime) \
@@ -53,7 +54,10 @@ namespace juce
         DIRECT2D_PAINT_STAT(addSpritesTime) \
         DIRECT2D_PAINT_STAT(clearSpritesTime) \
         DIRECT2D_PAINT_STAT(drawSpritesTime) \
-        DIRECT2D_LAST_PAINT_STAT(drawGlyphRunTime)
+        DIRECT2D_PAINT_STAT(drawGlyphRunTime) \
+        DIRECT2D_PAINT_STAT(createBitmapTime) \
+        DIRECT2D_PAINT_STAT(mapBitmapTime) \
+        DIRECT2D_LAST_PAINT_STAT(unmapBitmapTime)
 
 #define DIRECT2D_PAINT_STAT(name) name,
 #define DIRECT2D_LAST_PAINT_STAT(name) name
@@ -274,4 +278,24 @@ namespace juce
             Metrics* lastMetrics = nullptr;
         };
     }
+
 }
+
+#define JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, name) juce::direct2d::ScopedElapsedTime scopedElapsedTime_##name{ metrics, juce::direct2d::Metrics::name };
+
+#else
+
+namespace juce
+{
+    namespace direct2d
+    {
+        struct Metrics : public ReferenceCountedObject
+        {
+            using Ptr = ReferenceCountedObjectPtr<Metrics>;
+        };
+    }
+}
+
+#define JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, name)
+
+#endif

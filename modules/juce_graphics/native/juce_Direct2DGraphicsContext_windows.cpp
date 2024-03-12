@@ -73,7 +73,9 @@
 
 namespace juce
 {
+#if JUCE_DIRECT2D_METRICS
     JUCE_IMPLEMENT_SINGLETON(direct2d::MetricsHub)
+#endif
 
     struct Direct2DGraphicsContext::SavedState
     {
@@ -190,7 +192,7 @@ namespace juce
 
         void pushTransformedRectangleGeometryClipLayer(ComSmartPtr<ID2D1RectangleGeometry> geometry, AffineTransform const& transform)
         {
-            direct2d::ScopedElapsedTime scopedElapsedTime{ owner.metrics, direct2d::Metrics::pushGeometryLayerTime };
+            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(owner.metrics, pushGeometryLayerTime)
 
             jassert(geometry != nullptr);
             auto layerParameters = D2D1::LayerParameters(D2D1::InfiniteRect(), geometry);
@@ -200,7 +202,7 @@ namespace juce
 
         void pushAliasedAxisAlignedClipLayer(Rectangle<int> r)
         {
-            direct2d::ScopedElapsedTime scopedElapsedTime{ owner.metrics, direct2d::Metrics::pushAliasedAxisAlignedLayerTime };
+            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(owner.metrics, pushAliasedAxisAlignedLayerTime)
 
             deviceResources.deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_ALIASED);
             pushedLayers.emplace_back(popAxisAlignedLayerFlag);
@@ -231,17 +233,6 @@ namespace juce
                 {
                     deviceResources.deviceContext.context->PopAxisAlignedClip();
                 }
-
-#if JUCE_DIRECT2D_FLUSH_DEVICE_CONTEXT
-                {
-                    SCOPED_TRACE_EVENT(etw::flush, owner.llgcFrameNumber, etw::direct2dKeyword);
-
-#if JUCE_DIRECT2D_METRICS
-                    direct2d::ScopedElapsedTime scopedElapsedTime{ owner.metrics, direct2d::Metrics::flushTime };
-#endif
-                    deviceResources.deviceContext.context->Flush();
-                }
-#endif
 
                 pushedLayers.pop_back();
             }
@@ -293,7 +284,7 @@ namespace juce
 
                 if (! d2d1Bitmap || d2d1Bitmap->GetPixelFormat().format != DXGI_FORMAT_B8G8R8A8_UNORM)
                 {
-                    direct2d::ScopedElapsedTime scopedElapsedTime{ owner.metrics, direct2d::Metrics::createBitmapTime };
+                    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(direct2d::MetricsHub::getInstance()->imageContextMetrics, createBitmapTime);
 
                     d2d1Bitmap = direct2d::Direct2DBitmap::fromImage(fillType.image, deviceResources.deviceContext.context, Image::ARGB).getD2D1Bitmap();
                 }
@@ -555,7 +546,9 @@ namespace juce
                 return nullptr;
             }
 
+#if JUCE_DIRECT2D_METRICS
             owner.metrics->startFrame();
+#endif
 
             TRACE_EVENT_INT_RECT_LIST(etw::startD2DFrame, owner.llgcFrameNumber, paintAreas, etw::direct2dKeyword)
 
@@ -588,22 +581,15 @@ namespace juce
             //
             // SetTarget(nullptr) so the device context doesn't hold a reference to the swap chain buffer
             //
-#if JUCE_DIRECT2D_METRICS
-            auto t1 = Time::getHighResolutionTicks();
-#endif
-
             HRESULT hr = S_OK;
             {
+                JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(owner.metrics, endDrawDuration)
+
                 SCOPED_TRACE_EVENT(etw::endDraw, owner.llgcFrameNumber, etw::direct2dKeyword);
 
                 hr = deviceResources.deviceContext.context->EndDraw();
                 deviceResources.deviceContext.context->SetTarget(nullptr);
             }
-
-#if JUCE_DIRECT2D_METRICS
-            auto t2 = Time::getHighResolutionTicks();
-            owner.metrics->addValueTicks(direct2d::Metrics::endDrawDuration, t2 - t1);
-#endif
 
             jassert(SUCCEEDED(hr));
 
@@ -612,7 +598,9 @@ namespace juce
                 teardown();
             }
 
+#if JUCE_DIRECT2D_METRICS
             owner.metrics->finishFrame();
+#endif
 
             return hr;
         }
@@ -754,7 +742,6 @@ namespace juce
 
 #if JUCE_DIRECT2D_METRICS
         int64 paintStartTicks = 0;
-        int64 paintEndTicks = 0;
 #endif
 
         JUCE_DECLARE_WEAK_REFERENCEABLE(Pimpl)
@@ -1259,7 +1246,7 @@ namespace juce
                 {
                     if (auto translatedR = r + currentState->currentTransform.offset.toFloat(); currentState->deviceSpaceClipList.intersectsRectangle(translatedR.toNearestIntEdges()))
                     {
-                        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillTranslatedRectTime };
+                        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillTranslatedRectTime)
 
                         deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
                     }
@@ -1273,7 +1260,7 @@ namespace juce
                 {
                     if (auto transformedR = currentState->currentTransform.transformed(r); currentState->deviceSpaceClipList.intersectsRectangle(transformedR.toNearestIntEdges()))
                     {
-                        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillAxisAlignedRectTime };
+                        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillAxisAlignedRectTime)
 
                         deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
                     }
@@ -1285,7 +1272,7 @@ namespace juce
             {
                 if (auto transformedR = currentState->currentTransform.transformed(r); currentState->deviceSpaceClipList.intersectsRectangle(transformedR.toNearestIntEdges()))
                 {
-                    direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillTransformedRectTime };
+                    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillTransformedRectTime)
 
                     ScopedTransform scopedTransform{ *getPimpl(), currentState };
                     deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
@@ -1301,7 +1288,7 @@ namespace juce
 
         applyPendingClipList();
 
-        direct2d::ScopedElapsedTime fillRectListScopedElapsedTime{ metrics, direct2d::Metrics::fillRectListTime };
+        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillRectListTime)
 
         SCOPED_TRACE_EVENT_FLOAT_RECT_LIST(etw::fillRectList, llgcFrameNumber, list, etw::direct2dKeyword | etw::spriteKeyword);
 
@@ -1314,9 +1301,7 @@ namespace juce
             {
                 if (auto rectangleListSpriteBatch = getPimpl()->getRectangleListSpriteBatch())
                 {
-#if JUCE_DIRECT2D_METRICS
-                    direct2d::ScopedElapsedTime spriteTime{ metrics, direct2d::Metrics::spriteBatchTime };
-#endif
+                    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, spriteBatchTime)
 
                     if (transform.isOnlyTranslated)
                     {
@@ -1374,9 +1359,8 @@ namespace juce
                     {
                         if (auto translatedR = transform.translated(r); clipList.intersectsRectangle(translatedR.toNearestIntEdges()))
                         {
-#if JUCE_DIRECT2D_METRICS
-                            direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillTranslatedRectTime };
-#endif
+                            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillTranslatedRectTime)
+
                             deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
                         }
                     }
@@ -1392,9 +1376,8 @@ namespace juce
                     {
                         if (auto transformedR = transform.transformed(r); clipList.intersectsRectangle(transformedR.toNearestIntEdges()))
                         {
-#if JUCE_DIRECT2D_METRICS
-                            direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillAxisAlignedRectTime };
-#endif
+                            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillAxisAlignedRectTime)
+
                             deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
                         }
                     }
@@ -1408,9 +1391,7 @@ namespace juce
                     ScopedTransform scopedTransform{ *getPimpl(), currentState };
                     for (auto const& r : list)
                     {
-#if JUCE_DIRECT2D_METRICS
-                        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillTransformedRectTime };
-#endif
+                        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillTransformedRectTime)
 
                         if (auto transformedR = transform.transformed(r); clipList.intersectsRectangle(transformedR.toNearestIntEdges()))
                         {
@@ -1492,7 +1473,7 @@ namespace juce
                     llgcFrameNumber,
                     metrics.get()))
                 {
-                    direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawGRTime };
+                    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, drawGRTime)
 
                     ScopedTransform scopedTransform{ *getPimpl(), currentState, transform };
                     deviceContext->DrawGeometryRealization(geometryRealisation, brush);
@@ -1504,7 +1485,7 @@ namespace juce
                 //
                 if (auto geometry = direct2d::pathToPathGeometry(factory, p, currentState->currentTransform.getTransformWith(transform), D2D1_FIGURE_BEGIN_FILLED, metrics.get()))
                 {
-                    direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillGeometryTime };
+                    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillGeometryTime)
 
                     deviceContext->FillGeometry(geometry, brush);
                 }
@@ -1547,7 +1528,7 @@ namespace juce
                         llgcFrameNumber,
                         metrics.get()))
                     {
-                        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawGRTime };
+                        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, drawGRTime)
 
                         ScopedTransform scopedTransform{ *getPimpl(),
                             currentState,
@@ -1564,7 +1545,7 @@ namespace juce
                 {
                     if (auto strokeStyle = direct2d::pathStrokeTypeToStrokeStyle(factory, strokeType))
                     {
-                        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawGeometryTime };
+                        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, drawGeometryTime)
 
                         deviceContext->DrawGeometry(geometry, brush, strokeType.getStrokeThickness(), strokeStyle);
                     }
@@ -1577,7 +1558,7 @@ namespace juce
 
     void Direct2DGraphicsContext::drawImage(const Image& image, const AffineTransform& transform)
     {
-        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawImageTime };
+        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, drawImageTime)
 
         SCOPED_TRACE_EVENT(etw::drawImage, llgcFrameNumber, etw::direct2dKeyword);
 
@@ -1604,7 +1585,7 @@ namespace juce
 
             if (!d2d1Bitmap || d2d1Bitmap->GetPixelFormat().format != DXGI_FORMAT_B8G8R8A8_UNORM)
             {
-                direct2d::ScopedElapsedTime scopedBitmapElapsedTime{ metrics, direct2d::Metrics::createBitmapTime };
+                JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(direct2d::MetricsHub::getInstance()->imageContextMetrics, createBitmapTime);
 
                 d2d1Bitmap = direct2d::Direct2DBitmap::fromImage(image, deviceContext, Image::ARGB).getD2D1Bitmap();
                 imageClipArea = image.getBounds();
@@ -1706,7 +1687,7 @@ namespace juce
 
     void Direct2DGraphicsContext::drawGlyph(int glyphNumber, const AffineTransform& transform)
     {
-        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawGlyphRunTime };
+        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, drawGlyphRunTime)
 
         SCOPED_TRACE_EVENT(etw::drawGlyph, llgcFrameNumber, etw::direct2dKeyword);
 
@@ -1887,7 +1868,7 @@ namespace juce
         const AffineTransform& transform,
         Rectangle<float>              underlineArea)
     {
-        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawGlyphRunTime };
+        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, drawGlyphRunTime)
 
         SCOPED_TRACE_EVENT(etw::drawGlyphRun, llgcFrameNumber, etw::direct2dKeyword);
 
@@ -1936,7 +1917,7 @@ namespace juce
 
     void Direct2DGraphicsContext::drawTextLayoutGlyphRun(Array<TextLayout::Glyph> const& glyphs, const Font& font, const AffineTransform& transform)
     {
-        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawGlyphRunTime };
+        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, drawGlyphRunTime)
 
         SCOPED_TRACE_EVENT(etw::drawGlyphRun, llgcFrameNumber, etw::direct2dKeyword);
 
