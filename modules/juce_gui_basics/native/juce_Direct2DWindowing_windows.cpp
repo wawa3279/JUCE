@@ -141,8 +141,10 @@ private:
     #if JUCE_ETW_TRACELOGGING
     SharedResourcePointer<ETWEventProvider> etwEventProvider;
     #endif
-    std::unique_ptr<Direct2DHwndContext> direct2DContext;
+#if JUCE_DIRECT2D_METRICS
     int64 lastPaintStartTicks = 0;
+#endif
+    std::unique_ptr<Direct2DHwndContext> direct2DContext;
 
     void handlePaintMessage() override
     {
