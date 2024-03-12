@@ -846,7 +846,7 @@ private:
 
     struct CacheInfo
     {
-        bool cacheEnabled = true;
+        bool cacheEnabled = false;
         mutable int cacheableCountdown = 2;
 
         int getModificationCount() const noexcept
