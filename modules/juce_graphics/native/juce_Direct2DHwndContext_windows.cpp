@@ -54,11 +54,6 @@ namespace juce
 
         HWND hwnd = nullptr;
 
-#if JUCE_DIRECT2D_METRICS
-        int64 paintStartTicks = 0;
-        int64 paintEndTicks = 0;
-#endif
-
         HRESULT prepare() override
         {
             if (!adapter || !adapter->direct2DDevice)
@@ -76,18 +71,6 @@ namespace juce
                 {
                     return hr;
                 }
-
-#if JUCE_DIRECT2D_METRICS
-                if (owner.paintStats)
-                {
-                    deviceResources.filledGeometryCache.createGeometryMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGeometryTime);
-                    deviceResources.filledGeometryCache.createGeometryRealisationMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createFilledGRTime);
-                    deviceResources.strokedGeometryCache.createGeometryMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGeometryTime);
-                    deviceResources.strokedGeometryCache.createGeometryRealisationMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createStrokedGRTime);
-                    deviceResources.linearGradientCache.createGradientMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGradientTime);
-                    deviceResources.radialGradientCache.createGradientMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGradientTime);
-                }
-#endif
             }
 
             if (!hwnd || frameSize.isEmpty())
@@ -345,7 +328,7 @@ namespace juce
             // within the swap chain buffer.
             //
 #if JUCE_DIRECT2D_METRICS
-            direct2d::ScopedElapsedTime set{ owner.paintStats, direct2d::PaintStats::present1Duration };
+            direct2d::ScopedElapsedTime scopedElapsedTime{ owner.metrics, direct2d::Metrics::present1Duration };
 #endif
 
             //
@@ -562,13 +545,22 @@ namespace juce
     //==============================================================================
     Direct2DHwndContext::Direct2DHwndContext(void* windowHandle, float dpiScalingFactor_, bool opaque)
     {
+        metrics = new direct2d::Metrics{ direct2d::MetricsHub::getInstance()->lock,
+            "HWND " + String::toHexString((pointer_sized_int)windowHandle),
+            windowHandle };
+
         pimpl = std::make_unique<HwndPimpl>(*this, reinterpret_cast<HWND>(windowHandle), opaque);
 
         getPimpl()->setScaleFactor(dpiScalingFactor_);
         updateSize();
+
+        direct2d::MetricsHub::getInstance()->add(metrics);
     }
 
-    Direct2DHwndContext::~Direct2DHwndContext() {}
+    Direct2DHwndContext::~Direct2DHwndContext()
+    {
+        direct2d::MetricsHub::getInstance()->remove(metrics);
+    }
 
     void* Direct2DHwndContext::getHwnd() const noexcept
     {

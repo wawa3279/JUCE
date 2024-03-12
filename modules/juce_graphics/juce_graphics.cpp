@@ -56,10 +56,11 @@
   #include <d2d1_3.h>
   #pragma pop_macro("NTDDI_VERSION")
 
-  #include <d3d11_1.h>
+  #include <d3d11_2.h>
   #include <dwrite.h>
   #include <dcomp.h>
-  #include <dxgi1_2.h>
+  #include <dxgi1_3.h>
+  #include <processthreadsapi.h>
 
 #if JUCE_ETW_TRACELOGGING
   #include <evntrace.h>
@@ -172,6 +173,7 @@
  #include "native/juce_Direct2DImageContext_windows.h"
  #include "native/juce_Direct2DImageContext_windows.cpp"
  #include "native/juce_Direct2DImage_windows.cpp"
+ #include "native/juce_Direct2DMetrics_windows.cpp"
 
 #elif JUCE_LINUX || JUCE_BSD
  #include "native/juce_Fonts_linux.cpp"

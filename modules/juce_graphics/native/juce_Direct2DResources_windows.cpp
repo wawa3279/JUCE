@@ -100,6 +100,7 @@ namespace juce
         // Direct2D bitmap
         //
 
+        struct Metrics;
         class Direct2DBitmap
         {
         public:
@@ -238,11 +239,6 @@ namespace juce
                 hashMap.clear();
             }
 
-#if JUCE_DIRECT2D_METRICS
-            StatisticsAccumulator<double>* createGeometryMsecStats = nullptr;
-            StatisticsAccumulator<double>* createGeometryRealisationMsecStats = nullptr;
-#endif
-
         protected:
 
             static float findGeometryFlatteningTolerance(float scaleFactor)
@@ -359,7 +355,8 @@ namespace juce
                 ID2D1Factory2* factory,
                 ID2D1DeviceContext1* deviceContext,
                 float dpiScaleFactor,
-                [[maybe_unused]] int frameNumber)
+                [[maybe_unused]] int frameNumber,
+                direct2d::Metrics* metrics)
             {
                 if (path.getModificationCount() == 0 || !path.shouldBeCached())
                 {
@@ -384,24 +381,11 @@ namespace juce
 
                     else
                     {
-#if JUCE_DIRECT2D_METRICS
-                        auto t1 = Time::getHighResolutionTicks();
-#endif
-                        if (auto geometry = direct2d::pathToPathGeometry(factory, path, D2D1_FIGURE_BEGIN_FILLED))
+                        if (auto geometry = direct2d::pathToPathGeometry(factory, path, D2D1_FIGURE_BEGIN_FILLED, metrics))
                         {
-#if JUCE_DIRECT2D_METRICS
-                            auto t2 = Time::getHighResolutionTicks();
-#endif
+                            direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::createFilledGRTime };
 
                             auto hr = deviceContext->CreateFilledGeometryRealization(geometry, flatteningTolerance, cachedGeometry->geometryRealisation.resetAndGetPointerAddress());
-
-#if JUCE_DIRECT2D_METRICS
-                            auto t3 = Time::getHighResolutionTicks();
-
-                            if (createGeometryMsecStats) createGeometryMsecStats->addValue(Time::highResolutionTicksToSeconds(t2 - t1) * 1000.0);
-                            if (createGeometryRealisationMsecStats) createGeometryRealisationMsecStats->addValue(Time::highResolutionTicksToSeconds(t3 - t2) * 1000.0);
-#endif
-
                             switch (hr)
                             {
                             case S_OK:
@@ -448,7 +432,8 @@ namespace juce
                 float xScaleFactor,
                 float yScaleFactor,
                 float dpiScaleFactor,
-                [[maybe_unused]] int frameNumber)
+                [[maybe_unused]] int frameNumber,
+                Metrics* metrics)
             {
                 if (path.getModificationCount() == 0 || !path.shouldBeCached())
                 {
@@ -472,17 +457,13 @@ namespace juce
                     }
                     else
                     {
-#if JUCE_DIRECT2D_METRICS
-                        auto t1 = Time::getHighResolutionTicks();
-#endif
                         auto transform = AffineTransform::scale(xScaleFactor, yScaleFactor, path.getBounds().getX(), path.getBounds().getY());
-                        if (auto geometry = direct2d::pathToPathGeometry(factory, path, transform, D2D1_FIGURE_BEGIN_HOLLOW))
+                        if (auto geometry = direct2d::pathToPathGeometry(factory, path, transform, D2D1_FIGURE_BEGIN_HOLLOW, metrics))
                         {
-#if JUCE_DIRECT2D_METRICS
-                            auto t2 = Time::getHighResolutionTicks();
-#endif
                             if (auto strokeStyle = direct2d::pathStrokeTypeToStrokeStyle(factory, strokeType))
                             {
+                                direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::createStrokedGRTime };
+
                                 //
                                 // For stroked paths, the transform will affect the thickness of the path as well
                                 // as the dimensions of the path. Divide the stroke thickness by the scale factor
@@ -493,13 +474,6 @@ namespace juce
                                     strokeType.getStrokeThickness(),
                                     strokeStyle,
                                     cachedGeometry->geometryRealisation.resetAndGetPointerAddress());
-
-#if JUCE_DIRECT2D_METRICS
-                                auto t3 = Time::getHighResolutionTicks();
-
-                                if (createGeometryMsecStats) createGeometryMsecStats->addValue(Time::highResolutionTicksToSeconds(t2 - t1) * 1000.0);
-                                if (createGeometryRealisationMsecStats) createGeometryRealisationMsecStats->addValue(Time::highResolutionTicksToSeconds(t3 - t2) * 1000.0);
-#endif
 
                                 switch (hr)
                                 {
@@ -533,6 +507,9 @@ namespace juce
                     PathStrokeType::EndCapStyle endStyle;
                 } extraHashData;
 
+                //
+                // Round the various float value to 128ths to avoid floating point hash differences
+                //
                 extraHashData.xScaleFactor = roundToInt(xScaleFactor * 128.0f);
                 extraHashData.yScaleFactor = roundToInt(yScaleFactor * 128.0f);
                 extraHashData.flatteningTolerance = roundToInt(flatteningTolerance * 128.0f);
@@ -564,21 +541,22 @@ namespace juce
                 gradientMap.clear();
             }
 
-            void get(ColourGradient const&, ID2D1DeviceContext1*, ComSmartPtr<BrushType>&);
+            void get(ColourGradient const&, ID2D1DeviceContext1*, ComSmartPtr<BrushType>&, Metrics* metrics);
 
-#if JUCE_DIRECT2D_METRICS
-            StatisticsAccumulator<double>* createGradientMsecStats = nullptr;
-#endif
 
         protected:
-
             uint64 calculateGradientHash(ColourGradient const& gradient)
             {
                 return gradient.getHash();
             }
 
-            void makeGradientStopCollection(ColourGradient const& gradient, ID2D1DeviceContext1* deviceContext, ComSmartPtr<ID2D1GradientStopCollection>& gradientStops) const noexcept
+            void makeGradientStopCollection(ColourGradient const& gradient,
+                ID2D1DeviceContext1* deviceContext,
+                ComSmartPtr<ID2D1GradientStopCollection>& gradientStops,
+                Metrics* metrics) const noexcept
             {
+                ScopedElapsedTime scopedElapsedTime{ metrics, Metrics::createGradientTime };
+
                 const int numColors = gradient.getNumColours();
 
                 HeapBlock<D2D1_GRADIENT_STOP> stops(numColors);
@@ -645,7 +623,7 @@ namespace juce
         };
 
         template<>
-        void ColourGradientCache<ID2D1LinearGradientBrush>::get(ColourGradient const& gradient, ID2D1DeviceContext1* deviceContext, ComSmartPtr<ID2D1LinearGradientBrush>& brush)
+        void ColourGradientCache<ID2D1LinearGradientBrush>::get(ColourGradient const& gradient, ID2D1DeviceContext1* deviceContext, ComSmartPtr<ID2D1LinearGradientBrush>& brush, Metrics* metrics)
         {
             jassert(!gradient.isRadial);
 
@@ -661,15 +639,11 @@ namespace juce
                 return;
             }
 
-#if JUCE_DIRECT2D_METRICS
-            auto t1 = Time::getHighResolutionTicks();
-#endif
-
             //
             // Make and store a new gradient brush
             //
             ComSmartPtr<ID2D1GradientStopCollection> gradientStops;
-            makeGradientStopCollection(gradient, deviceContext, gradientStops);
+            makeGradientStopCollection(gradient, deviceContext, gradientStops, metrics);
 
             D2D1_BRUSH_PROPERTIES brushProps = { 1.0f, D2D1::IdentityMatrix() };
             const auto linearGradientBrushProperties = D2D1::LinearGradientBrushProperties({ p1.x, p1.y }, { p2.x, p2.y });
@@ -680,16 +654,10 @@ namespace juce
                 brush.resetAndGetPointerAddress());
 
             gradientMap.store(hash, brush);
-
-#if JUCE_DIRECT2D_METRICS
-            auto t2 = Time::getHighResolutionTicks();
-
-            if (createGradientMsecStats) createGradientMsecStats->addValue(Time::highResolutionTicksToSeconds(t2 - t1) * 1000.0);
-#endif
         }
 
         template<>
-        void ColourGradientCache<ID2D1RadialGradientBrush>::get(ColourGradient const& gradient, ID2D1DeviceContext1* deviceContext, ComSmartPtr<ID2D1RadialGradientBrush>& brush)
+        void ColourGradientCache<ID2D1RadialGradientBrush>::get(ColourGradient const& gradient, ID2D1DeviceContext1* deviceContext, ComSmartPtr<ID2D1RadialGradientBrush>& brush, Metrics* metrics)
         {
             jassert(gradient.isRadial);
 
@@ -706,15 +674,11 @@ namespace juce
                 return;
             }
 
-#if JUCE_DIRECT2D_METRICS
-            auto t1 = Time::getHighResolutionTicks();
-#endif
-
             //
             // Make and store a new gradient brush
             //
             ComSmartPtr<ID2D1GradientStopCollection> gradientStops;
-            makeGradientStopCollection(gradient, deviceContext, gradientStops);
+            makeGradientStopCollection(gradient, deviceContext, gradientStops, metrics);
 
             D2D1_BRUSH_PROPERTIES brushProps = { 1.0F, D2D1::IdentityMatrix() };
             const auto radialGradientBrushProperties = D2D1::RadialGradientBrushProperties({ p1.x, p1.y }, {}, r, r);
@@ -725,12 +689,6 @@ namespace juce
                 brush.resetAndGetPointerAddress());
 
             gradientMap.store(hash, brush);
-
-#if JUCE_DIRECT2D_METRICS
-            auto t2 = Time::getHighResolutionTicks();
-
-            if (createGradientMsecStats) createGradientMsecStats->addValue(Time::highResolutionTicksToSeconds(t2 - t1) * 1000.0);
-#endif
         }
 
         //==============================================================================
@@ -756,27 +714,20 @@ namespace juce
 
             void fillRectangles(ID2D1DeviceContext1* deviceContext,
                 const RectangleList<float>& unclippedFillRectangles,
-                const RectangleList<int>& deviceSpaceClipList,
                 Colour const colour,
-                std::function<Rectangle<float>(Rectangle<float> const r)> transformRectangle)
+                std::function<Rectangle<float>(Rectangle<float> const r)> transformRectangle,
+                Metrics* metrics)
             {
                 int numRectangles = 0;
 
                 destinations.reserve((size_t)unclippedFillRectangles.getNumRectangles() * 2);
                 destinations.clear();
 
+                for (auto r : unclippedFillRectangles)
                 {
-                    auto clipBounds = deviceSpaceClipList.getBounds().toFloat();
-                    for (auto r : unclippedFillRectangles)
-                    {
-                        r = transformRectangle(r);
-
-                        if (r = r.getIntersection(clipBounds); !r.isEmpty())
-                        {
-                            destinations.emplace_back(direct2d::rectangleToRectF(r));
-                            ++numRectangles;
-                        }
-                    }
+                    r = transformRectangle(r);
+                    destinations.emplace_back(direct2d::rectangleToRectF(r));
+                    ++numRectangles;
                 }
 
                 if (numRectangles <= 0)
@@ -811,6 +762,8 @@ namespace juce
                         auto spriteBatch = spriteBatches.get(numRectangles);
                         if (!spriteBatch)
                         {
+                            ScopedElapsedTime scopedElapsedTime{ metrics, Metrics::createSpriteBatchTime };
+
                             if (hr = deviceContext3->CreateSpriteBatch(spriteBatch.resetAndGetPointerAddress()); FAILED(hr))
                             {
                                 return;
@@ -824,21 +777,29 @@ namespace juce
 
                         if (setCount != 0)
                         {
+                            ScopedElapsedTime scopedElapsedTime{ metrics, Metrics::setSpritesTime };
+
                             spriteBatch->SetSprites(0, setCount, destinations.data(), nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
                         }
 
                         if (addCount != 0)
                         {
+                            ScopedElapsedTime add{ metrics, Metrics::addSpritesTime };
+
                             spriteBatch->AddSprites(addCount, destinations.data() + setCount, nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
                         }
 
                         if (spriteBatch->GetSpriteCount() > addCount + setCount)
                         {
+                            ScopedElapsedTime scopedElapsedTime{ metrics, Metrics::clearSpritesTime };
+
                             auto extraSpriteCount = spriteBatch->GetSpriteCount() - addCount - setCount;
 
                             D2D1_RECT_F emptyDestination{};
                             spriteBatch->SetSprites(addCount + setCount, extraSpriteCount, &emptyDestination, nullptr, nullptr, nullptr, 0, 0, 0, 0);
                         }
+
+                        ScopedElapsedTime scopedElapsedTime{ metrics, Metrics::drawSpritesTime };
 
                         deviceContext3->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
                         deviceContext3->DrawSpriteBatch(spriteBatch, bitmap);

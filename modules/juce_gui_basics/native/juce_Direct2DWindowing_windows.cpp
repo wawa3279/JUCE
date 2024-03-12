@@ -35,12 +35,6 @@
 
 class Direct2DComponentPeer : public HWNDComponentPeer
 {
-private:
-    #if JUCE_DIRECT2D_METRICS
-    int64 lastPaintStartTicks = 0;
-    direct2d::PaintStats::Ptr paintStats = new direct2d::PaintStats;
-    #endif
-
 public:
     enum
     {
@@ -63,11 +57,6 @@ public:
     {
         direct2DContext = nullptr;
         HWNDComponentPeer::destroyWindow();
-    }
-
-    ~Direct2DComponentPeer() override
-    {
-        direct2DContext = nullptr;
     }
 
     DWORD adjustWindowStyleFlags (DWORD exStyleFlags) override
@@ -153,6 +142,7 @@ private:
     SharedResourcePointer<ETWEventProvider> etwEventProvider;
     #endif
     std::unique_ptr<Direct2DHwndContext> direct2DContext;
+    int64 lastPaintStartTicks = 0;
 
     void handlePaintMessage() override
     {
@@ -162,20 +152,16 @@ private:
             return;
         }
 
-    #if JUCE_DIRECT2D_METRICS
         auto paintStartTicks = Time::getHighResolutionTicks();
-    #endif
 
         HWNDComponentPeer::handlePaintMessage();
 
-    #if JUCE_DIRECT2D_METRICS
-        if (lastPaintStartTicks > 0 && paintStats)
+        if (lastPaintStartTicks > 0 && direct2DContext)
         {
-            paintStats->addValueTicks (direct2d::PaintStats::frameInterval, paintStartTicks - lastPaintStartTicks);
-            paintStats->addValueTicks (direct2d::PaintStats::messageThreadPaintDuration, Time::getHighResolutionTicks() - paintStartTicks);
+            direct2DContext->metrics->addValueTicks (direct2d::Metrics::frameInterval, paintStartTicks - lastPaintStartTicks);
+            direct2DContext->metrics->addValueTicks (direct2d::Metrics::messageThreadPaintDuration, Time::getHighResolutionTicks() - paintStartTicks);
         }
         lastPaintStartTicks = paintStartTicks;
-    #endif
     }
 
     void onVBlank() override
@@ -196,9 +182,7 @@ private:
 
     void handleDirect2DPaint()
     {
-    #if JUCE_DIRECT2D_METRICS
         auto paintStartTicks = Time::getHighResolutionTicks();
-    #endif
 
         jassert (direct2DContext);
 
@@ -224,15 +208,13 @@ private:
 
             peerFrameNumber++;
 
-    #if JUCE_DIRECT2D_METRICS
-            if (lastPaintStartTicks > 0 && direct2DContext->paintStats)
+            if (lastPaintStartTicks > 0)
             {
-                direct2DContext->paintStats->addValueTicks (direct2d::PaintStats::messageThreadPaintDuration,
+                direct2DContext->metrics->addValueTicks (direct2d::Metrics::messageThreadPaintDuration,
                                            Time::getHighResolutionTicks() - paintStartTicks);
-                direct2DContext->paintStats->addValueTicks (direct2d::PaintStats::frameInterval, paintStartTicks - lastPaintStartTicks);
+                direct2DContext->metrics->addValueTicks (direct2d::Metrics::frameInterval, paintStartTicks - lastPaintStartTicks);
             }
             lastPaintStartTicks = paintStartTicks;
-    #endif
             return;
         }
     }
@@ -278,15 +260,6 @@ private:
                 nullptr,
                 RDW_ERASE | RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN);
 
-#if JUCE_DIRECT2D_METRICS
-            {
-                paintStats = new direct2d::PaintStats;
-
-                var direct2DVar{ new DynamicObject };
-                direct2DVar.getDynamicObject()->setProperty("Metrics", paintStats.get());
-                component.getProperties().set("Direct2D", direct2DVar);
-            }
-#endif
             break;
         }
 
@@ -323,18 +296,6 @@ private:
                     [[maybe_unused]] auto ok = SetLayeredWindowAttributes(hwnd, RGB(backgroundKeyColour.getRed(), backgroundKeyColour.getGreen(), backgroundKeyColour.getBlue()), 255, LWA_COLORKEY);
                     jassert(ok);
                 }
-
-#if JUCE_DIRECT2D_METRICS
-                {
-                    direct2DContext->paintStats = paintStats;
-
-                    var direct2DVar{ new DynamicObject };
-                    direct2DVar.getDynamicObject()->setProperty("Metrics", direct2DContext->paintStats.get());
-                    component.getProperties().set("Direct2D", direct2DVar);
-
-                    paintStats = nullptr;
-                }
-#endif
             }
             break;
         }

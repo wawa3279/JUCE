@@ -73,6 +73,8 @@
 
 namespace juce
 {
+    JUCE_IMPLEMENT_SINGLETON(direct2d::MetricsHub)
+
     struct Direct2DGraphicsContext::SavedState
     {
     private:
@@ -188,9 +190,7 @@ namespace juce
 
         void pushTransformedRectangleGeometryClipLayer(ComSmartPtr<ID2D1RectangleGeometry> geometry, AffineTransform const& transform)
         {
-#if JUCE_DIRECT2D_METRICS
-            direct2d::ScopedElapsedTime set{ owner.paintStats, direct2d::PaintStats::pushGeometryLayerTime };
-#endif
+            direct2d::ScopedElapsedTime scopedElapsedTime{ owner.metrics, direct2d::Metrics::pushGeometryLayerTime };
 
             jassert(geometry != nullptr);
             auto layerParameters = D2D1::LayerParameters(D2D1::InfiniteRect(), geometry);
@@ -200,9 +200,8 @@ namespace juce
 
         void pushAliasedAxisAlignedClipLayer(Rectangle<int> r)
         {
-#if JUCE_DIRECT2D_METRICS
-            direct2d::ScopedElapsedTime set{ owner.paintStats, direct2d::PaintStats::pushAliasedAxisAlignedLayerTime };
-#endif
+            direct2d::ScopedElapsedTime scopedElapsedTime{ owner.metrics, direct2d::Metrics::pushAliasedAxisAlignedLayerTime };
+
             deviceResources.deviceContext.context->PushAxisAlignedClip(direct2d::rectangleToRectF(r), D2D1_ANTIALIAS_MODE_ALIASED);
             pushedLayers.emplace_back(popAxisAlignedLayerFlag);
         }
@@ -238,7 +237,7 @@ namespace juce
                     SCOPED_TRACE_EVENT(etw::flush, owner.llgcFrameNumber, etw::direct2dKeyword);
 
 #if JUCE_DIRECT2D_METRICS
-                    direct2d::ScopedElapsedTime set{ owner.paintStats, direct2d::PaintStats::flushTime };
+                    direct2d::ScopedElapsedTime scopedElapsedTime{ owner.metrics, direct2d::Metrics::flushTime };
 #endif
                     deviceResources.deviceContext.context->Flush();
                 }
@@ -294,6 +293,8 @@ namespace juce
 
                 if (! d2d1Bitmap || d2d1Bitmap->GetPixelFormat().format != DXGI_FORMAT_B8G8R8A8_UNORM)
                 {
+                    direct2d::ScopedElapsedTime scopedElapsedTime{ owner.metrics, direct2d::Metrics::createBitmapTime };
+
                     d2d1Bitmap = direct2d::Direct2DBitmap::fromImage(fillType.image, deviceResources.deviceContext.context, Image::ARGB).getD2D1Bitmap();
                 }
 
@@ -316,12 +317,12 @@ namespace juce
             {
                 if (fillType.gradient->isRadial)
                 {
-                    deviceResources.radialGradientCache.get(*fillType.gradient, deviceResources.deviceContext.context, radialGradient);
+                    deviceResources.radialGradientCache.get(*fillType.gradient, deviceResources.deviceContext.context, radialGradient, owner.metrics.get());
                     currentBrush = radialGradient;
                 }
                 else
                 {
-                    deviceResources.linearGradientCache.get(*fillType.gradient, deviceResources.deviceContext.context, linearGradient);
+                    deviceResources.linearGradientCache.get(*fillType.gradient, deviceResources.deviceContext.context, linearGradient, owner.metrics.get());
                     currentBrush = linearGradient;
                 }
             }
@@ -510,18 +511,6 @@ namespace juce
             setTargetAlpha(1.0f);
 
             directX->dxgi.adapters.listeners.add(this);
-
-#if JUCE_DIRECT2D_METRICS
-            if (owner.paintStats)
-            {
-                deviceResources.filledGeometryCache.createGeometryMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGeometryTime);
-                deviceResources.filledGeometryCache.createGeometryRealisationMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createFilledGRTime);
-                deviceResources.strokedGeometryCache.createGeometryMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGeometryTime);
-                deviceResources.strokedGeometryCache.createGeometryRealisationMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createStrokedGRTime);
-                deviceResources.linearGradientCache.createGradientMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGradientTime);
-                deviceResources.radialGradientCache.createGradientMsecStats = &owner.paintStats->getAccumulator(direct2d::PaintStats::createGradientTime);
-            }
-#endif
         }
 
         virtual ~Pimpl() override
@@ -565,6 +554,8 @@ namespace juce
             {
                 return nullptr;
             }
+
+            owner.metrics->startFrame();
 
             TRACE_EVENT_INT_RECT_LIST(etw::startD2DFrame, owner.llgcFrameNumber, paintAreas, etw::direct2dKeyword)
 
@@ -611,7 +602,7 @@ namespace juce
 
 #if JUCE_DIRECT2D_METRICS
             auto t2 = Time::getHighResolutionTicks();
-            owner.paintStats->addValueTicks(direct2d::PaintStats::endDrawDuration, t2 - t1);
+            owner.metrics->addValueTicks(direct2d::Metrics::endDrawDuration, t2 - t1);
 #endif
 
             jassert(SUCCEEDED(hr));
@@ -620,6 +611,8 @@ namespace juce
             {
                 teardown();
             }
+
+            owner.metrics->finishFrame();
 
             return hr;
         }
@@ -792,7 +785,7 @@ namespace juce
                 else
                 {
                     currentState->pushGeometryClipLayer(
-                        direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(), paintAreas, AffineTransform{}, D2D1_FILL_MODE_WINDING, D2D1_FIGURE_BEGIN_FILLED));
+                        direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(), paintAreas, AffineTransform{}, D2D1_FILL_MODE_WINDING, D2D1_FIGURE_BEGIN_FILLED, metrics.get()));
                 }
 
                 //
@@ -1043,7 +1036,7 @@ namespace juce
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
             currentState->pushGeometryClipLayer(
-                direct2d::pathToPathGeometry(getPimpl()->getDirect2DFactory(), path, pathTransform, D2D1_FIGURE_BEGIN_FILLED));
+                direct2d::pathToPathGeometry(getPimpl()->getDirect2DFactory(), path, pathTransform, D2D1_FIGURE_BEGIN_FILLED, metrics.get()));
         }
     }
 
@@ -1266,9 +1259,7 @@ namespace juce
                 {
                     if (auto translatedR = r + currentState->currentTransform.offset.toFloat(); currentState->deviceSpaceClipList.intersectsRectangle(translatedR.toNearestIntEdges()))
                     {
-#if JUCE_DIRECT2D_METRICS
-                        direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillTranslatedRectTime };
-#endif
+                        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillTranslatedRectTime };
 
                         deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
                     }
@@ -1282,9 +1273,7 @@ namespace juce
                 {
                     if (auto transformedR = currentState->currentTransform.transformed(r); currentState->deviceSpaceClipList.intersectsRectangle(transformedR.toNearestIntEdges()))
                     {
-#if JUCE_DIRECT2D_METRICS
-                        direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillAxisAlignedRectTime };
-#endif
+                        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillAxisAlignedRectTime };
 
                         deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
                     }
@@ -1296,9 +1285,7 @@ namespace juce
             {
                 if (auto transformedR = currentState->currentTransform.transformed(r); currentState->deviceSpaceClipList.intersectsRectangle(transformedR.toNearestIntEdges()))
                 {
-#if JUCE_DIRECT2D_METRICS
-                    direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillTransformedRectTime };
-#endif
+                    direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillTransformedRectTime };
 
                     ScopedTransform scopedTransform{ *getPimpl(), currentState };
                     deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
@@ -1314,12 +1301,9 @@ namespace juce
 
         applyPendingClipList();
 
-#if JUCE_DIRECT2D_METRICS
-        direct2d::ScopedElapsedTime setfr{ paintStats, direct2d::PaintStats::fillRectListTime };
-#endif
+        direct2d::ScopedElapsedTime fillRectListScopedElapsedTime{ metrics, direct2d::Metrics::fillRectListTime };
 
         SCOPED_TRACE_EVENT_FLOAT_RECT_LIST(etw::fillRectList, llgcFrameNumber, list, etw::direct2dKeyword | etw::spriteKeyword);
-
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1331,22 +1315,21 @@ namespace juce
                 if (auto rectangleListSpriteBatch = getPimpl()->getRectangleListSpriteBatch())
                 {
 #if JUCE_DIRECT2D_METRICS
-                    direct2d::ScopedElapsedTime spriteTime{ paintStats, direct2d::PaintStats::spriteBatchTime };
+                    direct2d::ScopedElapsedTime spriteTime{ metrics, direct2d::Metrics::spriteBatchTime };
 #endif
 
                     if (transform.isOnlyTranslated)
                     {
                         auto translateRectangle = [&](Rectangle<float> const& r) -> Rectangle<float>
                             {
-                                auto translatedR = transform.translated(r);
-                                return clipList.intersectsRectangle(translatedR.toNearestIntEdges()) ? translatedR : Rectangle<float>{};
+                                return transform.translated(r);
                             };
 
                         rectangleListSpriteBatch->fillRectangles(deviceContext,
                             list,
-                            clipList,
                             currentState->fillType.colour,
-                            translateRectangle);
+                            translateRectangle,
+                            metrics.get());
                         return;
                     }
 
@@ -1354,30 +1337,28 @@ namespace juce
                     {
                         auto transformRectangle = [&](Rectangle<float> const& r) -> Rectangle<float>
                             {
-                                auto transformedR = transform.transformed(r);
-                                return clipList.intersectsRectangle(transformedR.toNearestIntEdges()) ? transformedR : Rectangle<float>{};
+                                return transform.transformed(r);
                             };
 
                         rectangleListSpriteBatch->fillRectangles(deviceContext,
                             list,
-                            clipList,
                             currentState->fillType.colour,
-                            transformRectangle);
+                            transformRectangle,
+                            metrics.get());
                         return;
                     }
 
                     auto checkRectangleWithoutTransforming = [&](Rectangle<float> const& r) -> Rectangle<float>
                         {
-                            auto transformedR = transform.transformed(r);
-                            return clipList.intersectsRectangle(transformedR.toNearestIntEdges()) ? r : Rectangle<float>{};
+                            return transform.transformed(r);
                         };
 
                     ScopedTransform scopedTransform{ *getPimpl(), currentState };
                     rectangleListSpriteBatch->fillRectangles(deviceContext,
                         list,
-                        clipList,
                         currentState->fillType.colour,
-                        checkRectangleWithoutTransforming);
+                        checkRectangleWithoutTransforming,
+                        metrics.get());
                     return;
                 }
             }
@@ -1394,7 +1375,7 @@ namespace juce
                         if (auto translatedR = transform.translated(r); clipList.intersectsRectangle(translatedR.toNearestIntEdges()))
                         {
 #if JUCE_DIRECT2D_METRICS
-                            direct2d::ScopedElapsedTime set{ paintStats, direct2d::PaintStats::fillTranslatedRectTime };
+                            direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillTranslatedRectTime };
 #endif
                             deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
                         }
@@ -1412,7 +1393,7 @@ namespace juce
                         if (auto transformedR = transform.transformed(r); clipList.intersectsRectangle(transformedR.toNearestIntEdges()))
                         {
 #if JUCE_DIRECT2D_METRICS
-                            direct2d::ScopedElapsedTime set{ paintStats, direct2d::PaintStats::fillAxisAlignedRectTime };
+                            direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillAxisAlignedRectTime };
 #endif
                             deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
                         }
@@ -1428,7 +1409,7 @@ namespace juce
                     for (auto const& r : list)
                     {
 #if JUCE_DIRECT2D_METRICS
-                        direct2d::ScopedElapsedTime set{ paintStats, direct2d::PaintStats::fillTransformedRectTime };
+                        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillTransformedRectTime };
 #endif
 
                         if (auto transformedR = transform.transformed(r); clipList.intersectsRectangle(transformedR.toNearestIntEdges()))
@@ -1508,8 +1489,11 @@ namespace juce
                     factory,
                     deviceContext,
                     getPhysicalPixelScaleFactor(),
-                    llgcFrameNumber))
+                    llgcFrameNumber,
+                    metrics.get()))
                 {
+                    direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawGRTime };
+
                     ScopedTransform scopedTransform{ *getPimpl(), currentState, transform };
                     deviceContext->DrawGeometryRealization(geometryRealisation, brush);
                     return;
@@ -1518,8 +1502,10 @@ namespace juce
                 //
                 // Create and fill the geometry
                 //
-                if (auto geometry = direct2d::pathToPathGeometry(factory, p, currentState->currentTransform.getTransformWith(transform), D2D1_FIGURE_BEGIN_FILLED))
+                if (auto geometry = direct2d::pathToPathGeometry(factory, p, currentState->currentTransform.getTransformWith(transform), D2D1_FIGURE_BEGIN_FILLED, metrics.get()))
                 {
+                    direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::fillGeometryTime };
+
                     deviceContext->FillGeometry(geometry, brush);
                 }
             }
@@ -1558,8 +1544,11 @@ namespace juce
                         xScale,
                         yScale,
                         getPhysicalPixelScaleFactor(),
-                        llgcFrameNumber))
+                        llgcFrameNumber,
+                        metrics.get()))
                     {
+                        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawGRTime };
+
                         ScopedTransform scopedTransform{ *getPimpl(),
                             currentState,
                             AffineTransform::scale(1.0f / xScale, 1.0f / yScale, pathBounds.getX(), pathBounds.getY()).followedBy(transform) };
@@ -1571,10 +1560,12 @@ namespace juce
                 //
                 // Create and draw a geometry
                 //
-                if (auto geometry = direct2d::pathToPathGeometry(factory, p, currentState->currentTransform.getTransformWith(transform), D2D1_FIGURE_BEGIN_HOLLOW))
+                if (auto geometry = direct2d::pathToPathGeometry(factory, p, currentState->currentTransform.getTransformWith(transform), D2D1_FIGURE_BEGIN_HOLLOW, metrics.get()))
                 {
                     if (auto strokeStyle = direct2d::pathStrokeTypeToStrokeStyle(factory, strokeType))
                     {
+                        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawGeometryTime };
+
                         deviceContext->DrawGeometry(geometry, brush, strokeType.getStrokeThickness(), strokeStyle);
                     }
                 }
@@ -1586,6 +1577,8 @@ namespace juce
 
     void Direct2DGraphicsContext::drawImage(const Image& image, const AffineTransform& transform)
     {
+        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawImageTime };
+
         SCOPED_TRACE_EVENT(etw::drawImage, llgcFrameNumber, etw::direct2dKeyword);
 
         if (image.isNull())
@@ -1611,6 +1604,8 @@ namespace juce
 
             if (!d2d1Bitmap || d2d1Bitmap->GetPixelFormat().format != DXGI_FORMAT_B8G8R8A8_UNORM)
             {
+                direct2d::ScopedElapsedTime scopedBitmapElapsedTime{ metrics, direct2d::Metrics::createBitmapTime };
+
                 d2d1Bitmap = direct2d::Direct2DBitmap::fromImage(image, deviceContext, Image::ARGB).getD2D1Bitmap();
                 imageClipArea = image.getBounds();
             }
@@ -1623,7 +1618,7 @@ namespace juce
 
                if (imageTransform.isOnlyTranslation())
                 {
-                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.withZeroOrigin().toFloat() + Point<float>{ imageTransform.getTranslationX(), imageTransform.getTranslationY() });
+                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.toFloat() + Point<float>{ imageTransform.getTranslationX(), imageTransform.getTranslationY() });
 
                     deviceContext->DrawBitmap(d2d1Bitmap,
                         &destinationRect,
@@ -1637,7 +1632,7 @@ namespace juce
 
                 if (direct2d::isTransformAxisAligned(imageTransform))
                 {
-                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.withZeroOrigin().toFloat().transformedBy(imageTransform));
+                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.toFloat().transformedBy(imageTransform));
 
                     deviceContext->DrawBitmap(d2d1Bitmap,
                         &destinationRect,
@@ -1711,6 +1706,8 @@ namespace juce
 
     void Direct2DGraphicsContext::drawGlyph(int glyphNumber, const AffineTransform& transform)
     {
+        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawGlyphRunTime };
+
         SCOPED_TRACE_EVENT(etw::drawGlyph, llgcFrameNumber, etw::direct2dKeyword);
 
         getPimpl()->glyphRun.glyphIndices[0] = (uint16)glyphNumber;
@@ -1890,6 +1887,8 @@ namespace juce
         const AffineTransform& transform,
         Rectangle<float>              underlineArea)
     {
+        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawGlyphRunTime };
+
         SCOPED_TRACE_EVENT(etw::drawGlyphRun, llgcFrameNumber, etw::direct2dKeyword);
 
         if (currentState->fillType.isInvisible())
@@ -1937,6 +1936,8 @@ namespace juce
 
     void Direct2DGraphicsContext::drawTextLayoutGlyphRun(Array<TextLayout::Glyph> const& glyphs, const Font& font, const AffineTransform& transform)
     {
+        direct2d::ScopedElapsedTime scopedElapsedTime{ metrics, direct2d::Metrics::drawGlyphRunTime };
+
         SCOPED_TRACE_EVENT(etw::drawGlyphRun, llgcFrameNumber, etw::direct2dKeyword);
 
         if (currentState->fillType.isInvisible() || glyphs.size() <= 0)
@@ -2001,7 +2002,8 @@ namespace juce
                     pendingDeviceSpaceClipList,
                     clipTransform,
                     D2D1_FILL_MODE_WINDING,
-                    D2D1_FIGURE_BEGIN_FILLED))
+                    D2D1_FIGURE_BEGIN_FILLED,
+                    metrics.get()))
                 {
                     currentState->pushGeometryClipLayer(clipGeometry);
                 }

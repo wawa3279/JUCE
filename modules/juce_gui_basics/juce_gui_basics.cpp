@@ -61,9 +61,9 @@
  #include <commdlg.h>
  #include <commctrl.h>
  #include <sapi.h>
- #include <dxgi1_2.h>
+ #include <dxgi1_3.h>
  #include <d2d1_3.h>
- #include <d3d11_1.h>
+ #include <d3d11_2.h>
 
 #if JUCE_ETW_TRACELOGGING
 #include <evntrace.h>
