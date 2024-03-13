@@ -166,7 +166,7 @@ namespace juce
 
         HWND getHwnd() const { return hwnd; }
 
-        void handleTargetVisible()
+        void handleShowWindow()
         {
             //
             // One of the trickier problems was determining when Direct2D & DXGI resources can be safely created;
@@ -422,76 +422,6 @@ namespace juce
             deferredRepaints = frameSize;
         }
 
-        double getScaleFactor() const
-        {
-            return dpiScalingFactor;
-        }
-
-        SavedState* getCurrentSavedState() const
-        {
-            return savedClientStates.size() > 0 ? savedClientStates.top().get() : nullptr;
-        }
-
-        SavedState* pushFirstSavedState(Rectangle<int> initialClipRegion)
-        {
-            jassert(savedClientStates.size() == 0);
-
-            savedClientStates.push(
-                std::make_unique<SavedState>(owner, initialClipRegion, deviceResources.colourBrush, adapter, deviceResources));
-
-            return getCurrentSavedState();
-        }
-
-        SavedState* pushSavedState()
-        {
-            jassert(savedClientStates.size() > 0);
-
-            savedClientStates.push(std::make_unique<SavedState>(savedClientStates.top().get()));
-
-            return getCurrentSavedState();
-        }
-
-        SavedState* popSavedState()
-        {
-            savedClientStates.top()->popLayers();
-            savedClientStates.pop();
-
-            return getCurrentSavedState();
-        }
-
-        void popAllSavedStates()
-        {
-            while (savedClientStates.size() > 0)
-            {
-                popSavedState();
-            }
-        }
-
-        inline ID2D1DeviceContext1* getDeviceContext() const noexcept
-        {
-            return deviceResources.deviceContext.context;
-        }
-
-        void setDeviceContextTransform(AffineTransform transform)
-        {
-            deviceResources.deviceContext.setTransform(transform);
-        }
-
-        auto getDirect2DFactory()
-        {
-            return directX->direct2D.getFactory();
-        }
-
-        auto getDirectWriteFactory()
-        {
-            return directWrite->getFactory();
-        }
-
-        auto getFontCollection()
-        {
-            return directWrite->getFontCollection();
-        }
-
         Image createSnapshot(direct2d::DPIScalableArea<int> scalableArea)
         {
             scalableArea.clipToPhysicalArea(frameSize);
@@ -575,7 +505,7 @@ namespace juce
 
     void Direct2DHwndContext::handleShowWindow()
     {
-        pimpl->handleTargetVisible();
+        pimpl->handleShowWindow();
     }
 
     void Direct2DHwndContext::setWindowAlpha(float alpha)
