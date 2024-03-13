@@ -170,6 +170,17 @@ namespace juce
                 {
                     JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(MetricsHub::getInstance()->imageContextMetrics, createBitmapTime);
 
+#if JUCE_DEBUG
+                    //
+                    // Verify that the GPU can handle a bitmap of this size
+                    //
+                    // If you need a bitmap larger than this, you'll need to either split it up into multiple bitmaps
+                    // or use a software image (see SoftwareImageType).
+                    //
+                    auto maxBitmapSize = deviceContext->GetMaximumBitmapSize();
+                    jassert(size.width <= maxBitmapSize && size.height <= maxBitmapSize);
+#endif
+
                     D2D1_BITMAP_PROPERTIES1 bitmapProperties = {};
                     bitmapProperties.dpiX = dpiScaleFactor * USER_DEFAULT_SCREEN_DPI;
                     bitmapProperties.dpiY = bitmapProperties.dpiX;
