@@ -143,6 +143,7 @@ private:
     #endif
 #if JUCE_DIRECT2D_METRICS
     int64 lastPaintStartTicks = 0;
+    direct2d::Metrics::Ptr softwareRendererMetrics;
 #endif
     std::unique_ptr<Direct2DHwndContext> direct2DContext;
 
@@ -161,10 +162,10 @@ private:
         HWNDComponentPeer::handlePaintMessage();
 
 #if JUCE_DIRECT2D_METRICS
-        if (lastPaintStartTicks > 0 && direct2DContext)
+        if (lastPaintStartTicks)
         {
-            direct2DContext->metrics->addValueTicks (direct2d::Metrics::frameInterval, paintStartTicks - lastPaintStartTicks);
-            direct2DContext->metrics->addValueTicks (direct2d::Metrics::messageThreadPaintDuration, Time::getHighResolutionTicks() - paintStartTicks);
+            softwareRendererMetrics->addValueTicks (direct2d::Metrics::messageThreadPaintDuration, Time::getHighResolutionTicks() - paintStartTicks);
+            softwareRendererMetrics->addValueTicks (direct2d::Metrics::frameInterval, paintStartTicks - lastPaintStartTicks);
         }
         lastPaintStartTicks = paintStartTicks;
 #endif
@@ -263,6 +264,13 @@ private:
 
             direct2DContext = nullptr;
 
+#if JUCE_DIRECT2D_METRICS
+            softwareRendererMetrics = new direct2d::Metrics{ direct2d::MetricsHub::getInstance()->lock,
+                "HWND " + String::toHexString((pointer_sized_int)hwnd),
+                hwnd };
+            direct2d::MetricsHub::getInstance()->add(softwareRendererMetrics);
+#endif
+
             setAlpha(layeredWindowAlpha / 255.0f);
             RedrawWindow(hwnd,
                 nullptr,
@@ -281,6 +289,11 @@ private:
 
             if (!direct2DContext)
             {
+#if JUCE_DIRECT2D_METRICS
+                direct2d::MetricsHub::getInstance()->remove(softwareRendererMetrics);
+                softwareRendererMetrics = nullptr;
+#endif
+
                 direct2DContext = std::make_unique<Direct2DHwndContext>(hwnd, (float)scaleFactor, component.isOpaque());
 
                 //
