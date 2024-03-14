@@ -4790,22 +4790,24 @@ static const Displays::Display* getCurrentDisplayFromScaleFactor (HWND hwnd)
 //==============================================================================
 struct MonitorInfo
 {
-    MonitorInfo (bool main, RECT totalArea, RECT workArea, double d) noexcept
+    MonitorInfo (bool main, RECT totalArea, RECT workArea, double d, std::optional<double> frequency) noexcept
         : isMain (main),
           totalAreaRect (totalArea),
           workAreaRect (workArea),
-          dpi (d)
+          dpi (d),
+          verticalFrequencyHz (frequency)
     {
     }
 
     bool isMain;
     RECT totalAreaRect, workAreaRect;
     double dpi;
+    std::optional<double> verticalFrequencyHz;
 };
 
 static BOOL CALLBACK enumMonitorsProc (HMONITOR hm, HDC, LPRECT, LPARAM userInfo)
 {
-    MONITORINFO info = {};
+    MONITORINFOEX info = {};
     info.cbSize = sizeof (info);
     GetMonitorInfo (hm, &info);
 
@@ -4820,7 +4822,32 @@ static BOOL CALLBACK enumMonitorsProc (HMONITOR hm, HDC, LPRECT, LPARAM userInfo
             dpi = (dpiX + dpiY) / 2.0;
     }
 
-    ((Array<MonitorInfo>*) userInfo)->add ({ isMain, info.rcMonitor, info.rcWork, dpi });
+    //
+    // Call EnumDisplayDevices and EnumDisplaySettings to get the refresh rate of the monitor
+    //
+    BOOL ok = TRUE;
+    std::optional<double> frequency;
+    for (uint32 deviceNumber = 0; ok; ++deviceNumber)
+    {
+        DISPLAY_DEVICEW displayDevice{};
+        displayDevice.cb = sizeof(displayDevice);
+        ok = EnumDisplayDevicesW(nullptr, deviceNumber, &displayDevice, 0);
+        if (ok && (displayDevice.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP))
+        {
+            DEVMODE displaySettings{};
+            ok = EnumDisplaySettingsW(displayDevice.DeviceName, ENUM_CURRENT_SETTINGS, &displaySettings);
+            if (ok)
+            {
+                if (String{ displayDevice.DeviceName } == String{ info.szDevice })
+                {
+                    frequency = (double)displaySettings.dmDisplayFrequency;
+                    break;
+                }
+            }
+        }
+    }
+
+    ((Array<MonitorInfo>*) userInfo)->add ({ isMain, info.rcMonitor, info.rcWork, dpi, frequency });
     return TRUE;
 }
 
@@ -4836,7 +4863,7 @@ void Displays::findDisplays (float masterScale)
     if (monitors.size() == 0)
     {
         auto windowRect = getWindowScreenRect (GetDesktopWindow());
-        monitors.add ({ true, windowRect, windowRect, globalDPI });
+        monitors.add ({ true, windowRect, windowRect, globalDPI, std::optional<double>{} });
     }
 
     // make sure the first in the list is the main monitor
