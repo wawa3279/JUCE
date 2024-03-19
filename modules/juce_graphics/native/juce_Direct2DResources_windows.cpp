@@ -807,7 +807,7 @@ namespace juce
                             }
 
                             auto setCount = jmin((uint32)spriteBatchSize, spriteBatch->GetSpriteCount());
-                            auto addCount = (uint32)spriteBatchSize > setCount ? spriteBatchSize - setCount : 0;
+                            auto addCount = (uint32)spriteBatchSize > setCount ? (uint32)spriteBatchSize - setCount : 0;
 
                             if (setCount != 0)
                             {
