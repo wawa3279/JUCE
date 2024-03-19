@@ -741,88 +741,97 @@ namespace juce
 
                 JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, spriteBatchTime)
 
-                auto numRectangles = (uint32)rectangles.getNumRectangles();
-
+                auto numRectanglesPainted = 0;
+                while (numRectanglesPainted < rectangles.getNumRectangles())
                 {
-                    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, spriteBatchSetupTime);
+                    auto numRectanglesRemaining = rectangles.getNumRectangles() - numRectanglesPainted;
+                    auto spriteBatchSize = isPowerOfTwo(numRectanglesRemaining) ? numRectanglesRemaining : (nextPowerOfTwo(numRectanglesRemaining) >> 1);
 
-                    if (destinationsCapacity < numRectangles)
                     {
-                        destinations.calloc(numRectangles);
-                        destinationsCapacity = numRectangles;
-                    }
+                        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, spriteBatchSetupTime);
 
-                    auto destination = destinations.getData();
-                    for (auto r : rectangles)
-                    {
-                        r = transformRectangle(r);
-                        *destination = direct2d::rectangleToRectF(r);
-                        ++destination;
-                    }
-                }
-
-                if (!whiteRectangle)
-                {
-                    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, createSpriteSourceTime);
-
-                    auto hr = deviceContext->CreateCompatibleRenderTarget(D2D1_SIZE_F{ (float)rectangleSize, (float)rectangleSize },
-                        D2D1_SIZE_U{ rectangleSize, rectangleSize },
-                        D2D1_PIXEL_FORMAT{ DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED },
-                        whiteRectangle.resetAndGetPointerAddress());
-                    if (FAILED(hr))
-                    {
-                        return;
-                    }
-
-                    whiteRectangle->BeginDraw();
-                    whiteRectangle->Clear(D2D1_COLOR_F{ 1.0f, 1.0f, 1.0f, 1.0f });
-                    whiteRectangle->EndDraw();
-                }
-
-                ComSmartPtr<ID2D1Bitmap> bitmap;
-                if (auto hr = whiteRectangle->GetBitmap(bitmap.resetAndGetPointerAddress()); SUCCEEDED(hr))
-                {
-                    ComSmartPtr<ID2D1DeviceContext3> deviceContext3;
-                    if (hr = deviceContext->QueryInterface<ID2D1DeviceContext3>(deviceContext3.resetAndGetPointerAddress()); SUCCEEDED(hr))
-                    {
-                        auto d2dColour = direct2d::colourToD2D(colour);
-
-                        auto spriteBatch = spriteBatches.get(numRectangles);
-                        if (!spriteBatch)
+                        if (destinationsCapacity < (size_t)spriteBatchSize)
                         {
-                            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, createSpriteBatchTime);
+                            destinations.calloc(spriteBatchSize);
+                            destinationsCapacity = spriteBatchSize;
+                        }
 
-                            if (hr = deviceContext3->CreateSpriteBatch(spriteBatch.resetAndGetPointerAddress()); FAILED(hr))
+                        auto destination = destinations.getData();
+
+                        for (int i = numRectanglesPainted; i < numRectanglesPainted + spriteBatchSize; ++i)
+                        {
+                            auto r = rectangles.getRectangle(i);
+                            r = transformRectangle(r);
+                            *destination = direct2d::rectangleToRectF(r);
+                            ++destination;
+                        }
+                    }
+
+                    if (!whiteRectangle)
+                    {
+                        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, createSpriteSourceTime);
+
+                        auto hr = deviceContext->CreateCompatibleRenderTarget(D2D1_SIZE_F{ (float)rectangleSize, (float)rectangleSize },
+                            D2D1_SIZE_U{ rectangleSize, rectangleSize },
+                            D2D1_PIXEL_FORMAT{ DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED },
+                            whiteRectangle.resetAndGetPointerAddress());
+                        if (FAILED(hr))
+                        {
+                            return;
+                        }
+
+                        whiteRectangle->BeginDraw();
+                        whiteRectangle->Clear(D2D1_COLOR_F{ 1.0f, 1.0f, 1.0f, 1.0f });
+                        whiteRectangle->EndDraw();
+                    }
+
+                    ComSmartPtr<ID2D1Bitmap> bitmap;
+                    if (auto hr = whiteRectangle->GetBitmap(bitmap.resetAndGetPointerAddress()); SUCCEEDED(hr))
+                    {
+                        ComSmartPtr<ID2D1DeviceContext3> deviceContext3;
+                        if (hr = deviceContext->QueryInterface<ID2D1DeviceContext3>(deviceContext3.resetAndGetPointerAddress()); SUCCEEDED(hr))
+                        {
+                            auto d2dColour = direct2d::colourToD2D(colour);
+
+                            auto spriteBatch = spriteBatches.get(spriteBatchSize);
+                            if (!spriteBatch)
                             {
-                                return;
+                                JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, createSpriteBatchTime);
+
+                                if (hr = deviceContext3->CreateSpriteBatch(spriteBatch.resetAndGetPointerAddress()); FAILED(hr))
+                                {
+                                    return;
+                                }
+
+                                spriteBatches.set(spriteBatchSize, spriteBatch);
                             }
 
-                            spriteBatches.set(numRectangles, spriteBatch);
+                            auto setCount = jmin((uint32)spriteBatchSize, spriteBatch->GetSpriteCount());
+                            auto addCount = (uint32)spriteBatchSize > setCount ? spriteBatchSize - setCount : 0;
+
+                            if (setCount != 0)
+                            {
+                                JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, setSpritesTime);
+
+                                spriteBatch->SetSprites(0, setCount, destinations.getData(), nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
+                            }
+
+                            if (addCount != 0)
+                            {
+                                JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, addSpritesTime);
+
+                                spriteBatch->AddSprites(addCount, destinations.getData() + setCount, nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
+                            }
+
+                            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, drawSpritesTime);
+
+                            deviceContext3->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
+                            deviceContext3->DrawSpriteBatch(spriteBatch, bitmap);
+                            deviceContext3->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
                         }
-
-                        uint32 setCount = jmin(numRectangles, spriteBatch->GetSpriteCount());
-                        uint32 addCount = numRectangles > setCount ? numRectangles - setCount : 0;
-
-                        if (setCount != 0)
-                        {
-                            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, setSpritesTime);
-
-                            spriteBatch->SetSprites(0, setCount, destinations.getData(), nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
-                        }
-
-                        if (addCount != 0)
-                        {
-                            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, addSpritesTime);
-
-                            spriteBatch->AddSprites(addCount, destinations.getData() + setCount, nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
-                        }
-
-                        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, drawSpritesTime);
-
-                        deviceContext3->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
-                        deviceContext3->DrawSpriteBatch(spriteBatch, bitmap);
-                        deviceContext3->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
                     }
+
+                    numRectanglesPainted += spriteBatchSize;
                 }
 
                 while (spriteBatches.size() > maxCacheSize)
