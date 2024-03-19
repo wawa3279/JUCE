@@ -724,34 +724,47 @@ namespace juce
             {
                 whiteRectangle = nullptr;
                 spriteBatches.clear();
-                destinations.clear();
+                destinations.free();
+                destinationsCapacity = 0;
             }
 
             void fillRectangles(ID2D1DeviceContext1* deviceContext,
-                const RectangleList<float>& unclippedFillRectangles,
+                const RectangleList<float>& rectangles,
                 Colour const colour,
                 std::function<Rectangle<float>(Rectangle<float> const r)> transformRectangle,
                 [[maybe_unused]] Metrics* metrics)
             {
-                int numRectangles = 0;
-
-                destinations.reserve((size_t)unclippedFillRectangles.getNumRectangles() * 2);
-                destinations.clear();
-
-                for (auto r : unclippedFillRectangles)
-                {
-                    r = transformRectangle(r);
-                    destinations.emplace_back(direct2d::rectangleToRectF(r));
-                    ++numRectangles;
-                }
-
-                if (numRectangles <= 0)
+                if (rectangles.isEmpty())
                 {
                     return;
                 }
 
+                JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, spriteBatchTime)
+
+                auto numRectangles = (uint32)rectangles.getNumRectangles();
+
+                {
+                    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, spriteBatchSetupTime);
+
+                    if (destinationsCapacity < numRectangles)
+                    {
+                        destinations.calloc(numRectangles);
+                        destinationsCapacity = numRectangles;
+                    }
+
+                    auto destination = destinations.getData();
+                    for (auto r : rectangles)
+                    {
+                        r = transformRectangle(r);
+                        *destination = direct2d::rectangleToRectF(r);
+                        ++destination;
+                    }
+                }
+
                 if (!whiteRectangle)
                 {
+                    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, createSpriteSourceTime);
+
                     auto hr = deviceContext->CreateCompatibleRenderTarget(D2D1_SIZE_F{ (float)rectangleSize, (float)rectangleSize },
                         D2D1_SIZE_U{ rectangleSize, rectangleSize },
                         D2D1_PIXEL_FORMAT{ DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED },
@@ -787,34 +800,21 @@ namespace juce
                             spriteBatches.set(numRectangles, spriteBatch);
                         }
 
-                        uint32 setCount = jmin((uint32)numRectangles, spriteBatch->GetSpriteCount());
-                        uint32 addCount = destinations.size() > setCount ? (uint32)numRectangles - setCount : 0;
+                        uint32 setCount = jmin(numRectangles, spriteBatch->GetSpriteCount());
+                        uint32 addCount = numRectangles > setCount ? numRectangles - setCount : 0;
 
                         if (setCount != 0)
                         {
                             JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, setSpritesTime);
 
-                            spriteBatch->SetSprites(0, setCount, destinations.data(), nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
+                            spriteBatch->SetSprites(0, setCount, destinations.getData(), nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
                         }
 
                         if (addCount != 0)
                         {
                             JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, addSpritesTime);
 
-                            spriteBatch->AddSprites(addCount, destinations.data() + setCount, nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
-                        }
-
-                        if (spriteBatch->GetSpriteCount() > addCount + setCount)
-                        {
-                            //
-                            // TODO clearing unused sprites is probably not necessary
-                            //
-                            JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, clearSpritesTime);
-
-                            auto extraSpriteCount = spriteBatch->GetSpriteCount() - addCount - setCount;
-
-                            D2D1_RECT_F emptyDestination{};
-                            spriteBatch->SetSprites(addCount + setCount, extraSpriteCount, &emptyDestination, nullptr, nullptr, nullptr, 0, 0, 0, 0);
+                            spriteBatch->AddSprites(addCount, destinations.getData() + setCount, nullptr, &d2dColour, nullptr, sizeof(D2D1_RECT_F), 0, 0, 0);
                         }
 
                         JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, drawSpritesTime);
@@ -834,9 +834,10 @@ namespace juce
         private:
             static constexpr uint32 rectangleSize = 32;
             ComSmartPtr<ID2D1BitmapRenderTarget> whiteRectangle;
-            std::vector<D2D1_RECT_F> destinations;
+            HeapBlock<D2D1_RECT_F> destinations;
+            size_t destinationsCapacity = 0;
             static constexpr size_t maxCacheSize = 8;
-            direct2d::LeastRecentlyUsedCache<int, ComSmartPtr<ID2D1SpriteBatch>> spriteBatches;
+            direct2d::LeastRecentlyUsedCache<uint32, ComSmartPtr<ID2D1SpriteBatch>> spriteBatches;
         };
 
         //==============================================================================

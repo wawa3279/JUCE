@@ -49,7 +49,9 @@ namespace juce
         DIRECT2D_PAINT_STAT(fillRectListTime) \
         DIRECT2D_PAINT_STAT(drawImageTime) \
         DIRECT2D_PAINT_STAT(spriteBatchTime) \
+        DIRECT2D_PAINT_STAT(spriteBatchSetupTime) \
         DIRECT2D_PAINT_STAT(createSpriteBatchTime) \
+        DIRECT2D_PAINT_STAT(createSpriteSourceTime) \
         DIRECT2D_PAINT_STAT(setSpritesTime) \
         DIRECT2D_PAINT_STAT(addSpritesTime) \
         DIRECT2D_PAINT_STAT(clearSpritesTime) \

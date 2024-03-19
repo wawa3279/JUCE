@@ -1301,8 +1301,6 @@ namespace juce
             {
                 if (auto rectangleListSpriteBatch = getPimpl()->getRectangleListSpriteBatch())
                 {
-                    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, spriteBatchTime)
-
                     if (transform.isOnlyTranslated)
                     {
                         auto translateRectangle = [&](Rectangle<float> const& r) -> Rectangle<float>
