@@ -63,7 +63,7 @@ struct DirectX
             {
                 ComSmartPtr<IDXGIFactory2> result;
                 JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE("-Wlanguage-extension-token")
-                [[maybe_unused]] auto hr = CreateDXGIFactory(__uuidof (IDXGIFactory2), (void**)result.resetAndGetPointerAddress());
+                [[maybe_unused]] auto hr = CreateDXGIFactory2(0, __uuidof (IDXGIFactory2), (void**)result.resetAndGetPointerAddress());
 
                 //
                 // If CreateDXGIFactory fails, check to see if this is being called in the context of DllMain.

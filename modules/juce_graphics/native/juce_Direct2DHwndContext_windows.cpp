@@ -42,11 +42,91 @@ namespace juce
     struct Direct2DHwndContext::HwndPimpl : public Direct2DGraphicsContext::Pimpl
     {
     private:
+        struct SwapChainThread
+        {
+            explicit SwapChainThread(Direct2DHwndContext::HwndPimpl& owner_) :
+                swapChainEventHandle(owner_.swap.swapChainEvent->getHandle())
+            {
+            }
+
+            ~SwapChainThread()
+            {
+                running = false;
+                SetEvent(quitEvent.getHandle());
+                thread.join();
+
+                release();
+            }
+
+            void release()
+            {
+            }
+
+            bool isSwapChainReady()
+            {
+                return ready.exchange(0);
+            }
+
+            CriticalSection lock;
+
+        private:
+            HANDLE swapChainEventHandle = nullptr;
+            std::atomic<int> ready = 0;
+            bool running = true;
+
+            direct2d::ScopedEvent wakeEvent;
+            direct2d::ScopedEvent quitEvent;
+            std::thread thread
+            {
+                [&]
+                {
+                    threadLoop();
+                }
+            };
+
+            void threadLoop()
+            {
+                Thread::setCurrentThreadName("swapChainThread");
+
+                while (running)
+                {
+                    std::array<HANDLE, 3> handles{ swapChainEventHandle, quitEvent.getHandle(), wakeEvent.getHandle() };
+
+                    const auto waitResult = WaitForMultipleObjects((DWORD)handles.size(), handles.data(), FALSE, INFINITE);
+
+                    switch (waitResult)
+                    {
+                    case WAIT_OBJECT_0:
+                    {
+                        ready |= 1;
+                        break;
+                    }
+
+                    case WAIT_OBJECT_0 + 1:
+                    case WAIT_FAILED:
+                    {
+                        break;
+                    }
+
+                    case WAIT_OBJECT_0 + 2:
+                    {
+                        break;
+                    }
+
+                    default:
+                        jassertfalse;
+                        break;
+                    }
+                }
+            }
+        };
+
         direct2d::PhysicalPixelSnapper      snapper;
         direct2d::SwapChain       swap;
+        std::unique_ptr<SwapChainThread> swapChainThread;
+        bool swapChainReady = false;
         direct2d::CompositionTree compositionTree;
         direct2d::UpdateRegion    updateRegion;
-        bool                      swapChainReady = false;
         RectangleList<int>        deferredRepaints;
         Rectangle<int>            frameSize;
         int                       dirtyRectanglesCapacity = 0;
@@ -91,6 +171,14 @@ namespace juce
                 }
             }
 
+            if (!swapChainThread)
+            {
+                if (swap.swapChainEvent.has_value())
+                {
+                    swapChainThread = std::make_unique<SwapChainThread>(*this);
+                }
+            }
+
             if (!compositionTree.canPaint())
             {
                 if (auto hr = compositionTree.create(adapter->dxgiDevice, hwnd, swap.chain); FAILED(hr))
@@ -105,6 +193,7 @@ namespace juce
         void teardown() override
         {
             compositionTree.release();
+            swapChainThread = nullptr;
             swap.release();
 
             Pimpl::teardown();
@@ -136,7 +225,10 @@ namespace juce
 
         bool checkPaintReady() override
         {
-            swapChainReady |= swap.swapChainDispatcher->isSwapChainReady();
+            if (swapChainThread)
+            {
+                swapChainReady |= swapChainThread->isSwapChainReady();
+            }
 
             //
             // Paint if:

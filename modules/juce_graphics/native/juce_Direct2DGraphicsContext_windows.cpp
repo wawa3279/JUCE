@@ -754,31 +754,21 @@ namespace juce
 
     bool Direct2DGraphicsContext::startFrame()
     {
-        if (currentState = getPimpl()->startFrame(); currentState != nullptr)
+        auto pimpl = getPimpl();
+
+        if (currentState = pimpl->startFrame(); currentState != nullptr)
         {
-            if (auto deviceContext = getPimpl()->getDeviceContext())
+            if (auto deviceContext = pimpl->getDeviceContext())
             {
-                //
-                // Clip without transforming
-                //
-                // Clear() only works with axis-aligned clip layers, so if the window alpha is less than 1.0f, the clip region has to be the union
-                // of all the paint areas
-                //
-                auto const& paintAreas = getPimpl()->getPaintAreas();
-                if (paintAreas.getNumRectangles() == 1)
-                {
-                    currentState->pushAliasedAxisAlignedClipLayer(paintAreas.getRectangle(0));
-                }
-                else
-                {
-                    currentState->pushGeometryClipLayer(
-                        direct2d::rectListToPathGeometry(getPimpl()->getDirect2DFactory(), paintAreas, AffineTransform{}, D2D1_FILL_MODE_WINDING, D2D1_FIGURE_BEGIN_FILLED, metrics.get()));
-                }
+                clipToRectangleList(pimpl->getPaintAreas());
 
                 //
                 // Clear the buffer *after* setting the clip region
                 //
-                clearTargetBuffer();
+                if (pimpl->targetAlpha < 1.0f || !pimpl->opaque)
+                {
+                    clearTargetBuffer();
+                }
 
                 //
                 // Init font & brush

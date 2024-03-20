@@ -753,7 +753,7 @@ namespace juce
                         if (destinationsCapacity < (size_t)spriteBatchSize)
                         {
                             destinations.calloc(spriteBatchSize);
-                            destinationsCapacity = spriteBatchSize;
+                            destinationsCapacity = (size_t)spriteBatchSize;
                         }
 
                         auto destination = destinations.getData();
@@ -793,7 +793,7 @@ namespace juce
                         {
                             auto d2dColour = direct2d::colourToD2D(colour);
 
-                            auto spriteBatch = spriteBatches.get(spriteBatchSize);
+                            auto spriteBatch = spriteBatches.get((uint32)spriteBatchSize);
                             if (!spriteBatch)
                             {
                                 JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, createSpriteBatchTime);
@@ -803,7 +803,7 @@ namespace juce
                                     return;
                                 }
 
-                                spriteBatches.set(spriteBatchSize, spriteBatch);
+                                spriteBatches.set((uint32)spriteBatchSize, spriteBatch);
                             }
 
                             auto setCount = jmin((uint32)spriteBatchSize, spriteBatch->GetSpriteCount());
@@ -990,8 +990,6 @@ namespace juce
                         chain.resetAndGetPointerAddress());
                     jassert(SUCCEEDED(hr));
 
-                    std::optional<ScopedEvent> swapChainEvent;
-
                     if (SUCCEEDED(hr))
                     {
                         //
@@ -1016,9 +1014,6 @@ namespace juce
                     {
                         return E_NOINTERFACE;
                     }
-
-                    if (swapChainEvent.has_value() && swapChainEvent->getHandle() != nullptr)
-                        swapChainDispatcher.emplace(std::move(*swapChainEvent));
 
                     return hr;
                 }
@@ -1058,7 +1053,6 @@ namespace juce
 
             void release()
             {
-                swapChainDispatcher.reset();
                 buffer = nullptr;
                 chain = nullptr;
                 state = State::idle;
@@ -1119,8 +1113,7 @@ namespace juce
             uint32 const                               presentFlags = 0;
             ComSmartPtr<IDXGISwapChain1>               chain;
             ComSmartPtr<ID2D1Bitmap1>                  buffer;
-
-            std::optional<SwapChainDispatcher> swapChainDispatcher;
+            std::optional<ScopedEvent> swapChainEvent;
 
             enum class State
             {
