@@ -109,7 +109,7 @@ namespace juce
                 {
                     if (auto listEntry = InterlockedPopEntrySList(&paintedPresentations))
                     {
-                        direct2d::ScopedElapsedTime set{ owner.owner.metrics, direct2d::Metrics::swapChainThreadTime };
+                        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(owner.owner.metrics, swapChainThreadTime);
 
                         auto filledPresentation = reinterpret_cast<Presentation*>(listEntry);
 
@@ -288,12 +288,10 @@ namespace juce
         {
             if (!presentation)
             {
-                if (presentation = swapChainThread->getFreshPresentation())
+                presentation = swapChainThread->getFreshPresentation();
+                if (presentation && FAILED(presentation->hr))
                 {
-                    if (FAILED(presentation->hr))
-                    {
-                        teardown();
-                    }
+                    teardown();
                 }
             }
 
@@ -459,7 +457,7 @@ namespace juce
 
         void clearWindowRedirectionBitmap()
         {
-            if (! opaque && swap.state == direct2d::SwapChain::State::bufferAllocated)
+            if (!opaque && swap.state == direct2d::SwapChain::State::bufferAllocated)
             {
                 deviceResources.deviceContext.createHwndRenderTarget(hwnd);
 
@@ -690,10 +688,12 @@ namespace juce
     //==============================================================================
     Direct2DHwndContext::Direct2DHwndContext(void* windowHandle, float dpiScalingFactor_, bool opaque)
     {
+#if JUCE_DIRECT2D_METRICS
         metrics = new direct2d::Metrics{ direct2d::MetricsHub::getInstance()->lock,
             "HWND " + String::toHexString((pointer_sized_int)windowHandle),
             windowHandle };
         direct2d::MetricsHub::getInstance()->add(metrics);
+#endif
 
         pimpl = std::make_unique<HwndPimpl>(*this, reinterpret_cast<HWND>(windowHandle), opaque);
 
@@ -703,7 +703,9 @@ namespace juce
 
     Direct2DHwndContext::~Direct2DHwndContext()
     {
+#if JUCE_DIRECT2D_METRICS
         direct2d::MetricsHub::getInstance()->remove(metrics);
+#endif
     }
 
     void* Direct2DHwndContext::getHwnd() const noexcept
