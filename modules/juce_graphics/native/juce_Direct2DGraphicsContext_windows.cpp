@@ -2002,16 +2002,26 @@ namespace juce
             return;
         }
 
+        applyPendingClipList();
+
         //
         // Draw the glyph run
         //
         {
+            D2D1_POINT_2F baselineOrigin = { 0.0f, 0.0f };
+
             auto scaledTransform = AffineTransform::scale(dwriteFontFace.fontHorizontalScale, 1.0f).followedBy(transform);
             auto glyphRunTransform = scaledTransform.followedBy(currentState->currentTransform.getTransform());
+            bool onlyTranslated = glyphRunTransform.isOnlyTranslation();
 
-            applyPendingClipList();
-
-            getPimpl()->setDeviceContextTransform(glyphRunTransform);
+            if (onlyTranslated)
+            {
+                baselineOrigin = { glyphRunTransform.getTranslationX(), glyphRunTransform.getTranslationY() };
+            }
+            else
+            {
+                getPimpl()->setDeviceContextTransform(glyphRunTransform);
+            }
 
             DWRITE_GLYPH_RUN directWriteGlyphRun;
             directWriteGlyphRun.fontFace = dwriteFontFace.fontFace;
@@ -2023,7 +2033,7 @@ namespace juce
             directWriteGlyphRun.isSideways = FALSE;
             directWriteGlyphRun.bidiLevel = 0;
 
-            deviceContext->DrawGlyphRun({}, &directWriteGlyphRun, brush);
+            deviceContext->DrawGlyphRun(baselineOrigin, &directWriteGlyphRun, brush);
 
             //
             // Draw the underline
@@ -2033,9 +2043,11 @@ namespace juce
                 fillRect(underlineArea);
             }
 
-            getPimpl()->resetDeviceContextTransform();
+            if (!onlyTranslated)
+            {
+                getPimpl()->resetDeviceContextTransform();
+            }
         }
-
     }
 
     Direct2DGraphicsContext::ScopedTransform::ScopedTransform(Pimpl& pimpl_, SavedState* state_) :
