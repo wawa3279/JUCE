@@ -45,6 +45,7 @@ namespace juce
         direct2d::Direct2DBitmap presentationBitmap;
         RectangleList<int> paintAreas;
         int frameNumber = 0;
+        HRESULT hr = S_OK;
     };
 
     struct Direct2DHwndContext::HwndPimpl : public Direct2DGraphicsContext::Pimpl
@@ -114,7 +115,7 @@ namespace juce
 
                         {
                             direct2d::ScopedMultithread scopedMultithread{ multithread };
-                            owner.present(filledPresentation);
+                            filledPresentation->hr = owner.present(filledPresentation);
                         }
 
                         swapChainReady = false;
@@ -287,7 +288,13 @@ namespace juce
         {
             if (!presentation)
             {
-                presentation = swapChainThread->getFreshPresentation();
+                if (presentation = swapChainThread->getFreshPresentation())
+                {
+                    if (FAILED(presentation->hr))
+                    {
+                        teardown();
+                    }
+                }
             }
 
             //
@@ -609,11 +616,6 @@ namespace juce
             swap.state = direct2d::SwapChain::State::bufferFilled;
 
             paintedPresentation->paintAreas.clear();
-
-            if (FAILED(hr))
-            {
-                teardown();
-            }
 
             TRACE_LOG_D2D_PAINT_CALL(etw::direct2dHwndPaintEnd, owner.llgcFrameNumber);
 
