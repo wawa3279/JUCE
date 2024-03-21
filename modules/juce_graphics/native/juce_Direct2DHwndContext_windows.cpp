@@ -53,9 +53,9 @@ namespace juce
     private:
         struct SwapChainThread
         {
-            explicit SwapChainThread(Direct2DHwndContext::HwndPimpl& owner_) :
+            explicit SwapChainThread(Direct2DHwndContext::HwndPimpl& owner_, ID2D1Multithread* multithread_) :
                 owner(owner_),
-                multithread(owner_.directX->direct2D.getMultithread()),
+                multithread(multithread_),
                 swapChainEventHandle(owner_.swap.swapChainEvent->getHandle())
             {
                 InitializeSListHead(&paintedPresentations);
@@ -236,7 +236,7 @@ namespace juce
             {
                 if (swap.swapChainEvent.has_value())
                 {
-                    swapChainThread = std::make_unique<SwapChainThread>(*this);
+                    swapChainThread = std::make_unique<SwapChainThread>(*this, directX->direct2D.getMultithread());
                 }
             }
 
