@@ -31,7 +31,7 @@
 #include "juce_ETW_windows.h"
 #include "juce_Direct2DGraphicsContext_windows.h"
 #include "juce_Direct2DGraphicsContext_windows.cpp"
-
+#include "juce_Direct2DResources_windows.cpp"
 #endif
 
 namespace juce
@@ -39,14 +39,32 @@ namespace juce
 
     //==============================================================================
 
+    struct Presentation
+    {
+        JUCE_ALIGN(MEMORY_ALLOCATION_ALIGNMENT) SLIST_ENTRY listEntry;
+        direct2d::Direct2DBitmap presentationBitmap;
+        RectangleList<int> paintAreas;
+        int frameNumber = 0;
+    };
+
     struct Direct2DHwndContext::HwndPimpl : public Direct2DGraphicsContext::Pimpl
     {
     private:
         struct SwapChainThread
         {
             explicit SwapChainThread(Direct2DHwndContext::HwndPimpl& owner_) :
+                owner(owner_),
+                multithread(owner_.directX->direct2D.getMultithread()),
                 swapChainEventHandle(owner_.swap.swapChainEvent->getHandle())
             {
+                InitializeSListHead(&paintedPresentations);
+                InitializeSListHead(&retiredPresentations);
+
+                //
+                // TODO ultimately there will be a FIFO queue of presentations, but for now just one
+                //
+                presentations.add(new Presentation{});
+                InterlockedPushEntrySList(&retiredPresentations, &presentations.getFirst()->listEntry);
             }
 
             ~SwapChainThread()
@@ -60,19 +78,59 @@ namespace juce
 
             void release()
             {
+                InterlockedFlushSList(&paintedPresentations);
+                InterlockedFlushSList(&retiredPresentations);
+
+                presentations.clear();
             }
 
-            bool isSwapChainReady()
+            Presentation* getFreshPresentation()
             {
-                return ready.exchange(0);
+                if (auto listEntry = InterlockedPopEntrySList(&retiredPresentations))
+                {
+                    return reinterpret_cast<Presentation*>(listEntry);
+                }
+
+                return nullptr;
             }
 
-            CriticalSection lock;
+            void pushPaintedPresentation(Presentation* presentation_)
+            {
+                InterlockedPushEntrySList(&paintedPresentations, &presentation_->listEntry);
+                SetEvent(wakeEvent.getHandle());
+            }
 
         private:
+
+            void serviceSwapChain()
+            {
+                if (swapChainReady)
+                {
+                    if (auto listEntry = InterlockedPopEntrySList(&paintedPresentations))
+                    {
+                        direct2d::ScopedElapsedTime set{ owner.owner.metrics, direct2d::Metrics::swapChainThreadTime };
+
+                        auto filledPresentation = reinterpret_cast<Presentation*>(listEntry);
+
+                        {
+                            direct2d::ScopedMultithread scopedMultithread{ multithread };
+                            owner.present(filledPresentation);
+                        }
+
+                        swapChainReady = false;
+                        InterlockedPushEntrySList(&retiredPresentations, listEntry);
+                    }
+                }
+            }
+
+            JUCE_ALIGN(MEMORY_ALLOCATION_ALIGNMENT) SLIST_HEADER paintedPresentations;
+            JUCE_ALIGN(MEMORY_ALLOCATION_ALIGNMENT) SLIST_HEADER retiredPresentations;
+            Direct2DHwndContext::HwndPimpl& owner;
+            ComSmartPtr<ID2D1Multithread> multithread;
             HANDLE swapChainEventHandle = nullptr;
-            std::atomic<int> ready = 0;
+            bool swapChainReady = false;
             bool running = true;
+            OwnedArray<Presentation> presentations;
 
             direct2d::ScopedEvent wakeEvent;
             direct2d::ScopedEvent quitEvent;
@@ -98,7 +156,8 @@ namespace juce
                     {
                     case WAIT_OBJECT_0:
                     {
-                        ready |= 1;
+                        swapChainReady = true;
+                        serviceSwapChain();
                         break;
                     }
 
@@ -110,6 +169,7 @@ namespace juce
 
                     case WAIT_OBJECT_0 + 2:
                     {
+                        serviceSwapChain();
                         break;
                     }
 
@@ -124,7 +184,7 @@ namespace juce
         direct2d::PhysicalPixelSnapper      snapper;
         direct2d::SwapChain       swap;
         std::unique_ptr<SwapChainThread> swapChainThread;
-        bool swapChainReady = false;
+        Presentation* presentation = nullptr;
         direct2d::CompositionTree compositionTree;
         direct2d::UpdateRegion    updateRegion;
         RectangleList<int>        deferredRepaints;
@@ -225,22 +285,22 @@ namespace juce
 
         bool checkPaintReady() override
         {
-            if (swapChainThread)
+            if (!presentation)
             {
-                swapChainReady |= swapChainThread->isSwapChainReady();
+                presentation = swapChainThread->getFreshPresentation();
             }
 
             //
             // Paint if:
             //      resources are allocated
             //      deferredRepaints has areas to be painted
-            //      the swap chain is ready
+            //      the swap chain thread is ready
             //
             bool ready = Pimpl::checkPaintReady();
             ready &= swap.canPaint();
             ready &= compositionTree.canPaint();
             ready &= deferredRepaints.getNumRectangles() > 0;
-            ready &= swapChainReady;
+            ready &= presentation != nullptr;
             return ready;
         }
 
@@ -282,12 +342,43 @@ namespace juce
 
         Rectangle<int> getFrameSize() override
         {
-            return swap.getSize();
+            return getClientRect();
         }
 
         ID2D1Image* getDeviceContextTarget() override
         {
-            return swap.buffer;
+            //return swap.buffer;
+            //jassert(commandList == nullptr);
+            if (presentation)
+            {
+                auto bitmap = presentation->presentationBitmap.getD2D1Bitmap();
+
+                auto swapChainSize = swap.getSize();
+
+                if (bitmap)
+                {
+                    auto size = bitmap->GetPixelSize();
+                    if (size.width != (uint32)swapChainSize.getWidth() || size.height != (uint32)swapChainSize.getHeight())
+                    {
+                        presentation->presentationBitmap.release();
+                        bitmap = nullptr;
+                    }
+                }
+
+                if (!bitmap)
+                {
+                    presentation->presentationBitmap.createBitmap(deviceResources.deviceContext.context,
+                        Image::ARGB,
+                        { (uint32)swapChainSize.getWidth(), (uint32)swapChainSize.getHeight() },
+                        swapChainSize.getWidth() * 4,
+                        snapper.getDPIScaleFactor(),
+                        D2D1_BITMAP_OPTIONS_TARGET);
+                }
+
+                return presentation->presentationBitmap.getD2D1Bitmap();
+            }
+
+            return nullptr;
         }
 
         void setSize(Rectangle<int> size)
@@ -321,7 +412,9 @@ namespace juce
 
             if (auto deviceContext = deviceResources.deviceContext.context)
             {
-                auto hr = swap.resize(size, snapper.getDPIScaleFactor(), deviceContext);
+                direct2d::ScopedMultithread scopedMultithread{ directX->direct2D.getMultithread() };
+
+                auto hr = swap.resize(size, (float)snapper.getDPIScaleFactor(), deviceContext);
                 jassert(SUCCEEDED(hr));
                 if (FAILED(hr))
                 {
@@ -396,6 +489,8 @@ namespace juce
             {
                 TRACE_LOG_D2D_PAINT_CALL(etw::direct2dHwndPaintStart, owner.llgcFrameNumber);
 
+                presentation->paintAreas = paintAreas;
+
                 deferredRepaints.clear();
             }
 
@@ -407,6 +502,19 @@ namespace juce
             if (auto hr = Pimpl::finishFrame(); FAILED(hr))
             {
                 return hr;
+            }
+
+            swapChainThread->pushPaintedPresentation(presentation);
+            presentation = nullptr;
+
+            return S_OK;
+        }
+
+        HRESULT present(Presentation* const paintedPresentation)
+        {
+            if (paintedPresentation == nullptr)
+            {
+                return S_OK;
             }
 
             //
@@ -424,10 +532,10 @@ namespace juce
             //
             // Allocate enough memory for the array of dirty rectangles
             //
-            if (dirtyRectanglesCapacity < paintAreas.getNumRectangles())
+            if (dirtyRectanglesCapacity < paintedPresentation->paintAreas.getNumRectangles())
             {
-                dirtyRectangles.realloc(paintAreas.getNumRectangles());
-                dirtyRectanglesCapacity = paintAreas.getNumRectangles();
+                dirtyRectangles.realloc(paintedPresentation->paintAreas.getNumRectangles());
+                dirtyRectanglesCapacity = paintedPresentation->paintAreas.getNumRectangles();
             }
 
             //
@@ -438,7 +546,7 @@ namespace juce
             {
                 RECT* dirtyRectangle = dirtyRectangles.getData();
                 auto const swapChainSize = swap.getSize();
-                for (auto const& area : paintAreas)
+                for (auto const& area : paintedPresentation->paintAreas)
                 {
                     //
                     // If this paint area contains the entire swap chain, then
@@ -462,6 +570,16 @@ namespace juce
                         continue;
                     }
 
+                    D2D1_POINT_2U destPoint{ (uint32)intersection.getX(), (uint32)intersection.getY() };
+                    D2D1_RECT_U sourceRect
+                    {
+                        (uint32)intersection.getX(),
+                        (uint32)intersection.getY(),
+                        (uint32)intersection.getRight(),
+                        (uint32)intersection.getBottom()
+                    };
+                    swap.buffer->CopyFromBitmap(&destPoint, paintedPresentation->presentationBitmap.getD2D1Bitmap(), &sourceRect);
+
                     //
                     // Add this intersected paint area to the dirty rectangle array (scaled for DPI)
                     //
@@ -473,6 +591,12 @@ namespace juce
                 presentParameters.pDirtyRects = dirtyRectangles.getData();
             }
 
+            if (presentParameters.DirtyRectsCount == 0)
+            {
+                D2D1_POINT_2U destPoint{ 0, 0 };
+                swap.buffer->CopyFromBitmap(&destPoint, paintedPresentation->presentationBitmap.getD2D1Bitmap(), nullptr);
+            }
+
             //
             // Present the freshly painted buffer
             //
@@ -480,12 +604,11 @@ namespace juce
             jassert(SUCCEEDED(hr));
 
             //
-            // The buffer is now completely filled and ready for dirty rectangles
-            //
+           // The buffer is now completely filled and ready for dirty rectangles for the next frame
+           //
             swap.state = direct2d::SwapChain::State::bufferFilled;
 
-            paintAreas.clear();
-            swapChainReady = false;
+            paintedPresentation->paintAreas.clear();
 
             if (FAILED(hr))
             {
@@ -565,12 +688,10 @@ namespace juce
     //==============================================================================
     Direct2DHwndContext::Direct2DHwndContext(void* windowHandle, float dpiScalingFactor_, bool opaque)
     {
-#if JUCE_DIRECT2D_METRICS
         metrics = new direct2d::Metrics{ direct2d::MetricsHub::getInstance()->lock,
             "HWND " + String::toHexString((pointer_sized_int)windowHandle),
             windowHandle };
         direct2d::MetricsHub::getInstance()->add(metrics);
-#endif
 
         pimpl = std::make_unique<HwndPimpl>(*this, reinterpret_cast<HWND>(windowHandle), opaque);
 
@@ -580,9 +701,7 @@ namespace juce
 
     Direct2DHwndContext::~Direct2DHwndContext()
     {
-#if JUCE_DIRECT2D_METRICS
         direct2d::MetricsHub::getInstance()->remove(metrics);
-#endif
     }
 
     void* Direct2DHwndContext::getHwnd() const noexcept

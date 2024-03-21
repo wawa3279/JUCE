@@ -211,6 +211,8 @@ DirectX::Direct2D::Direct2D()
 
     if (d2dSharedFactory != nullptr)
     {
+        d2dSharedFactory->QueryInterface<ID2D1Multithread>(multithread.resetAndGetPointerAddress());
+
         auto d2dRTProp = D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_SOFTWARE,
             D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,
                 D2D1_ALPHA_MODE_IGNORE),
@@ -226,6 +228,7 @@ DirectX::Direct2D::Direct2D()
 
 DirectX::Direct2D::~Direct2D()
 {
+    multithread = nullptr;
     d2dSharedFactory = nullptr;
     directWriteRenderTarget = nullptr;
 }

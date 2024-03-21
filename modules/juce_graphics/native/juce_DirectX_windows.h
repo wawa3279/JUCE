@@ -302,10 +302,12 @@ struct DirectX
 
         ID2D1Factory2* getFactory() const { return d2dSharedFactory; }
         ID2D1DCRenderTarget* getDirectWriteRenderTarget() const { return directWriteRenderTarget; }
+        ID2D1Multithread* getMultithread() const { return multithread; }
 
     private:
         ComSmartPtr<ID2D1Factory2> d2dSharedFactory;
         ComSmartPtr<ID2D1DCRenderTarget> directWriteRenderTarget;
+        ComSmartPtr<ID2D1Multithread> multithread;
     } direct2D;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DirectX)

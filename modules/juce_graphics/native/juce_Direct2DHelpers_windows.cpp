@@ -72,6 +72,29 @@ static D2D1_COLOR_F colourToD2D (Colour c)
 
 //==============================================================================
 //
+// Scoped I2D1Multithread
+//
+
+class ScopedMultithread
+{
+public:
+    ScopedMultithread(ID2D1Multithread* multithread_) :
+        multithread(multithread_)
+    {
+        multithread_->Enter();
+    }
+
+    ~ScopedMultithread()
+    {
+        multithread->Leave();
+    }
+
+private:
+    ComSmartPtr<ID2D1Multithread> multithread;
+};
+
+//==============================================================================
+//
 // Convert a JUCE Path to a D2D Geometry
 //
 static bool isTransformAxisAligned(AffineTransform const& transform)

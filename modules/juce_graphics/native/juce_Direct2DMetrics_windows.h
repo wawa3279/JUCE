@@ -31,6 +31,7 @@ namespace juce
 
 #define DIRECT2D_PAINT_STAT_LIST \
         DIRECT2D_PAINT_STAT(messageThreadPaintDuration) \
+        DIRECT2D_PAINT_STAT(swapChainThreadTime) \
         DIRECT2D_PAINT_STAT(frameInterval) \
         DIRECT2D_PAINT_STAT(endDrawDuration) \
         DIRECT2D_PAINT_STAT(present1Duration) \
