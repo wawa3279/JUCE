@@ -765,10 +765,7 @@ namespace juce
                 //
                 // Clear the buffer *after* setting the clip region
                 //
-                if (pimpl->targetAlpha < 1.0f || !pimpl->opaque)
-                {
-                    clearTargetBuffer();
-                }
+                clearTargetBuffer();
 
                 //
                 // Init font & brush
