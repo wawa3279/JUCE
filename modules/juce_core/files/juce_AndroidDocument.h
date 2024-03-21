@@ -1,8 +1,8 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE 8 technical preview.
-   Copyright (c) Raw Material Software Limited
+   This file is part of the JUCE library.
+   Copyright (c) 2022 - Raw Material Software Limited
 
    You may use this code under the terms of the GPL v3
    (see www.gnu.org/licenses).
