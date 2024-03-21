@@ -373,7 +373,7 @@ namespace juce
                 [[maybe_unused]] int frameNumber,
                 direct2d::Metrics* metrics)
             {
-                if (path.getModificationCount() == 0 || !path.shouldBeCached())
+                if (path.getModificationCount() == 0 || !path.isCacheEnabled())
                 {
                     return nullptr;
                 }
@@ -450,7 +450,7 @@ namespace juce
                 [[maybe_unused]] int frameNumber,
                 Metrics* metrics)
             {
-                if (path.getModificationCount() == 0 || !path.shouldBeCached())
+                if (path.getModificationCount() == 0 || !path.isCacheEnabled())
                 {
                     return nullptr;
                 }

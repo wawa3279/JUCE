@@ -801,19 +801,6 @@ public:
 
     void setCacheEnabled(bool enabled) { cacheInfo.cacheEnabled = enabled; }
     bool isCacheEnabled() const noexcept { return cacheInfo.cacheEnabled; }
-    bool shouldBeCached() const noexcept
-    {
-        //
-        // Only try to cache this path if this specific object is painted repeatedly
-        //
-        if (cacheInfo.cacheableCountdown > 0)
-        {
-            --cacheInfo.cacheableCountdown;
-            return false;
-        }
-
-        return isCacheEnabled();
-    }
 
 private:
     //==============================================================================
@@ -847,7 +834,6 @@ private:
     struct CacheInfo
     {
         bool cacheEnabled = false;
-        mutable int cacheableCountdown = 2;
 
         int getModificationCount() const noexcept
         {
@@ -857,7 +843,6 @@ private:
         void incrementModificationCount()
         {
             ++modificationCount;
-            cacheableCountdown = 2;
         }
 
     private:
