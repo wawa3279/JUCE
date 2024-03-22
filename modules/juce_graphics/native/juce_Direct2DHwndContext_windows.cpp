@@ -61,11 +61,12 @@ namespace juce
                 InitializeSListHead(&paintedPresentations);
                 InitializeSListHead(&retiredPresentations);
 
-                //
-                // TODO ultimately there will be a FIFO queue of presentations, but for now just one
-                //
-                presentations.add(new Presentation{});
-                InterlockedPushEntrySList(&retiredPresentations, &presentations.getFirst()->listEntry);
+                int numPresentations = 2;
+                for (int i = 0; i < numPresentations; ++i)
+                {
+                    auto p = presentations.add(new Presentation{});
+                    InterlockedPushEntrySList(&retiredPresentations, &p->listEntry);
+                }
             }
 
             ~SwapChainThread()
