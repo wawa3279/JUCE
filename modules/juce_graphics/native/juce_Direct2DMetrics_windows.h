@@ -214,6 +214,19 @@ namespace juce
                 metricsArray.removeObject(metrics);
             }
 
+            ReferenceCountedObjectPtr<Metrics> getMetricsForWindowHandle(void* windowHandle) noexcept
+            {
+                for (auto& metrics : metricsArray)
+                {
+                    if (metrics->windowHandle == windowHandle)
+                    {
+                        return metrics;
+                    }
+                }
+
+                return nullptr;
+            }
+
             enum
             {
                 getValuesRequest,
