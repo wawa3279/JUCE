@@ -196,6 +196,16 @@ namespace juce
     {
         TRACE_LOG_D2D_IMAGE_MAP_DATA;
 
+        //
+        // Perhaps you're calling Image::getPixelAt, Image::setPixelAt, or Image::multiplyAlphaAt?
+        //
+        // Mapping the bitmap in very small sections from the GPU to the CPU will be slow. Consider accessing the
+        // pixel data instead by creating a BitmapData object and calling BitmapData::getPixelPointer,
+        // BitmapData::getPixelColour, or BitmapData::setPixelColour.
+        //
+        jassert(bitmap.width > 1 && bitmap.height > 1);
+        jassert(deviceIndependentClipArea.getWidth() > 1 && deviceIndependentClipArea.getHeight() > 1);
+
         x += deviceIndependentClipArea.getX();
         y += deviceIndependentClipArea.getY();
 
