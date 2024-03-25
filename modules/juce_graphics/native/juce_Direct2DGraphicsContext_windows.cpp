@@ -1526,12 +1526,13 @@ namespace juce
                 //
                 // Create and draw a geometry
                 //
-                if (auto geometry = direct2d::pathToPathGeometry(factory, p, currentState->currentTransform.getTransformWith(transform), D2D1_FIGURE_BEGIN_HOLLOW, metrics.get()))
+                if (auto geometry = direct2d::pathToPathGeometry(factory, p, transform, D2D1_FIGURE_BEGIN_HOLLOW, metrics.get()))
                 {
                     if (auto strokeStyle = direct2d::pathStrokeTypeToStrokeStyle(factory, strokeType))
                     {
                         JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, drawGeometryTime)
 
+                        ScopedTransform scopedTransform{ *getPimpl(), currentState };
                         deviceContext->DrawGeometry(geometry, brush, strokeType.getStrokeThickness(), strokeStyle);
                     }
                 }
