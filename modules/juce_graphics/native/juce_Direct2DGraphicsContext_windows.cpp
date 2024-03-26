@@ -16,45 +16,6 @@
   ==============================================================================
 */
 
-/*
-
-    don't mix DXGI factory types
-
-    get rid of CS_OWNDC?
-
-    -child window clipping?
-
-    -minimize calls to SetTransform
-    -text analyzer?
-    -recycle state structs
-    -don't paint occluded windows
-    -Multithreaded device context?
-
-    handle device context creation error / paint errors
-        watchdog timer?
-
-    OK EndDraw D2DERR_RECREATE_TARGET
-    OK JUCE 7.0.6 merge
-    OK when to start threads in general
-    OK use std::stack for layers
-    OK Check use of InvalidateRect & ValidateRect
-    OK drawGlyphUnderline
-    OK DPI scaling
-    OK start/stop thread when window is visible
-    OK logo highlights in juce animation demo
-    OK check resize when auto-arranging windows
-    OK single-channel bitmap for clip to image alpha
-    OK transparency layer in software mode?
-    OK check for empty dirty rectangles
-    OK vblank in software mode
-    OK fix ScopedBrushTransformInverter
-    OK vblank attachment
-    OK Always present
-
-    WM_DISPLAYCHANGE / WM_SETTINGCHANGE rebuild resources
-
-    */
-
 #ifdef __INTELLISENSE__
 
 #define JUCE_CORE_INCLUDE_COM_SMART_PTR 1
@@ -520,7 +481,7 @@ namespace juce
             directX->dxgi.adapters.listeners.add(this);
         }
 
-        virtual ~Pimpl()
+        ~Pimpl() override
         {
             directX->dxgi.adapters.listeners.remove(this);
 
@@ -847,9 +808,9 @@ namespace juce
             // The current transform is only a translation, so save a few cycles by just adding the
             // offset instead of transforming the rectangle; the software renderer does something similar.
             //
-            auto transformedR = r + transform.offset;
-            deviceSpaceClipList.clipTo(transformedR);
-            pendingDeviceSpaceClipList.add(transformedR);
+            auto translatedR = r + transform.offset;
+            deviceSpaceClipList.clipTo(translatedR);
+            pendingDeviceSpaceClipList.add(translatedR);
         }
         else if (transform.isAxisAligned())
         {
