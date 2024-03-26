@@ -218,14 +218,6 @@ private:
         }
     }
 
-    void handleDirect2DResize (int width, int height)
-    {
-        if (direct2DContext)
-        {
-            direct2DContext->setSize (width, height);
-        }
-    }
-
     void updateDirect2DSize()
     {
         if (direct2DContext && component.isVisible())
@@ -376,6 +368,15 @@ private:
                 return DefWindowProc(messageHwnd, message, wParam, lParam);
             }
 
+            case WM_ENTERSIZEMOVE:
+            {
+                if (direct2DContext)
+                {
+                    direct2DContext->startResizing();
+                }
+                break;
+            }
+
             case WM_NCCALCSIZE:
             {
                 TRACE_LOG_D2D_RESIZE(WM_NCCALCSIZE);
@@ -384,6 +385,15 @@ private:
                 {
                     RECT* rect = (RECT*)lParam;
                     direct2DContext->setSize(rect->right - rect->left, rect->bottom - rect->top);
+                }
+                break;
+            }
+
+            case WM_EXITSIZEMOVE:
+            {
+                if (direct2DContext)
+                {
+                    direct2DContext->finishResizing();
                 }
                 break;
             }

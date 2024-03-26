@@ -102,6 +102,16 @@ namespace juce
                 SetEvent(wakeEvent.getHandle());
             }
 
+            void retirePresentation(Presentation* presentation_)
+            {
+                InterlockedPushEntrySList(&retiredPresentations, &presentation_->listEntry);
+            }
+
+            void notify()
+            {
+                SetEvent(wakeEvent.getHandle());
+            }
+
         private:
 
             void serviceSwapChain()
@@ -116,7 +126,7 @@ namespace juce
 
                         {
                             direct2d::ScopedMultithread scopedMultithread{ multithread };
-                            filledPresentation->hr = owner.present(filledPresentation);
+                            filledPresentation->hr = owner.present(filledPresentation, 0);
                         }
 
                         swapChainReady = false;
@@ -193,6 +203,8 @@ namespace juce
         Rectangle<int>            frameSize;
         int                       dirtyRectanglesCapacity = 0;
         HeapBlock<RECT>           dirtyRectangles;
+        bool resizing = false;
+        int64 lastFinishFrameTicks = 0;
 
         HWND hwnd = nullptr;
 
@@ -266,7 +278,7 @@ namespace juce
             //
             // Does the entire buffer need to be filled?
             //
-            if (swap.state == direct2d::SwapChain::State::bufferAllocated)
+            if (swap.state == direct2d::SwapChain::State::bufferAllocated || resizing)
             {
                 deferredRepaints = swap.getSize();
             }
@@ -399,6 +411,11 @@ namespace juce
             return nullptr;
         }
 
+        void startResizing()
+        {
+            resizing = true;
+        }
+
         void setSize(Rectangle<int> size)
         {
             if (size == frameSize)
@@ -407,6 +424,11 @@ namespace juce
             }
 
             resizeSwapChain(size);
+        }
+
+        void finishResizing()
+        {
+            resizing = false;
         }
 
         void resizeSwapChain(Rectangle<int> size)
@@ -437,6 +459,11 @@ namespace juce
                 if (FAILED(hr))
                 {
                     teardown();
+                }
+
+                if (swapChainThread)
+                {
+                    swapChainThread->notify();
                 }
             }
 
@@ -496,6 +523,12 @@ namespace juce
 
         SavedState* startFrame() override
         {
+            if (resizing)
+            {
+                deferredRepaints = frameSize;
+                setSize(getClientRect());
+            }
+
             auto savedState = Pimpl::startFrame();
 
             //
@@ -517,18 +550,31 @@ namespace juce
 
         HRESULT finishFrame() override
         {
-            if (auto hr = Pimpl::finishFrame(); FAILED(hr))
+            HRESULT hr = S_OK;
+
+             if (hr = Pimpl::finishFrame(); FAILED(hr))
             {
                 return hr;
             }
 
-            swapChainThread->pushPaintedPresentation(presentation);
+            if (resizing)
+            {
+                present(presentation, 0);
+                swapChainThread->retirePresentation(presentation);
+            }
+            else
+            {
+                swapChainThread->pushPaintedPresentation(presentation);
+            }
+
             presentation = nullptr;
+
+            lastFinishFrameTicks = Time::getHighResolutionTicks();
 
             return S_OK;
         }
 
-        HRESULT present(Presentation* const paintedPresentation)
+        HRESULT present(Presentation* const paintedPresentation, uint32 flags)
         {
             if (paintedPresentation == nullptr)
             {
@@ -618,7 +664,7 @@ namespace juce
             //
             // Present the freshly painted buffer
             //
-            auto hr = swap.chain->Present1(swap.presentSyncInterval, swap.presentFlags, &presentParameters);
+            auto hr = swap.chain->Present1(swap.presentSyncInterval, swap.presentFlags | flags, &presentParameters);
             jassert(SUCCEEDED(hr));
 
             //
@@ -741,6 +787,11 @@ namespace juce
         pimpl->setTargetAlpha(alpha);
     }
 
+    void Direct2DHwndContext::startResizing()
+    {
+        pimpl->startResizing();
+    }
+
     void Direct2DHwndContext::setSize(int width, int height)
     {
         pimpl->setSize({ width, height });
@@ -749,6 +800,11 @@ namespace juce
     void Direct2DHwndContext::updateSize()
     {
         pimpl->setSize(pimpl->getClientRect());
+    }
+
+    void Direct2DHwndContext::finishResizing()
+    {
+        pimpl->finishResizing();
     }
 
     void Direct2DHwndContext::addDeferredRepaint(Rectangle<int> deferredRepaint)

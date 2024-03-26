@@ -29,8 +29,10 @@ public:
     void handleShowWindow();
     void setWindowAlpha (float alpha);
 
+    void startResizing();
     void setSize (int width, int height);
     void updateSize();
+    void finishResizing();
 
     void addDeferredRepaint (Rectangle<int> deferredRepaint);
     void addInvalidWindowRegionToDeferredRepaints();
