@@ -403,7 +403,7 @@ static ComSmartPtr<ID2D1StrokeStyle1> pathStrokeTypeToStrokeStyle(ID2D1Factory1*
         capStyle,
         capStyle,
         lineJoin,
-        1.0f,
+        strokeType.getStrokeThickness(),
         D2D1_DASH_STYLE_SOLID,
         0.0f,
         D2D1_STROKE_TRANSFORM_TYPE_NORMAL
