@@ -2374,11 +2374,6 @@ protected:
         return nullptr;
     }
 
-    virtual DWORD adjustWindowStyleFlags(DWORD exstyle)
-    {
-        return exstyle;
-    }
-
     void createWindowOnMessageThread()
     {
         DWORD exstyle = 0;
@@ -2422,8 +2417,6 @@ protected:
         if ((styleFlags & windowHasMinimiseButton) != 0)    type |= WS_MINIMIZEBOX;
         if ((styleFlags & windowHasMaximiseButton) != 0)    type |= WS_MAXIMIZEBOX;
         if ((styleFlags & windowIsSemiTransparent) != 0)    exstyle |= WS_EX_LAYERED;
-
-        exstyle = adjustWindowStyleFlags (exstyle);
 
         hwnd = CreateWindowEx (exstyle, WindowClassHolder::getInstance()->getWindowClassName(),
                                L"", type, 0, 0, 0, 0, parentToAddTo, nullptr,

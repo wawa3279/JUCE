@@ -59,17 +59,6 @@ public:
         HWNDComponentPeer::destroyWindow();
     }
 
-    DWORD adjustWindowStyleFlags (DWORD exStyleFlags) override
-    {
-        // don't need this anymore?
-//         if (currentRenderingEngine == direct2DRenderingEngine)
-//         {
-//             //exStyleFlags |= WS_EX_LAYERED;
-//         }
-
-        return exStyleFlags;
-    }
-
     void updateBorderSize() override
     {
         HWNDComponentPeer::updateBorderSize();
