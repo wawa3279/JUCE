@@ -1472,7 +1472,7 @@ namespace juce
             {
                 if (auto brush = currentState->getBrush())
                 {
-                    if (auto translatedR = currentState->currentTransform.translated(reducedR); currentState->deviceSpaceClipList.intersectsRectangle(translatedR.toNearestIntEdges()))
+                    if (auto translatedR = currentState->currentTransform.translated(reducedR); currentState->doesRectangleIntersectClipList(translatedR))
                     {
                         deviceContext->DrawRectangle(direct2d::rectangleToRectF(translatedR), brush, lineThickness);
                     }
