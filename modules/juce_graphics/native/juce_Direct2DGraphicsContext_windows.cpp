@@ -1784,9 +1784,9 @@ namespace juce
 
     bool Direct2DGraphicsContext::drawRoundedRectangle(Rectangle<float> area, float cornerSize, float lineThickness)
     {
-        SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawRoundedRectangle, llgcFrameNumber, area, etw::direct2dKeyword);
-
         applyPendingClipList();
+
+        SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawRoundedRectangle, llgcFrameNumber, area, etw::direct2dKeyword);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1794,8 +1794,12 @@ namespace juce
             {
                 if (auto brush = currentState->getBrush())
                 {
-                    D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(currentState->currentTransform.translated(area)), cornerSize, cornerSize };
-                    deviceContext->DrawRoundedRectangle(roundedRect, brush, lineThickness);
+                    if (auto translatedR = currentState->currentTransform.translated(area); currentState->doesRectangleIntersectClipList(translatedR))
+                    {
+                        D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(translatedR), cornerSize, cornerSize };
+
+                        deviceContext->DrawRoundedRectangle(roundedRect, brush, lineThickness);
+                    }
                 }
                 return true;
             }
@@ -1813,9 +1817,9 @@ namespace juce
 
     bool Direct2DGraphicsContext::fillRoundedRectangle(Rectangle<float> area, float cornerSize)
     {
-        SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillRoundedRectangle, llgcFrameNumber, area, etw::direct2dKeyword);
-
         applyPendingClipList();
+
+        SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillRoundedRectangle, llgcFrameNumber, area, etw::direct2dKeyword);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1823,8 +1827,12 @@ namespace juce
             {
                 if (auto brush = currentState->getBrush())
                 {
-                    D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(currentState->currentTransform.translated(area)), cornerSize, cornerSize };
-                    deviceContext->FillRoundedRectangle(roundedRect, brush);
+                    if (auto translatedR = currentState->currentTransform.translated(area); currentState->doesRectangleIntersectClipList(translatedR))
+                    {
+                        D2D1_ROUNDED_RECT roundedRect{ direct2d::rectangleToRectF(translatedR), cornerSize, cornerSize };
+
+                        deviceContext->FillRoundedRectangle(roundedRect, brush);
+                    }
                 }
                 return true;
             }
@@ -1842,9 +1850,9 @@ namespace juce
 
     bool Direct2DGraphicsContext::drawEllipse(Rectangle<float> area, float lineThickness)
     {
-        SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawEllipse, llgcFrameNumber, area, etw::direct2dKeyword);
-
         applyPendingClipList();
+
+        SCOPED_TRACE_EVENT_FLOAT_RECT(etw::drawEllipse, llgcFrameNumber, area, etw::direct2dKeyword);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1852,11 +1860,14 @@ namespace juce
             {
                 if (auto brush = currentState->getBrush())
                 {
-                    area = currentState->currentTransform.translated(area);
-                    auto centre = area.getCentre();
+                    if (auto translatedR = currentState->currentTransform.translated(area); currentState->doesRectangleIntersectClipList(translatedR))
+                    {
+                        area = currentState->currentTransform.translated(area);
+                        auto centre = area.getCentre();
 
-                    D2D1_ELLIPSE ellipse{ { centre.x, centre.y}, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
-                    deviceContext->DrawEllipse(ellipse, brush, lineThickness);
+                        D2D1_ELLIPSE ellipse{ { centre.x, centre.y}, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
+                        deviceContext->DrawEllipse(ellipse, brush, lineThickness);
+                    }
                 }
 
                 return true;
@@ -1876,9 +1887,9 @@ namespace juce
 
     bool Direct2DGraphicsContext::fillEllipse(Rectangle<float> area)
     {
-        SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillEllipse, llgcFrameNumber, area, etw::direct2dKeyword);
-
         applyPendingClipList();
+
+        SCOPED_TRACE_EVENT_FLOAT_RECT(etw::fillEllipse, llgcFrameNumber, area, etw::direct2dKeyword);
 
         if (auto deviceContext = getPimpl()->getDeviceContext())
         {
@@ -1886,11 +1897,14 @@ namespace juce
             {
                 if (auto brush = currentState->getBrush())
                 {
-                    area = currentState->currentTransform.translated(area);
-                    auto centre = area.getCentre();
+                    if (auto translatedR = currentState->currentTransform.translated(area); currentState->doesRectangleIntersectClipList(translatedR))
+                    {
+                        area = currentState->currentTransform.translated(area);
+                        auto centre = area.getCentre();
 
-                    D2D1_ELLIPSE ellipse{ { centre.x, centre.y}, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
-                    deviceContext->FillEllipse(ellipse, brush);
+                        D2D1_ELLIPSE ellipse{ { centre.x, centre.y}, area.proportionOfWidth(0.5f), area.proportionOfHeight(0.5f) };
+                        deviceContext->FillEllipse(ellipse, brush);
+                    }
                 }
                 return true;
             }
