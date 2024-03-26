@@ -419,6 +419,24 @@ namespace juce
             return currentBrush;
         }
 
+        bool doesRectangleIntersectClipList(Rectangle<int> r) const noexcept
+        {
+            return deviceSpaceClipList.intersects(r);
+        }
+
+        bool doesRectangleIntersectClipList(Rectangle<float> r) const noexcept
+        {
+            for (auto const& clipRectangle : deviceSpaceClipList)
+            {
+                if (clipRectangle.toFloat().intersects(r))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         struct TranslationOrTransform : public RenderingHelpers::TranslationOrTransform
         {
             bool isAxisAligned() const noexcept
@@ -504,7 +522,7 @@ namespace juce
             directX->dxgi.adapters.listeners.add(this);
         }
 
-        virtual ~Pimpl() override
+        virtual ~Pimpl()
         {
             directX->dxgi.adapters.listeners.remove(this);
 
@@ -1216,7 +1234,47 @@ namespace juce
             currentState->popTopLayer();
         }
 
-        fillRect(r.toFloat());
+        if (auto deviceContext = getPimpl()->getDeviceContext())
+        {
+            if (currentState->currentTransform.isOnlyTranslated)
+            {
+                if (auto brush = currentState->getBrush())
+                {
+                    if (auto translatedR = r + currentState->currentTransform.offset; currentState->doesRectangleIntersectClipList(translatedR))
+                    {
+                        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillTranslatedRectTime)
+
+                        deviceContext->FillRectangle(direct2d::rectangleToRectF(translatedR), brush);
+                    }
+                }
+                return;
+            }
+
+            if (currentState->currentTransform.isAxisAligned())
+            {
+                if (auto brush = currentState->getBrush())
+                {
+                    if (auto transformedR = currentState->currentTransform.transformed(r); currentState->doesRectangleIntersectClipList(transformedR))
+                    {
+                        JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillAxisAlignedRectTime)
+
+                        deviceContext->FillRectangle(direct2d::rectangleToRectF(transformedR), brush);
+                    }
+                }
+                return;
+            }
+
+            if (auto brush = currentState->getBrush(SavedState::BrushTransformFlags::applyFillTypeTransform))
+            {
+                if (auto transformedR = currentState->currentTransform.transformed(r); currentState->doesRectangleIntersectClipList(transformedR))
+                {
+                    JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillTransformedRectTime)
+
+                    ScopedTransform scopedTransform{ *getPimpl(), currentState };
+                    deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
+                }
+            }
+        }
     }
 
     void Direct2DGraphicsContext::fillRect(const Rectangle<float>& r)
@@ -1231,7 +1289,7 @@ namespace juce
             {
                 if (auto brush = currentState->getBrush())
                 {
-                    if (auto translatedR = r + currentState->currentTransform.offset.toFloat(); currentState->deviceSpaceClipList.intersectsRectangle(translatedR.toNearestIntEdges()))
+                    if (auto translatedR = r + currentState->currentTransform.offset.toFloat(); currentState->doesRectangleIntersectClipList(translatedR))
                     {
                         JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillTranslatedRectTime)
 
@@ -1245,7 +1303,7 @@ namespace juce
             {
                 if (auto brush = currentState->getBrush())
                 {
-                    if (auto transformedR = currentState->currentTransform.transformed(r); currentState->deviceSpaceClipList.intersectsRectangle(transformedR.toNearestIntEdges()))
+                    if (auto transformedR = currentState->currentTransform.transformed(r); currentState->doesRectangleIntersectClipList(transformedR))
                     {
                         JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillAxisAlignedRectTime)
 
@@ -1257,7 +1315,7 @@ namespace juce
 
             if (auto brush = currentState->getBrush(SavedState::BrushTransformFlags::applyFillTypeTransform))
             {
-                if (auto transformedR = currentState->currentTransform.transformed(r); currentState->deviceSpaceClipList.intersectsRectangle(transformedR.toNearestIntEdges()))
+                if (auto transformedR = currentState->currentTransform.transformed(r); currentState->doesRectangleIntersectClipList(transformedR))
                 {
                     JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillTransformedRectTime)
 
@@ -1271,7 +1329,6 @@ namespace juce
     void Direct2DGraphicsContext::fillRectList(const RectangleList<float>& list)
     {
         auto const& transform = currentState->currentTransform;
-        auto const& clipList = currentState->deviceSpaceClipList;
 
         applyPendingClipList();
 
@@ -1342,7 +1399,7 @@ namespace juce
                 {
                     for (auto const& r : list)
                     {
-                        if (auto translatedR = transform.translated(r); clipList.intersectsRectangle(translatedR.toNearestIntEdges()))
+                        if (auto translatedR = transform.translated(r); currentState->doesRectangleIntersectClipList(translatedR))
                         {
                             JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillTranslatedRectTime)
 
@@ -1359,7 +1416,7 @@ namespace juce
                 {
                     for (auto const& r : list)
                     {
-                        if (auto transformedR = transform.transformed(r); clipList.intersectsRectangle(transformedR.toNearestIntEdges()))
+                        if (auto transformedR = transform.transformed(r); currentState->doesRectangleIntersectClipList(transformedR))
                         {
                             JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillAxisAlignedRectTime)
 
@@ -1378,7 +1435,7 @@ namespace juce
                     {
                         JUCE_D2DMETRICS_SCOPED_ELAPSED_TIME(metrics, fillTransformedRectTime)
 
-                        if (auto transformedR = transform.transformed(r); clipList.intersectsRectangle(transformedR.toNearestIntEdges()))
+                        if (auto transformedR = transform.transformed(r);  currentState->doesRectangleIntersectClipList(transformedR))
                         {
                             deviceContext->FillRectangle(direct2d::rectangleToRectF(r), brush);
                         }
