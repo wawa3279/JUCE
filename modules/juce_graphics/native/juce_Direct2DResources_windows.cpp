@@ -574,9 +574,9 @@ namespace juce
 
                 const int numColors = gradient.getNumColours();
 
-                HeapBlock<D2D1_GRADIENT_STOP> stops(numColors);
+                HeapBlock<D2D1_GRADIENT_STOP> stops{ numColors };
 
-                for (int i = numColors; --i >= 0;)
+                for (int i = numColors - 1; i >= 0; --i)
                 {
                     stops[i].color = direct2d::colourToD2D(gradient.getColour(i));
                     stops[i].position = (FLOAT)gradient.getColourPosition(i);
