@@ -306,9 +306,10 @@ private:
                 // Then, use an ID2D1HwndRenderTarget when resizing the window to flush the redirection bitmap to that same
                 // RGB color.
                 //
-                // Also tried using the window class background brush and handling WM_ERASEBKGND; this seems to work best.
+                // Setting the window class background brush and handling WM_ERASEBKGND didn't work; Windows keeps filling
+                // the redirection bitmap in with solid black when the window resizes.
                 //
-                // Only certain colour values seem to work; RGB(0, 0, 1) seems OK
+                // Also - only certain colour values seem to work for the transparency key; RGB(0, 0, 1) seems OK
                 //
                 if (isNotOpaque())
                 {

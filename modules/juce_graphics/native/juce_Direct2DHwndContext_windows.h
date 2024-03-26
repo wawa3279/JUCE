@@ -88,7 +88,7 @@ public:
     {
         //
         // The goal here is to find the minimum snap amount to expand the deferred repaint areas based on the DPI
-        // scale factor.instead of a percentage, think of the DPI scale factor as a fractional integer ratio:
+        // scale factor. Instead of a percentage, think of the DPI scale factor as a fractional integer ratio:
         //
         // 100% == 100/100
         // 125% == 125/100
