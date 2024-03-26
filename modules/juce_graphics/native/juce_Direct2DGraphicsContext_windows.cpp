@@ -395,8 +395,6 @@ namespace juce
                     auto p2 = fillType.gradient->point2;
                     p1 += translation;
                     p2 += translation;
-                    p1 -= { 0.5f, 0.5f };
-                    p2 -= { 0.5f, 0.5f };
 
                     if (fillType.gradient->isRadial)
                     {
