@@ -954,15 +954,19 @@ namespace juce
         //
         // Conceptually, the L, T, R, and B rectangles each go out to infinity. The renderer clips to the union of the L, T, R, and B rectangles.
         //
-        auto addInclusionRectangles = [&](Rectangle<int> exclusionR)
+        auto excludeFromPendingClipList = [&](Rectangle<int> exclusionR)
             {
-                //
-                // Maybe these should overlap?
-                //
-                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, exclusionR.getX(), maxFrameSize * 3)); // left side
-                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getRight(), -maxFrameSize, maxFrameSize * 3, maxFrameSize * 3)); // right side
-                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getX(), -maxFrameSize, exclusionR.getRight(), exclusionR.getY())); // top
-                pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getX(), exclusionR.getBottom(), exclusionR.getRight(), maxFrameSize * 3)); // bottom
+                if (pendingDeviceSpaceClipList.isEmpty())
+                {
+                    pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, exclusionR.getX(), maxFrameSize * 3)); // left side
+                    pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getRight(), -maxFrameSize, maxFrameSize * 3, maxFrameSize * 3)); // right side
+                    pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, maxFrameSize * 3, exclusionR.getY())); // top
+                    pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, exclusionR.getBottom(), maxFrameSize * 3, maxFrameSize * 3)); // bottom
+
+                    return;
+                }
+
+                pendingDeviceSpaceClipList.subtract(exclusionR);
             };
 
         //
@@ -980,7 +984,7 @@ namespace juce
             if (!translatedR.contains(frameSize))
             {
                 deviceSpaceClipList.subtract(translatedR);
-                addInclusionRectangles(translatedR);
+                excludeFromPendingClipList(translatedR);
             }
         }
         else if (transform.isAxisAligned())
@@ -992,7 +996,7 @@ namespace juce
             if (!transformedR.contains(frameSize))
             {
                 deviceSpaceClipList.subtract(transformedR);
-                addInclusionRectangles(transformedR.reduced(1));
+                excludeFromPendingClipList(transformedR.reduced(1));
             }
         }
         else
@@ -1005,7 +1009,7 @@ namespace juce
             //
             // Complex transform; plan to set the device context transform later
             //
-            addInclusionRectangles(userSpaceExcludedRectangle);
+            excludeFromPendingClipList(userSpaceExcludedRectangle);
         }
     }
 
