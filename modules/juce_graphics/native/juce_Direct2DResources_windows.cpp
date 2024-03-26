@@ -887,6 +887,7 @@ namespace juce
                 }
 
                 deviceContext.context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
+                deviceContext.context->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
 
                 float dpi = (float)(USER_DEFAULT_SCREEN_DPI * dpiScalingFactor);
                 deviceContext.context->SetDpi(dpi, dpi);
