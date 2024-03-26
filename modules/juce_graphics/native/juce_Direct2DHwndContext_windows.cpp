@@ -287,6 +287,17 @@ namespace juce
 
         bool checkPaintReady() override
         {
+            //
+            // Try not to saturate the message thread; this is a little crude. Perhaps some kind of credit system...
+            //
+            if (auto now = Time::getHighResolutionTicks(); Time::highResolutionTicksToSeconds(now - lastFinishFrameTicks) < 0.001)
+            {
+                return false;
+            }
+
+            //
+            // Get a fresh presentation from the swap chain thread
+            //
             if (!presentation)
             {
                 presentation = swapChainThread->getFreshPresentation();
@@ -305,8 +316,9 @@ namespace juce
             bool ready = Pimpl::checkPaintReady();
             ready &= swap.canPaint();
             ready &= compositionTree.canPaint();
-            ready &= deferredRepaints.getNumRectangles() > 0;
+            ready &= deferredRepaints.getNumRectangles() > 0 || resizing;
             ready &= presentation != nullptr;
+
             return ready;
         }
 
