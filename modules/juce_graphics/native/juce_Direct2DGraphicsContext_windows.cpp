@@ -408,7 +408,7 @@ namespace juce
             {
                 String s;
                 s << "Offset " << offset.toString() << newLine;
-                s << "Transform " << complexTransform.mat00 << " " << complexTransform.mat01 << " " << complexTransform.mat02 << newLine;
+                s << "Transform " << complexTransform.mat00 << " " << complexTransform.mat01 << " " << complexTransform.mat02 << " / ";
                 s << "          " << complexTransform.mat10 << " " << complexTransform.mat11 << " " << complexTransform.mat12 << newLine;
                 return s;
             }
@@ -870,7 +870,7 @@ namespace juce
             offsetList.offsetAll(transform.offset);
             deviceSpaceClipList.clipTo(offsetList);
 
-            pendingDeviceSpaceClipList.add(newClipList);
+            pendingDeviceSpaceClipList.add(offsetList);
         }
         else if (transform.isAxisAligned())
         {
@@ -919,10 +919,10 @@ namespace juce
             {
                 if (pendingDeviceSpaceClipList.isEmpty())
                 {
-                    pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, exclusionR.getX(), maxFrameSize * 3)); // left side
-                    pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getRight(), -maxFrameSize, maxFrameSize * 3, maxFrameSize * 3)); // right side
-                    pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, maxFrameSize * 3, exclusionR.getY())); // top
-                    pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, exclusionR.getBottom(), maxFrameSize * 3, maxFrameSize * 3)); // bottom
+                    pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, exclusionR.getX() - 1, maxFrameSize * 3)); // left side
+                    pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(exclusionR.getRight() + 1, -maxFrameSize, maxFrameSize * 3, maxFrameSize * 3)); // right side
+                    pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, -maxFrameSize, maxFrameSize * 3, exclusionR.getY() - 1)); // top
+                    pendingDeviceSpaceClipList.add(Rectangle<int>::leftTopRightBottom(-maxFrameSize, exclusionR.getBottom() + 1, maxFrameSize * 3, maxFrameSize * 3)); // bottom
 
                     return;
                 }
@@ -1978,7 +1978,7 @@ namespace juce
         auto& transform = currentState->currentTransform;
         auto& pendingDeviceSpaceClipList = currentState->pendingDeviceSpaceClipList;
 
-        if (pendingDeviceSpaceClipList.getNumRectangles() > 0 && !pendingDeviceSpaceClipList.containsRectangle(getPimpl()->getFrameSize()))
+        if (! pendingDeviceSpaceClipList.isEmpty())
         {
             if (pendingDeviceSpaceClipList.getNumRectangles() == 1)
             {
