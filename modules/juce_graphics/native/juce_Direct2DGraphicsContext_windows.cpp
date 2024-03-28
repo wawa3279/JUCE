@@ -825,8 +825,7 @@ namespace juce
         }
         else
         {
-            auto transformedR = transform.transformed(r);
-            deviceSpaceClipList.clipTo(transformedR);
+            deviceSpaceClipList = getPimpl()->getFrameSize();
 
             //
             // The current transform is too complex to pre-transform the rectangle, so just add the
@@ -884,8 +883,7 @@ namespace juce
         }
         else
         {
-            auto transformedBounds = transform.transformed(newClipList.getBounds());
-            deviceSpaceClipList.clipTo(transformedBounds);
+            deviceSpaceClipList = getPimpl()->getFrameSize();
 
             pendingDeviceSpaceClipList.add(newClipList);
         }
