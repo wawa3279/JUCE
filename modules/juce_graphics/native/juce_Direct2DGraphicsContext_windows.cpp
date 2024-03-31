@@ -1577,19 +1577,6 @@ namespace juce
                     return;
                 }
 
-                if (direct2d::isTransformAxisAligned(imageTransform))
-                {
-                    auto destinationRect = direct2d::rectangleToRectF(imageClipArea.toFloat().transformedBy(imageTransform));
-
-                    deviceContext->DrawBitmap(d2d1Bitmap,
-                        &destinationRect,
-                        currentState->fillType.getOpacity(),
-                        currentState->interpolationMode,
-                        &sourceRectF,
-                        {});
-                    return;
-                }
-
                 ScopedTransform scopedTransform{ *getPimpl(), currentState, transform };
                 deviceContext->DrawBitmap(d2d1Bitmap,
                     nullptr,
