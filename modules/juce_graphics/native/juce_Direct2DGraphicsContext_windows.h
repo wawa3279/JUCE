@@ -139,6 +139,7 @@ public:
 protected:
     struct SavedState;
     SavedState* currentState = nullptr;
+    RectangleList<int> pendingDeviceSpaceClipList;
 
     struct Pimpl;
     virtual Pimpl* getPimpl() const noexcept = 0;
