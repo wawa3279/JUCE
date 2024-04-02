@@ -97,10 +97,6 @@ private:
 //
 // Convert a JUCE Path to a D2D Geometry
 //
-static bool isTransformAxisAligned(AffineTransform const& transform)
-{
-    return transform.mat01 == 0.0f && transform.mat10 == 0.0f;
-}
 
 static void pathToGeometrySink (const Path& path, ID2D1GeometrySink* sink, const AffineTransform& transform, D2D1_FIGURE_BEGIN figureMode)
 {

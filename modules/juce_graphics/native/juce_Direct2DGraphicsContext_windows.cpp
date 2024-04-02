@@ -926,8 +926,9 @@ namespace juce
         }
         else
         {
-            deviceSpaceClipList = getPimpl()->getFrameSize();
+            deviceSpaceClipList = frameSize;
 
+            pendingDeviceSpaceClipList.clipTo(frameSize);
             pendingDeviceSpaceClipList.subtract(userSpaceExcludedRectangle);
         }
     }
