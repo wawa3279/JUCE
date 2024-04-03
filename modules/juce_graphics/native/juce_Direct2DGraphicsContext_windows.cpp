@@ -735,7 +735,7 @@ namespace juce
         {
             if (auto deviceContext = pimpl->getDeviceContext())
             {
-                pendingDeviceSpaceClipList = pimpl->getFrameSize();
+                resetPendingClipList();
 
                 clipToRectangleList(pimpl->getPaintAreas());
 
@@ -779,6 +779,8 @@ namespace juce
         applyPendingClipList();
 
         currentState->currentTransform.addTransform(transform);
+
+        resetPendingClipList();
     }
 
     bool Direct2DGraphicsContext::clipToRectangle(const Rectangle<int>& r)
@@ -928,7 +930,6 @@ namespace juce
         {
             deviceSpaceClipList = frameSize;
 
-            pendingDeviceSpaceClipList.clipTo(frameSize);
             pendingDeviceSpaceClipList.subtract(userSpaceExcludedRectangle);
         }
     }
@@ -1080,7 +1081,7 @@ namespace juce
         currentState->updateColourBrush();
         jassert(currentState);
 
-        pendingDeviceSpaceClipList = getPimpl()->getFrameSize();
+        resetPendingClipList();
     }
 
     void Direct2DGraphicsContext::beginTransparencyLayer(float opacity)
@@ -1921,6 +1922,19 @@ namespace juce
         drawGlyphCommon(numGlyphsToDraw, font, transform, {});
     }
 
+    void Direct2DGraphicsContext::resetPendingClipList()
+    {
+        auto frameSize = getPimpl()->getFrameSize();
+        auto& transform = currentState->currentTransform;
+
+        if (!transform.isOnlyTranslated && !transform.isAxisAligned())
+        {
+            frameSize = frameSize.transformedBy(transform.getTransform().inverted());
+        }
+
+        pendingDeviceSpaceClipList = frameSize;
+    }
+
     void Direct2DGraphicsContext::applyPendingClipList()
     {
         auto& transform = currentState->currentTransform;
@@ -1932,8 +1946,6 @@ namespace juce
             {
                 auto r = pendingDeviceSpaceClipList.getRectangle(0);
                 currentState->pushAliasedAxisAlignedClipLayer(r);
-
-                pendingDeviceSpaceClipList = getPimpl()->getFrameSize();
             }
             else
             {
@@ -1950,7 +1962,7 @@ namespace juce
             }
         }
 
-        pendingDeviceSpaceClipList = getPimpl()->getFrameSize();
+        resetPendingClipList();
     }
 
     void Direct2DGraphicsContext::drawGlyphCommon(int numGlyphs,

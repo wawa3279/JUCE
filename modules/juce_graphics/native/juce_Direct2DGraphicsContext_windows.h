@@ -144,6 +144,7 @@ protected:
     struct Pimpl;
     virtual Pimpl* getPimpl() const noexcept = 0;
 
+    void resetPendingClipList();
     void applyPendingClipList();
     virtual void clearTargetBuffer() = 0;
     void drawGlyphCommon (int numGlyphs, Font const& font, const AffineTransform& transform, Rectangle<float> underlineArea);
